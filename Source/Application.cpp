@@ -33,7 +33,6 @@ namespace Application
 	{
 		while (inst->is_running && !s_should_close)
 		{
-			LOG_INFO("Application", "Run");
 			s_should_close = !PollWindowEvents();
 		}
 	}
