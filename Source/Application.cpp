@@ -2,6 +2,8 @@
 #include "Application.h"
 #include "Logger.h"
 
+#include "Renderer/DX12/DX12Backend.h"
+
 bool PollWindowEvents();
 
 namespace Application
@@ -17,16 +19,20 @@ namespace Application
 	void Init()
 	{
 		inst = new Instance;
-		inst->is_running = true;
 
-		LOG_INFO("Application", "Init");
+		DX12Backend::Init();
+
+		inst->is_running = true;
+		LOG_INFO("Application", "Initialized");
 	}
 
 	void Exit()
 	{
+		DX12Backend::Exit();
+
 		delete inst;
 
-		LOG_INFO("Application", "Exit");
+		LOG_INFO("Application", "Exited");
 	}
 
 	void Run()
