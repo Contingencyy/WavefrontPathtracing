@@ -29,6 +29,8 @@
 #undef TRANSPARENT
 #endif
 
+#include "imgui/imgui_impl_win32.h"
+
 static inline void CreateConsole()
 {
 	BOOL result = AllocConsole();
@@ -52,8 +54,12 @@ static inline void DestroyConsole()
 		FATAL_ERROR("Console", "Failed to free console");
 }
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT WINAPI WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, message, wparam, lparam))
+		return true;
+
 	switch (message)
 	{
 	case WM_DESTROY:
@@ -87,7 +93,7 @@ bool PollWindowEvents()
 void GetWindowSize(uint32_t& windowWidth, uint32_t& windowHeight)
 {
 	RECT windowRect = {};
-	GetWindowRect(GetActiveWindow(), &windowRect);
+	GetClientRect(GetActiveWindow(), &windowRect);
 
 	windowWidth = windowRect.right - windowRect.left;
 	windowHeight = windowRect.bottom - windowRect.top;
@@ -98,8 +104,10 @@ static inline void CreateWindow()
 	int32_t screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
 	int32_t screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
 
-	int32_t windowWidth = 4 * screenWidth / 5;
-	int32_t windowHeight = 4 * screenHeight / 5;
+	//int32_t windowWidth = 4 * screenWidth / 5;
+	//int32_t windowHeight = 4 * screenHeight / 5;
+	int32_t windowWidth = 480;
+	int32_t windowHeight = 320;
 
 	WNDCLASSEXW windowClass =
 	{

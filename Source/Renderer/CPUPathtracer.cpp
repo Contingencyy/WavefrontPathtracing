@@ -6,6 +6,8 @@
 #include "Core/Logger.h"
 #include "Core/Scene.h"
 
+#include "imgui/imgui.h"
+
 namespace CPUPathtracer
 {
 
@@ -87,6 +89,15 @@ namespace CPUPathtracer
 		DX12Backend::Present();
 
 		inst->frameIndex++;
+	}
+
+	void RenderUI()
+	{
+		ImGui::Begin("CPUPathtracer");
+
+		ImGui::SliderFloat("Camera FOV", &inst->sceneCamera.vfov, 30.0f, 120.0f, "%.0f");
+
+		ImGui::End();
 	}
 
 }

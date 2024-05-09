@@ -45,11 +45,13 @@ static inline const char* GetHRMessage(HRESULT hr)
 	return msg;
 }
 
-static inline void DX_CHECK_HR(HRESULT hr)
+static inline void DxCheckHr(int line, const std::string& file, HRESULT hr)
 {
 	if (FAILED(hr))
-		FATAL_ERROR("DX12Backend", GetHRMessage(hr));
+		FatalError(line, file, "DX12Backend", GetHRMessage(hr));
 }
+
+#define DX_CHECK_HR(hr) DxCheckHr(__LINE__, __FILE__, hr)
 
 namespace DX12Backend
 {
@@ -150,7 +152,7 @@ namespace DX12Backend
 		DX_CHECK_HR(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&dxgiFactory7)));
 
 		// Select adapter
-		D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_12_0;
+		D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_12_1;
 		IDXGIAdapter1* dxgiAdapter1 = nullptr;
 		uint64_t maxDedicatedVideoMemory = 0;
 
@@ -171,12 +173,14 @@ namespace DX12Backend
 		// Create D3D12 device
 		DX_CHECK_HR(D3D12CreateDevice(inst->dxgiAdapter, minFeatureLevel, IID_PPV_ARGS(&inst->d3d12Device)));
 
+#ifdef _DEBUG
 		// Set info queue behavior and filters
 		ID3D12InfoQueue* d3d12InfoQueue = nullptr;
 		DX_CHECK_HR(inst->d3d12Device->QueryInterface(IID_PPV_ARGS(&d3d12InfoQueue)));
 		DX_CHECK_HR(d3d12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE));
 		DX_CHECK_HR(d3d12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE));
 		DX_CHECK_HR(d3d12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE));
+#endif
 
 		// Check for tearing support
 		BOOL allowTearing = FALSE;
@@ -195,7 +199,7 @@ namespace DX12Backend
 		HWND hwnd = GetActiveWindow();
 
 		RECT windowRect = {};
-		GetWindowRect(hwnd, &windowRect);
+		GetClientRect(hwnd, &windowRect);
 
 		inst->swapChain.outputWidth = windowRect.right - windowRect.left;
 		inst->swapChain.outputHeight = windowRect.bottom - windowRect.top;
@@ -319,10 +323,6 @@ namespace DX12Backend
 
 	void BeginFrame()
 	{
-		ImGui_ImplWin32_NewFrame();
-		ImGui_ImplDX12_NewFrame();
-		ImGui::NewFrame();
-
 		FrameContext& frameContext = GetFrameContext();
 
 		// Wait for in-flight frame for the current back buffer
@@ -338,6 +338,10 @@ namespace DX12Backend
 			DX_CHECK_HR(frameContext.d3d12CommandAllocator->Reset());
 			DX_CHECK_HR(frameContext.d3d12CommandList->Reset(frameContext.d3d12CommandAllocator, nullptr));
 		}
+
+		ImGui_ImplWin32_NewFrame();
+		ImGui_ImplDX12_NewFrame();
+		ImGui::NewFrame();
 	}
 
 	void EndFrame()

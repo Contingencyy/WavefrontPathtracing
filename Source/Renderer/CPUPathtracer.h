@@ -10,4 +10,6 @@ namespace CPUPathtracer
 	void Render();
 	void EndFrame();
 
+	void RenderUI();
+
 }
