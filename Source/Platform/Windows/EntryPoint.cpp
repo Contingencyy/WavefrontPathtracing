@@ -1,6 +1,6 @@
 #include "Pch.h"
-#include "Application.h"
-#include "Logger.h"
+#include "Core/Application.h"
+#include "Core/Logger.h"
 
 #define WINDOWS_LEAN_AND_MEAN
 #define NOMINMAX
@@ -84,6 +84,15 @@ bool PollWindowEvents()
 	return true;
 }
 
+void GetWindowSize(uint32_t& windowWidth, uint32_t& windowHeight)
+{
+	RECT windowRect = {};
+	GetWindowRect(GetActiveWindow(), &windowRect);
+
+	windowWidth = windowRect.right - windowRect.left;
+	windowHeight = windowRect.bottom - windowRect.top;
+}
+
 static inline void CreateWindow()
 {
 	int32_t screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
@@ -117,7 +126,7 @@ static inline void CreateWindow()
 
 	HWND window = CreateWindowExW(
 		0, L"WavefrontPathtracerWindowClass", L"Wavefront Pathtracer", WS_OVERLAPPEDWINDOW,
-		0, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
+		screenWidth - windowRect.right - 32, screenHeight - windowRect.bottom - 32, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
 		NULL, NULL, NULL, NULL
 	);
 	

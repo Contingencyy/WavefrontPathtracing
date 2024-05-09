@@ -158,7 +158,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Source\Application.cpp" />
+    <ClCompile Include="Source\Core\Application.cpp" />
+    <ClCompile Include="Source\Core\Scene.cpp" />
+    <ClCompile Include="Source\Renderer\Camera.cpp" />
     <ClCompile Include="Source\Platform\Windows\EntryPoint.cpp" />
     <ClCompile Include="Source\Pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -173,13 +175,17 @@
     <ClInclude Include="Extern\imgui\imgui_impl_win32.h" />
     <ClInclude Include="Extern\imgui\imgui.h" />
     <ClInclude Include="Extern\imgui\imgui_internal.h" />
-    <ClInclude Include="Source\Application.h" />
-    <ClInclude Include="Source\Assert.h" />
-    <ClInclude Include="Source\Common.h" />
-    <ClInclude Include="Source\Logger.h" />
+    <ClInclude Include="Source\Core\Application.h" />
+    <ClInclude Include="Source\Core\Assertion.h" />
+    <ClInclude Include="Source\Core\Scene.h" />
+    <ClInclude Include="Source\Renderer\Camera.h" />
+    <ClInclude Include="Source\Core\Common.h" />
+    <ClInclude Include="Source\Core\Logger.h" />
     <ClInclude Include="Source\Pch.h" />
     <ClInclude Include="Source\Renderer\CPUPathtracer.h" />
     <ClInclude Include="Source\Renderer\DX12\DX12Backend.h" />
+    <ClInclude Include="Source\Renderer\RaytracingTypes.h" />
+    <ClInclude Include="Source\Renderer\RaytracingUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
