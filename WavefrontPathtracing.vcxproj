@@ -158,8 +158,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Source\Core\Application.cpp" />
     <ClCompile Include="Source\Core\Scene.cpp" />
+    <ClCompile Include="Source\Renderer\CameraController.cpp" />
+    <ClCompile Include="Source\Core\Application.cpp" />
+    <ClCompile Include="Source\Platform\Windows\Input.cpp" />
     <ClCompile Include="Source\Renderer\Camera.cpp" />
     <ClCompile Include="Source\Platform\Windows\EntryPoint.cpp" />
     <ClCompile Include="Source\Pch.cpp">
@@ -175,9 +177,11 @@
     <ClInclude Include="Extern\imgui\imgui_impl_win32.h" />
     <ClInclude Include="Extern\imgui\imgui.h" />
     <ClInclude Include="Extern\imgui\imgui_internal.h" />
+    <ClInclude Include="Source\Core\Scene.h" />
+    <ClInclude Include="Source\Renderer\CameraController.h" />
     <ClInclude Include="Source\Core\Application.h" />
     <ClInclude Include="Source\Core\Assertion.h" />
-    <ClInclude Include="Source\Core\Scene.h" />
+    <ClInclude Include="Source\Core\Input.h" />
     <ClInclude Include="Source\Renderer\Camera.h" />
     <ClInclude Include="Source\Core\Common.h" />
     <ClInclude Include="Source\Core\Logger.h" />

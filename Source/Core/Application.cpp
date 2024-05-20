@@ -1,14 +1,17 @@
 #include "Pch.h"
 #include "Application.h"
-#include "Logger.h"
+#include "Core/Logger.h"
+#include "Core/Scene.h"
+#include "Core/Input.h"
 #include "Renderer/CPUPathtracer.h"
 
 #include "imgui/imgui.h"
 
 #include <chrono>
 
+void GetWindowSize(int32_t& windowWidth, int32_t& windowHeight);
+void SetWindowCaptureMouse(bool capture);
 bool PollWindowEvents();
-void GetWindowSize(uint32_t& windowWidth, uint32_t& windowHeight);
 
 namespace Application
 {
@@ -17,16 +20,41 @@ namespace Application
 
 	struct Instance
 	{
+		Scene activeScene;
+
 		std::chrono::duration<float> deltaTime = std::chrono::duration<float>(0.0f);
 		bool is_running = false;
 	} static *inst;
+
+	static void HandleEvents()
+	{
+		s_should_close = !PollWindowEvents();
+
+		if (!ImGui::GetIO().WantCaptureMouse)
+		{
+			if (!Input::IsMouseCaptured() && Input::IsKeyPressed(Input::KeyCode_LeftMouse))
+			{
+				SetWindowCaptureMouse(true);
+			}
+		}
+		if (Input::IsMouseCaptured())
+		{
+			if (Input::IsKeyPressed(Input::KeyCode_RightMouse))
+				SetWindowCaptureMouse(false);
+		}
+	}
+
+	static void Update()
+	{
+		inst->activeScene.Update(inst->deltaTime.count());
+	}
 
 	static void RenderUI()
 	{
 		ImGui::Begin("General");
 
+		uint32_t fps = 1.0f / inst->deltaTime.count();
 		float frametimeInMs = inst->deltaTime.count() * 1000.0f;
-		uint32_t fps = 1000.0f / frametimeInMs;
 
 		ImGui::Text("FPS: %u", fps);
 		ImGui::Text("Frametime: %.3f ms", frametimeInMs);
@@ -39,7 +67,7 @@ namespace Application
 	static void Render()
 	{
 		CPUPathtracer::BeginFrame();
-		CPUPathtracer::Render();
+		inst->activeScene.Render();
 		RenderUI();
 		CPUPathtracer::EndFrame();
 	}
@@ -50,7 +78,7 @@ namespace Application
 		
 		inst = new Instance();
 
-		uint32_t windowWidth = 0, windowHeight = 0;
+		int32_t windowWidth = 0, windowHeight = 0;
 		GetWindowSize(windowWidth, windowHeight);
 
 		CPUPathtracer::Init(windowWidth, windowHeight);
@@ -77,7 +105,8 @@ namespace Application
 			timeCurr = std::chrono::high_resolution_clock::now();
 			inst->deltaTime = timeCurr - timePrev;
 
-			s_should_close = !PollWindowEvents();
+			HandleEvents();
+			Update();
 			Render();
 
 			timePrev = timeCurr;

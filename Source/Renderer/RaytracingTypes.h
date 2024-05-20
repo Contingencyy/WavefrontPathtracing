@@ -32,3 +32,24 @@ struct AABB
 	glm::vec3 pmin = {};
 	glm::vec3 pmax = {};
 };
+
+enum PrimitiveType
+{
+	PrimitiveType_Triangle,
+	PrimitiveType_Sphere,
+	PrimitiveType_Plane,
+	PrimitiveType_AABB
+};
+
+struct Primitive
+{
+	PrimitiveType type;
+
+	union
+	{
+		Triangle tri;
+		Sphere sphere;
+		Plane plane;
+		AABB aabb;
+	};
+};

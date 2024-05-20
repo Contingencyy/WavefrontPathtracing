@@ -126,7 +126,7 @@ namespace RTUtil
 		CAMERA
 	*/
 
-	inline Ray ConstructCameraRay(const Camera& camera, uint32_t pixelX, uint32_t pixelY,
+	inline Ray ConstructCameraRay(const Camera& camera, uint32_t pixelX, uint32_t pixelY, float tanFOV,
 		float aspectRatio, float invScreenWidth, float invScreenHeight)
 	{
 		// Calculate UV of the pixel coordinate on the screen plane, 0..1 range,
@@ -137,11 +137,10 @@ namespace RTUtil
 
 		// Remap pixel positions from 0..1 to -1..1
 		glm::vec4 pixelViewPos = glm::vec4(2.0f * u - 1.0f, 1.0f - 2.0f * v, 1.0f, 1.0f);
-		// Apply aspect ratio by scaling the pixel X coordinate in NDC space
+		// Apply aspect ratio by scaling the pixel X coordinate in NDC space and FOV
 		pixelViewPos.x *= aspectRatio;
-		// Apply FOV to the pixel NDC coordinates
-		pixelViewPos.x *= glm::tan(glm::radians(camera.vfov) / 2.0f);
-		pixelViewPos.y *= glm::tan(glm::radians(camera.vfov) / 2.0f);
+		pixelViewPos.x *= tanFOV;
+		pixelViewPos.y *= tanFOV;
 
 		// Transform pixel view-space position and direction to world-space
 		glm::vec3 cameraToPixelDirWorld = glm::vec3(camera.invViewMatrix * glm::vec4(pixelViewPos.x, pixelViewPos.y, 1.0f, 0.0f));

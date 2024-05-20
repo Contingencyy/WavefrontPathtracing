@@ -10,6 +10,8 @@ struct Camera
 	glm::mat4 invViewMatrix = {};
 	
 	float vfov = 60.0f;
+	float yaw = 0.0f;
+	float pitch = 0.0f;
 
 	glm::vec3 screenPlaneCenter = {};
 	glm::vec3 screenPlaneTopLeft = {};

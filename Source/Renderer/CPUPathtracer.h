@@ -1,4 +1,7 @@
 #pragma once
+#include "Camera.h"
+
+class Scene;
 
 namespace CPUPathtracer
 {
@@ -7,8 +10,11 @@ namespace CPUPathtracer
 	void Exit();
 
 	void BeginFrame();
-	void Render();
 	void EndFrame();
+
+	void BeginScene(const Camera& sceneCamera);
+	void Render(Scene* scene);
+	void EndScene();
 
 	void RenderUI();
 

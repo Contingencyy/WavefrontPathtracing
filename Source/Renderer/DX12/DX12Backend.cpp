@@ -93,7 +93,6 @@ namespace DX12Backend
 		struct Sync
 		{
 			ID3D12Fence* d3d12Fence = nullptr;
-			HANDLE fenceEventHandle = HANDLE();
 			uint64_t fenceValue = 0ull;
 		} sync;
 
@@ -233,9 +232,6 @@ namespace DX12Backend
 
 		// Create fence and fence event
 		DX_CHECK_HR(inst->d3d12Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&inst->sync.d3d12Fence)));
-		inst->sync.fenceEventHandle = CreateEvent(NULL, FALSE, FALSE, NULL);
-		if (!inst->sync.fenceEventHandle)
-			FATAL_ERROR("DX12Backend", "Failed to create fence event handle");
 
 		// Create upload buffer
 		D3D12_HEAP_PROPERTIES heapProps = {};
@@ -316,7 +312,6 @@ namespace DX12Backend
 		{
 			inst->frameContext[i].uploadBuffer->Unmap(0, nullptr);
 		}
-		CloseHandle(inst->sync.fenceEventHandle);
 
 		delete inst;
 	}
@@ -328,8 +323,7 @@ namespace DX12Backend
 		// Wait for in-flight frame for the current back buffer
 		if (inst->sync.d3d12Fence->GetCompletedValue() < frameContext.fenceValue)
 		{
-			DX_CHECK_HR(inst->sync.d3d12Fence->SetEventOnCompletion(frameContext.fenceValue, inst->sync.fenceEventHandle));
-			WaitForSingleObjectEx(inst->sync.fenceEventHandle, UINT32_MAX, FALSE);
+			DX_CHECK_HR(inst->sync.d3d12Fence->SetEventOnCompletion(frameContext.fenceValue, NULL));
 		}
 
 		// Reset command allocator and command list for the next back buffer
@@ -429,7 +423,7 @@ namespace DX12Backend
 		uint32_t presentFlags = inst->swapChain.supportsTearing && !inst->vsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
 		DX_CHECK_HR(inst->swapChain.dxgiSwapChain->Present(syncInterval, presentFlags));
 
-		// Wait for next back buffer to finish presenting
+		// Signal fence with the value for the current frame, update next available back buffer index
 		frameContext.fenceValue = ++inst->sync.fenceValue;
 		DX_CHECK_HR(inst->d3d12CommandQueueDirect->Signal(inst->sync.d3d12Fence, frameContext.fenceValue));
 		inst->swapChain.backBufferIndex = inst->swapChain.dxgiSwapChain->GetCurrentBackBufferIndex();

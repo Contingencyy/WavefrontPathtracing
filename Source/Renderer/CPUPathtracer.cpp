@@ -2,11 +2,13 @@
 #include "CPUPathtracer.h"
 #include "RaytracingUtils.h"
 #include "Renderer/Camera.h"
+#include "Renderer/CameraController.h"
 #include "DX12/DX12Backend.h"
 #include "Core/Logger.h"
-#include "Core/Scene.h"
 
 #include "imgui/imgui.h"
+
+#include "Core/Scene.h"
 
 namespace CPUPathtracer
 {
@@ -30,7 +32,6 @@ namespace CPUPathtracer
 		LOG_INFO("CPUPathtracer", "Init");
 
 		inst = new Instance();
-		inst->sceneCamera = Camera(glm::vec3(), glm::vec3(0.0f, 0.0f, 1.0f), 60.0f);
 
 		inst->renderWidth = renderWidth;
 		inst->renderHeight = renderHeight;
@@ -56,19 +57,32 @@ namespace CPUPathtracer
 		DX12Backend::BeginFrame();
 	}
 
-	void Render()
+	void EndFrame()
+	{
+		DX12Backend::EndFrame();
+		DX12Backend::CopyToBackBuffer(reinterpret_cast<char*>(inst->pixelBuffer.data()), inst->pixelBuffer.size() * 4);
+		DX12Backend::Present();
+
+		inst->frameIndex++;
+	}
+
+	void BeginScene(const Camera& sceneCamera)
+	{
+		inst->sceneCamera = sceneCamera;
+	}
+
+	void Render(Scene* scene)
 	{
 		float aspectRatio = inst->renderWidth / static_cast<float>(inst->renderHeight);
+		float tanFOV = glm::tan(glm::radians(inst->sceneCamera.vfov) / 2.0f);
 
 		for (uint32_t y = 0; y < inst->renderHeight; ++y)
 		{
 			for (uint32_t x = 0; x < inst->renderWidth; ++x)
 			{
-				Ray ray = RTUtil::ConstructCameraRay(inst->sceneCamera, x, y,
+				Ray ray = RTUtil::ConstructCameraRay(inst->sceneCamera, x, y, tanFOV,
 					aspectRatio, inst->invRenderWidth, inst->invRenderHeight);
-
-				Sphere sphere = { .center = glm::vec3(0.0f, 0.0f, 10.0f), .radiusSquared = 16.0f };
-				bool hit = RTUtil::Intersect(sphere, ray);
+				bool hit = scene->Intersect(ray);
 
 				glm::vec4 finalColor = {};
 				if (hit)
@@ -82,22 +96,12 @@ namespace CPUPathtracer
 		}
 	}
 
-	void EndFrame()
+	void EndScene()
 	{
-		DX12Backend::EndFrame();
-		DX12Backend::CopyToBackBuffer(reinterpret_cast<char*>(inst->pixelBuffer.data()), inst->pixelBuffer.size() * 4);
-		DX12Backend::Present();
-
-		inst->frameIndex++;
 	}
 
 	void RenderUI()
 	{
-		ImGui::Begin("CPUPathtracer");
-
-		ImGui::SliderFloat("Camera FOV", &inst->sceneCamera.vfov, 30.0f, 120.0f, "%.0f");
-
-		ImGui::End();
 	}
 
 }
