@@ -12,7 +12,8 @@ Scene::Scene()
 		60.0f // Vertical FOV in degrees
 	));
 
-	m_SceneNodes.push_back({ .type = PrimitiveType_Sphere, .sphere = {.center = glm::vec3(0.0f, 0.0f, 10.0f), .radiusSquared = 16.0f } });
+	m_SceneNodes.push_back({ .type = PrimitiveType_Sphere, .sphere = { .center = glm::vec3(0.0f, 0.0f, 10.0f), .radiusSquared = 16.0f } });
+	m_SceneNodes.push_back({ .type = PrimitiveType_Plane, .plane = { .point = glm::vec3(0.0f, 0.0f, 0.0f), .normal = glm::vec3(0.0f, 1.0f, 0.0f)}});
 }
 
 void Scene::Update(float dt)
@@ -29,15 +30,19 @@ void Scene::Render()
 
 bool Scene::Intersect(Ray& ray)
 {
+	bool hit = false;
+
 	for (const auto& sceneNode : m_SceneNodes)
 	{
 		switch (sceneNode.type)
 		{
-		case PrimitiveType_Triangle: return RTUtil::Intersect(sceneNode.tri, ray);
-		case PrimitiveType_Sphere: return RTUtil::Intersect(sceneNode.sphere, ray);
-		case PrimitiveType_Plane: return RTUtil::Intersect(sceneNode.plane, ray);
-		case PrimitiveType_AABB: return RTUtil::Intersect(sceneNode.aabb, ray);
-		default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); return false;
+		case PrimitiveType_Triangle: hit = RTUtil::Intersect(sceneNode.tri, ray); break;
+		case PrimitiveType_Sphere: hit = RTUtil::Intersect(sceneNode.sphere, ray); break;
+		case PrimitiveType_Plane: hit = RTUtil::Intersect(sceneNode.plane, ray); break;
+		case PrimitiveType_AABB: hit = RTUtil::Intersect(sceneNode.aabb, ray); break;
+		default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
 		}
 	}
+
+	return hit;
 }

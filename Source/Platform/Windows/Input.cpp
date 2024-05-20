@@ -81,12 +81,12 @@ namespace Input
 
 	float GetMouseRelX()
 	{
-		return currMouseX - prevMouseX;
+		return static_cast<float>(currMouseX - prevMouseX);
 	}
 
 	float GetMouseRelY()
 	{
-		return currMouseY - prevMouseY;
+		return static_cast<float>(currMouseY - prevMouseY);
 	}
 
 	float GetMouseScrollRelY()

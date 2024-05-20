@@ -119,7 +119,7 @@ LRESULT WINAPI WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 	return 0;
 }
 
-void GetWindowSize(int32_t& windowWidth, int32_t& windowHeight)
+void GetWindowClientArea(int32_t& windowWidth, int32_t& windowHeight)
 {
 	RECT clientRect = {};
 	GetClientRect(s_HWND, &clientRect);

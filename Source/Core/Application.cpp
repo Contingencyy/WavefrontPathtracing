@@ -9,7 +9,7 @@
 
 #include <chrono>
 
-void GetWindowSize(int32_t& windowWidth, int32_t& windowHeight);
+void GetWindowClientArea(int32_t& windowWidth, int32_t& windowHeight);
 void SetWindowCaptureMouse(bool capture);
 bool PollWindowEvents();
 
@@ -78,10 +78,10 @@ namespace Application
 		
 		inst = new Instance();
 
-		int32_t windowWidth = 0, windowHeight = 0;
-		GetWindowSize(windowWidth, windowHeight);
+		int32_t clientWidth = 0, clientHeight = 0;
+		GetWindowClientArea(clientWidth, clientHeight);
 
-		CPUPathtracer::Init(windowWidth, windowHeight);
+		CPUPathtracer::Init(clientWidth, clientHeight);
 
 		inst->is_running = true;
 	}

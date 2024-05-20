@@ -11,5 +11,5 @@ Camera::Camera(const glm::vec3& eyePos, const glm::vec3& lookAt, float vfov)
 	: vfov(vfov)
 {
 	viewMatrix = glm::lookAtLH(eyePos, lookAt, DEFAULT_UP_VECTOR);
-	invViewMatrix = glm::inverse(viewMatrix);
+	transformMatrix = glm::inverse(viewMatrix);
 }

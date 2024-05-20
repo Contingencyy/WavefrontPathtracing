@@ -143,8 +143,8 @@ namespace RTUtil
 		pixelViewPos.y *= tanFOV;
 
 		// Transform pixel view-space position and direction to world-space
-		glm::vec3 cameraToPixelDirWorld = glm::vec3(camera.invViewMatrix * glm::vec4(pixelViewPos.x, pixelViewPos.y, 1.0f, 0.0f));
-		glm::vec3 cameraOriginWorld = glm::vec3(camera.invViewMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		glm::vec3 cameraToPixelDirWorld = glm::vec3(camera.transformMatrix * glm::vec4(pixelViewPos.x, pixelViewPos.y, 1.0f, 0.0f));
+		glm::vec3 cameraOriginWorld = glm::vec3(camera.transformMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 		cameraToPixelDirWorld = glm::normalize(cameraToPixelDirWorld);
 
 		return Ray{
