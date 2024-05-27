@@ -40,7 +40,9 @@ namespace Application
 		if (Input::IsMouseCaptured())
 		{
 			if (Input::IsKeyPressed(Input::KeyCode_RightMouse))
+			{
 				SetWindowCaptureMouse(false);
+			}
 		}
 	}
 

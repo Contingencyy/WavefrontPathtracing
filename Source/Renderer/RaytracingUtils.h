@@ -1,11 +1,10 @@
 #pragma once
 #include "RaytracingTypes.h"
 #include "Camera.h"
+#include "Core/Random.h"
 
 namespace RTUtil
 {
-
-	static constexpr float RAY_MAX_T = FLT_MAX;
 
 	/*
 		INTERSECTION FUNCTIONS
@@ -123,6 +122,30 @@ namespace RTUtil
 	}
 
 	/*
+		HIT SURFACE
+	*/
+
+	inline glm::vec3 GetHitNormal(const Triangle& tri, const glm::vec3& hitPos)
+	{
+		return glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0);
+	}
+
+	inline glm::vec3 GetHitNormal(const Sphere& sphere, const glm::vec3& hitPos)
+	{
+		return glm::normalize(hitPos - sphere.center);
+	}
+
+	inline glm::vec3 GetHitNormal(const Plane& plane, const glm::vec3& hitPos)
+	{
+		return plane.normal;
+	}
+
+	inline glm::vec3 GetHitNormal(const AABB& aabb, const glm::vec3& hitPos)
+	{
+		return glm::vec3();
+	}
+
+	/*
 		CAMERA
 	*/
 
@@ -136,7 +159,7 @@ namespace RTUtil
 		float v = (pixelY + 0.5f) * invScreenHeight;
 
 		// Remap pixel positions from 0..1 to -1..1
-		glm::vec4 pixelViewPos = glm::vec4(2.0f * u - 1.0f, 1.0f - 2.0f * v, 1.0f, 1.0f);
+		glm::vec2 pixelViewPos = glm::vec2(2.0f * u - 1.0f, 1.0f - 2.0f * v);
 		// Apply aspect ratio by scaling the pixel X coordinate in NDC space and FOV
 		pixelViewPos.x *= aspectRatio;
 		pixelViewPos.x *= tanFOV;
@@ -147,13 +170,52 @@ namespace RTUtil
 		glm::vec3 cameraOriginWorld = glm::vec3(camera.transformMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 		cameraToPixelDirWorld = glm::normalize(cameraToPixelDirWorld);
 
-		return Ray{
-			.origin = cameraOriginWorld,
-			.dir = cameraToPixelDirWorld,
-			.invDir = 1.0f / cameraToPixelDirWorld,
-			.t = RAY_MAX_T
-		};
+		return Ray(cameraOriginWorld, cameraToPixelDirWorld);
 	}
+
+	/*
+		SAMPLING
+	*/
+
+	inline glm::vec3 DirectionToNormalSpace(const glm::vec3& normal, const glm::vec3& sampleDir)
+	{
+		glm::vec3 Nt, Nb;
+
+		if (glm::abs(normal.x) > glm::abs(normal.y))
+			Nt = glm::vec3(normal.z, 0.0f, -normal.x) / glm::sqrt(normal.x * normal.x + normal.z * normal.z);
+		else
+			Nt = glm::vec3(0.0f, -normal.z, normal.y) / glm::sqrt(normal.y * normal.y + normal.z * normal.z);
+		Nb = glm::cross(normal, Nt);
+
+		return glm::vec3(
+			sampleDir.x * Nb.x + sampleDir.y * normal.x + sampleDir.z * Nt.x,
+			sampleDir.x * Nb.y + sampleDir.y * normal.y + sampleDir.z * Nt.y,
+			sampleDir.x * Nb.z + sampleDir.y * normal.z + sampleDir.z * Nt.z
+		);
+	}
+
+	inline glm::vec3 UniformHemisphereSample(const glm::vec3& normal)
+	{
+		float r1 = Random::Float();
+		float r2 = Random::Float();
+
+		float sinTheta = glm::sqrt(1.0f - r1 * r1);
+		float phi = 2.0f * PI * r2;
+
+		float x = sinTheta * glm::cos(phi);
+		float z = sinTheta * glm::sin(phi);
+
+		return DirectionToNormalSpace(normal, glm::vec3(x, r1, z));
+	}
+
+	inline glm::vec3 Reflect(const glm::vec3& inDir, const glm::vec3& normal)
+	{
+		return inDir - 2.0f * normal * glm::dot(inDir, normal);
+	}
+
+	/*
+		COLOR
+	*/
 
 	inline uint32_t Vec4ToUint32(const glm::vec4& rgba)
 	{
@@ -161,7 +223,32 @@ namespace RTUtil
 		uint8_t g = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.g));
 		uint8_t b = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.b));
 		uint8_t a = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.a));
-		return (a << 24) + (b << 16) + (g << 8) + r;
+		return (a << 24) | (b << 16) | (g << 8) | r;
+	}
+
+	inline glm::vec3 TonemapReinhard(const glm::vec3& color)
+	{
+		return color / (1.0f + color);
+	}
+
+	inline glm::vec3 LinearToSRGB(const glm::vec3& color)
+	{
+		glm::vec3 clamped = glm::clamp(color, 0.0f, 1.0f);
+		return glm::mix(
+			glm::pow(clamped, glm::vec3((1.0f / 2.4f) * 1.055f - 0.055f)),
+			clamped * 12.92f,
+			glm::lessThan(clamped, glm::vec3(0.0031308f))
+		);
+	}
+
+	inline glm::vec3 SRGBToLinear(const glm::vec3& color)
+	{
+		glm::vec3 clamped = glm::clamp(color, 0.0f, 1.0f);
+		return glm::mix(
+			glm::pow((clamped + 0.055f) / 1.055f, glm::vec3(2.4f)),
+			clamped / 12.92f,
+			glm::lessThan(clamped, glm::vec3(0.04045f))
+		);
 	}
 
 }

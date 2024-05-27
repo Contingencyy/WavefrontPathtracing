@@ -97,6 +97,16 @@ namespace Input
 	void SetMouseCapture(bool capture)
 	{
 		capturingMouse = capture;
+
+		// Reset the mouse positions so there is no instant teleportation once mouse capture starts
+		if (capturingMouse)
+		{
+			POINT mousePos = {};
+			GetCursorPos(&mousePos);
+
+			prevMouseX = currMouseX = mousePos.x;
+			prevMouseY = currMouseY = mousePos.y;
+		}
 	}
 
 	bool IsMouseCaptured()

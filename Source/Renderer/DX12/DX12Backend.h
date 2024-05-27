@@ -9,7 +9,7 @@ namespace DX12Backend
 	void BeginFrame();
 	void EndFrame();
 
-	void CopyToBackBuffer(char* pixelData, uint32_t numBytes);
+	void CopyToBackBuffer(char* pixelData);
 	void Present();
 
 }

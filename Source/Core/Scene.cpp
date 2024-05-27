@@ -7,13 +7,49 @@
 Scene::Scene()
 {
 	m_CameraController = CameraController(Camera(
-		glm::vec3(0.0f), // Eye position
-		glm::vec3(0.0f, 0.0f, 1.0f), // Look at position
+		glm::vec3(0.0f, 2.0f, 0.0f), // Eye position
+		glm::vec3(0.0f, 2.0f, 1.0f), // Look at position
 		60.0f // Vertical FOV in degrees
 	));
 
-	m_SceneNodes.push_back({ .type = PrimitiveType_Sphere, .sphere = { .center = glm::vec3(0.0f, 0.0f, 10.0f), .radiusSquared = 16.0f } });
-	m_SceneNodes.push_back({ .type = PrimitiveType_Plane, .plane = { .point = glm::vec3(0.0f, 0.0f, 0.0f), .normal = glm::vec3(0.0f, 1.0f, 0.0f)}});
+	Primitive plane = {
+		.type = PrimitiveType_Plane,
+		.plane = {
+			.point = glm::vec3(0.0f),
+			.normal = glm::vec3(0.0f, 1.0f, 0.0f)
+		}
+	};
+	Material planeMaterial = {
+		.albedo = glm::vec3(1.0f), .specular = 0.0f, .refractivity = 0.0f,
+		.isEmissive = false, .emissive = glm::vec3(), .intensity = 0.0f
+	};
+	m_SceneNodes.push_back({ plane, planeMaterial });
+
+	Primitive redSphere = {
+		.type = PrimitiveType_Sphere,
+		.sphere = {
+			.center = glm::vec3(2.0f, 2.0f, 8.0f),
+			.radiusSquared = 4.0f
+		}
+	};
+	Material redSphereMaterial = {
+		.albedo = glm::vec3(1.0f, 0.2f, 0.1f), .specular = 0.0f, .refractivity = 0.0f,
+		.isEmissive = false, .emissive = glm::vec3(), .intensity = 0.0f
+	};
+	m_SceneNodes.push_back({ redSphere, redSphereMaterial });
+
+	Primitive blueSphere = {
+		.type = PrimitiveType_Sphere,
+		.sphere = {
+			.center = glm::vec3(-2.0f, 2.0f, 8.0f),
+			.radiusSquared = 4.0f
+		}
+	};
+	Material blueSphereMaterial = {
+		.albedo = glm::vec3(0.1f, 0.2f, 1.0f), .specular = 0.0f, .refractivity = 0.0f,
+		.isEmissive = false, .emissive = glm::vec3(), .intensity = 0.0f
+	};
+	m_SceneNodes.push_back({ blueSphere, blueSphereMaterial });
 }
 
 void Scene::Update(float dt)
@@ -28,21 +64,40 @@ void Scene::Render()
 	CPUPathtracer::EndScene();
 }
 
-bool Scene::Intersect(Ray& ray)
+HitSurfaceData Scene::Intersect(Ray& ray)
 {
-	bool hit = false;
+	HitSurfaceData hitInfo = {};
 
-	for (const auto& sceneNode : m_SceneNodes)
+	for (uint32_t i = 0; i < m_SceneNodes.size(); ++i)
 	{
-		switch (sceneNode.type)
+		Primitive& objectPrim = m_SceneNodes[i].prim;
+
+		switch (objectPrim.type)
 		{
-		case PrimitiveType_Triangle: hit = RTUtil::Intersect(sceneNode.tri, ray); break;
-		case PrimitiveType_Sphere: hit = RTUtil::Intersect(sceneNode.sphere, ray); break;
-		case PrimitiveType_Plane: hit = RTUtil::Intersect(sceneNode.plane, ray); break;
-		case PrimitiveType_AABB: hit = RTUtil::Intersect(sceneNode.aabb, ray); break;
+		case PrimitiveType_Triangle: if (RTUtil::Intersect(objectPrim.tri, ray)) { hitInfo.objIdx = i; }; break;
+		case PrimitiveType_Sphere: if (RTUtil::Intersect(objectPrim.sphere, ray)) { hitInfo.objIdx = i; }; break;
+		case PrimitiveType_Plane: if (RTUtil::Intersect(objectPrim.plane, ray)) { hitInfo.objIdx = i; }; break;
+		case PrimitiveType_AABB: if (RTUtil::Intersect(objectPrim.aabb, ray)) { hitInfo.objIdx = i; }; break;
 		default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
 		}
 	}
 
-	return hit;
+	if (hitInfo.objIdx != ~0u)
+	{
+		hitInfo.pos = ray.origin + ray.dir * ray.t;
+		hitInfo.objMat = m_SceneNodes[hitInfo.objIdx].mat;
+
+		Primitive& hitPrim = m_SceneNodes[hitInfo.objIdx].prim;
+
+		switch (hitPrim.type)
+		{
+		case PrimitiveType_Triangle: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.tri, hitInfo.pos); break;
+		case PrimitiveType_Sphere: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.sphere, hitInfo.pos); break;
+		case PrimitiveType_Plane: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.plane, hitInfo.pos); break;
+		case PrimitiveType_AABB: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.aabb, hitInfo.pos); break;
+		default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
+		}
+	}
+
+	return hitInfo;
 }

@@ -235,11 +235,9 @@ static inline void CreateWindow(int32_t windowWidth, int32_t windowHeight)
 	ShowWindow(s_HWND, TRUE);
 }
 
-void FatalErrorImpl(int line, const std::string& file, const std::string& sender, const std::string& formattedMessage)
+void FatalErrorImpl(int line, const std::string& file, const std::string& sender, const std::string& errorMsg)
 {
-	std::string errorMessage = std::format("Fatal Error Occured\n[{}] {}\nFile: {}\nLine: {}\n", sender, formattedMessage, file, line);
-
-	MessageBoxA(NULL, errorMessage.c_str(), "Fatal Error", MB_OK);
+	MessageBoxA(NULL, errorMsg.c_str(), "Fatal Error", MB_OK);
 	__debugbreak;
 	ExitProcess(1);
 }

@@ -2,6 +2,12 @@
 #include "Renderer/CameraController.h"
 #include "Renderer/RaytracingTypes.h"
 
+struct Object
+{
+	Primitive prim;
+	Material mat;
+};
+
 class Scene
 {
 public:
@@ -9,11 +15,11 @@ public:
 
 	void Update(float dt);
 	void Render();
-	bool Intersect(Ray& ray);
+	HitSurfaceData Intersect(Ray& ray);
 
 private:
 	CameraController m_CameraController;
 
-	std::vector<Primitive> m_SceneNodes;
+	std::vector<Object> m_SceneNodes;
 
 };
