@@ -11,17 +11,17 @@ namespace Renderer
 
 		RenderDataVisualization_Depth,
 
-		RenderDataVisualization_RayCount,
+		RenderDataVisualization_RayRecursionDepth,
 
 		RenderDataVisualization_Count
 	};
 
-	static constexpr std::array<std::string, RenderDataVisualization_Count> RenderDataVisualizationLabels =
+	static const std::array<std::string, RenderDataVisualization_Count> RenderDataVisualizationLabels =
 	{
 		"None",
 		"Hit Normal",
 		"Depth",
-		"Ray count"
+		"Ray Recursion Depth"
 	};
 
 }

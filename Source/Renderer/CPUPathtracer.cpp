@@ -24,6 +24,8 @@ namespace CPUPathtracer
 	{
 		RenderDataVisualization renderDataVisualization = RenderDataVisualization_None;
 
+		bool cosineWeightedDiffuseReflection = true;
+
 		glm::vec3 skyColor = glm::vec3(0.52f, 0.8f, 0.92f);
 		float skyColorIntensity = 0.5f;
 
@@ -59,10 +61,12 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
+		// TODO: Crash when command line is missing --width and --height
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
 		// TODO: ImGuizmo to transform objects
 		// TODO: Ray/path visualization mode
+		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting dir for length 1 for example)
 
 		glm::vec3 throughput(1.0f);
 		glm::vec3 energy(0.0f);
@@ -70,7 +74,7 @@ namespace CPUPathtracer
 		bool isSpecularRay = false;
 		uint32_t currRayDepth = 0;
 
-		while (currRayDepth <= RAY_MAX_DEPTH)
+		while (currRayDepth <= RAY_MAX_RECURSION_DEPTH)
 		{
 			HitSurfaceData hit = scene->Intersect(ray);
 
@@ -121,10 +125,23 @@ namespace CPUPathtracer
 			else
 			{
 				glm::vec3 diffuseBRDF = hitMat.albedo * INV_PI;
+				glm::vec3 diffuseDir(0.0f);
 
-				glm::vec3 diffuseDir = RTUtil::UniformHemisphereSample(hit.normal);
-				float NdotR = glm::dot(diffuseDir, hit.normal);
-				float hemispherePDF = INV_TWO_PI;
+				float NdotR = 0.0f;
+				float hemispherePDF = 0.0f;
+
+				if (inst->settings.cosineWeightedDiffuseReflection)
+				{
+					diffuseDir = RTUtil::CosineWeightedDiffuseReflection(hit.normal);
+					NdotR = glm::dot(diffuseDir, hit.normal);
+					hemispherePDF = NdotR / PI;
+				}
+				else
+				{
+					diffuseDir = RTUtil::UniformHemisphereSample(hit.normal);
+					NdotR = glm::dot(diffuseDir, hit.normal);
+					hemispherePDF = INV_TWO_PI;
+				}
 
 				ray = Ray(hit.pos + diffuseDir * RAY_NUDGE_MODIFIER, diffuseDir);
 				throughput *= (NdotR * diffuseBRDF) / hemispherePDF;
@@ -139,7 +156,7 @@ namespace CPUPathtracer
 		{
 			switch (inst->settings.renderDataVisualization)
 			{
-			case RenderDataVisualization_RayCount: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(RAY_MAX_DEPTH)); break;
+			case RenderDataVisualization_RayRecursionDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH)); break;
 			}
 		}
 
@@ -294,27 +311,45 @@ namespace CPUPathtracer
 			ImGui::Text("Resolution: %ux%u", inst->renderWidth, inst->renderHeight);
 			ImGui::Text("Accumulated frames: %u", inst->numAccumulatedFrames);
 
-			if (ImGui::BeginCombo("Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderDataVisualization].c_str(), ImGuiComboFlags_None))
+			ImGui::Text("Max Ray Recursion Depth: %u", RAY_MAX_RECURSION_DEPTH);
+
+			// Debug category
+			if (ImGui::CollapsingHeader("Debug"))
 			{
-				for (uint32_t i = 0; i < RenderDataVisualization_Count; ++i)
+				// Render data visualization
+				ImGui::Text("Render data visualization mode");
+				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderDataVisualization].c_str(), ImGuiComboFlags_None))
 				{
-					bool is_selected = i == inst->settings.renderDataVisualization;
-
-					if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
+					for (uint32_t i = 0; i < RenderDataVisualization_Count; ++i)
 					{
-						inst->settings.renderDataVisualization = (RenderDataVisualization)i;
-						ResetAccumulation();
-					}
+						bool is_selected = i == inst->settings.renderDataVisualization;
 
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
+						if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
+						{
+							inst->settings.renderDataVisualization = (RenderDataVisualization)i;
+							ResetAccumulation();
+						}
+
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
 				}
-				ImGui::EndCombo();
 			}
 
-			ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB);
-			ImGui::DragFloat("Sky color intensity", &inst->settings.skyColorIntensity, 0.001f);
-			ImGui::Checkbox("Linear to SRGB", &inst->settings.linearToSRGB);
+			// Render settings
+			if (ImGui::CollapsingHeader("Settings"))
+			{
+				// Enable/disable cosine weighted diffuse reflections
+				ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection);
+
+				// Sky color and intensity
+				ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB);
+				ImGui::DragFloat("Sky color intensity", &inst->settings.skyColorIntensity, 0.001f);
+
+				// Enable/disable conversion of final color to SRGB
+				ImGui::Checkbox("Linear to SRGB", &inst->settings.linearToSRGB);
+			}
 		}
 		ImGui::End();
 	}

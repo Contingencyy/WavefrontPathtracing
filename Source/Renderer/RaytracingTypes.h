@@ -7,7 +7,7 @@ static constexpr float INV_TWO_PI = 1.0f / TWO_PI;
 
 static constexpr float RAY_MAX_T = FLT_MAX;
 static constexpr float RAY_NUDGE_MODIFIER = 0.001f;
-static constexpr uint32_t RAY_MAX_DEPTH = 2;
+static constexpr uint32_t RAY_MAX_RECURSION_DEPTH = 3;
 
 struct Material
 {

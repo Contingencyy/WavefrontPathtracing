@@ -212,6 +212,11 @@ namespace RTUtil
 		return DirectionToNormalSpace(normal, glm::vec3(x, r1, z));
 	}
 
+	inline glm::vec3 CosineWeightedDiffuseReflection(const glm::vec3& normal)
+	{
+		return glm::normalize(normal + UniformHemisphereSample(normal));
+	}
+
 	inline glm::vec3 Reflect(const glm::vec3& inDir, const glm::vec3& normal)
 	{
 		return inDir - 2.0f * normal * glm::dot(inDir, normal);
