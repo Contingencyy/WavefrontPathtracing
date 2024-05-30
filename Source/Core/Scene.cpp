@@ -20,7 +20,7 @@ Scene::Scene()
 		}
 	};
 	Material planeMaterial = {
-		.albedo = glm::vec3(1.0f), .specular = 0.0f, .refractivity = 0.0f,
+		.albedo = glm::vec3(0.5f), .specular = 0.0f, .refractivity = 0.0f,
 		.isEmissive = false, .emissive = glm::vec3(), .intensity = 0.0f
 	};
 	m_SceneNodes.push_back({ plane, planeMaterial });
@@ -28,7 +28,7 @@ Scene::Scene()
 	Primitive redSphere = {
 		.type = PrimitiveType_Sphere,
 		.sphere = {
-			.center = glm::vec3(2.0f, 2.0f, 8.0f),
+			.center = glm::vec3(2.2f, 2.0f, 8.0f),
 			.radiusSquared = 4.0f
 		}
 	};
@@ -41,7 +41,7 @@ Scene::Scene()
 	Primitive blueSphere = {
 		.type = PrimitiveType_Sphere,
 		.sphere = {
-			.center = glm::vec3(-2.0f, 2.0f, 8.0f),
+			.center = glm::vec3(-2.2f, 2.0f, 8.0f),
 			.radiusSquared = 4.0f
 		}
 	};
@@ -50,6 +50,19 @@ Scene::Scene()
 		.isEmissive = false, .emissive = glm::vec3(), .intensity = 0.0f
 	};
 	m_SceneNodes.push_back({ blueSphere, blueSphereMaterial });
+
+	Primitive greenAABB = {
+		.type = PrimitiveType_AABB,
+		.aabb = {
+			.pmin = glm::vec3(-3.0f, 0.0f, 12.0f),
+			.pmax = glm::vec3(3.0f, 6.0f, 18.0f)
+		}
+	};
+	Material greenAABBMaterial = {
+		.albedo = glm::vec3(0.15f, 1.0f, 0.15f), .specular = 0.0f, .refractivity = 0.0f,
+		.isEmissive = false, .emissive = glm::vec3(), .intensity = 0.0f
+	};
+	m_SceneNodes.push_back({ greenAABB, greenAABBMaterial });
 }
 
 void Scene::Update(float dt)

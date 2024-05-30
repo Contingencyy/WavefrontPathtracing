@@ -1,6 +1,7 @@
 #include "Pch.h"
 #include "CPUPathtracer.h"
 #include "RaytracingUtils.h"
+#include "Renderer/Renderer.h"
 #include "Renderer/Camera.h"
 #include "Renderer/CameraController.h"
 #include "DX12/DX12Backend.h"
@@ -14,11 +15,15 @@
 
 #include "Core/Scene.h"
 
+using namespace Renderer;
+
 namespace CPUPathtracer
 {
 
 	struct RenderSettings
 	{
+		RenderDataVisualization renderDataVisualization = RenderDataVisualization_None;
+
 		glm::vec3 skyColor = glm::vec3(0.52f, 0.8f, 0.92f);
 		float skyColorIntensity = 0.5f;
 
@@ -54,12 +59,10 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
-		// TODO: Proper materials for objects
-		// TODO: Multithreading
 		// TODO: Spawn new objects from ImGui
-		// TODO: Ray depth debug view
+		// TODO: Scene hierarchy
+		// TODO: ImGuizmo to transform objects
 		// TODO: Ray/path visualization mode
-		// FIX/TEST: Shadow on sphere is not correct, it should interreflect the plane, then realize that the part of the plane lies in shadow, so it should be black
 
 		glm::vec3 throughput(1.0f);
 		glm::vec3 energy(0.0f);
@@ -70,6 +73,21 @@ namespace CPUPathtracer
 		while (currRayDepth <= RAY_MAX_DEPTH)
 		{
 			HitSurfaceData hit = scene->Intersect(ray);
+
+			// Handle any render data visualization that can happen after a single trace
+			if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+			{
+				bool stopTracingPath = false;
+
+				switch (inst->settings.renderDataVisualization)
+				{
+				case RenderDataVisualization_HitNormal: energy = glm::abs(hit.normal); stopTracingPath = true; break;
+				case RenderDataVisualization_Depth:		energy = glm::vec3(ray.t); stopTracingPath = true; break;
+				}
+
+				if (stopTracingPath)
+					break;
+			}
 
 			if (hit.objIdx == ~0u)
 			{
@@ -116,6 +134,15 @@ namespace CPUPathtracer
 			currRayDepth++;
 		}
 
+		// Handle any render data visualization that needs to trace the full path first
+		if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+		{
+			switch (inst->settings.renderDataVisualization)
+			{
+			case RenderDataVisualization_RayCount: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(RAY_MAX_DEPTH)); break;
+			}
+		}
+
 		return glm::vec4(energy, 1.0f);
 	}
 
@@ -148,6 +175,9 @@ namespace CPUPathtracer
 	void BeginFrame()
 	{
 		DX12Backend::BeginFrame();
+
+		if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+			ResetAccumulation();
 	}
 
 	void EndFrame()
@@ -228,10 +258,16 @@ namespace CPUPathtracer
 					// Determine final color for pixel
 					glm::vec4 finalColor = inst->pixelAccumulator[pixelPos] /
 						static_cast<float>(inst->numAccumulatedFrames);
+
+					// Apply simple tonemapper
 					finalColor.xyz = RTUtil::TonemapReinhard(finalColor.xyz);
-					if (inst->settings.linearToSRGB)
+
+					// Convert final color from linear to SRGB, if enabled, and if we do not use any render data visualization
+					if (inst->settings.linearToSRGB &&
+						inst->settings.renderDataVisualization == RenderDataVisualization_None)
 						finalColor.xyz = RTUtil::LinearToSRGB(finalColor.xyz);
 
+					// Write final color
 					inst->pixelBuffer[pixelPos] = RTUtil::Vec4ToUint32(finalColor);
 				}
 			}
@@ -257,6 +293,24 @@ namespace CPUPathtracer
 
 			ImGui::Text("Resolution: %ux%u", inst->renderWidth, inst->renderHeight);
 			ImGui::Text("Accumulated frames: %u", inst->numAccumulatedFrames);
+
+			if (ImGui::BeginCombo("Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderDataVisualization].c_str(), ImGuiComboFlags_None))
+			{
+				for (uint32_t i = 0; i < RenderDataVisualization_Count; ++i)
+				{
+					bool is_selected = i == inst->settings.renderDataVisualization;
+
+					if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
+					{
+						inst->settings.renderDataVisualization = (RenderDataVisualization)i;
+						ResetAccumulation();
+					}
+
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
 
 			ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB);
 			ImGui::DragFloat("Sky color intensity", &inst->settings.skyColorIntensity, 0.001f);

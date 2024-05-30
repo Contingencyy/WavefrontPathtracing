@@ -142,7 +142,11 @@ namespace RTUtil
 
 	inline glm::vec3 GetHitNormal(const AABB& aabb, const glm::vec3& hitPos)
 	{
-		return glm::vec3();
+		const glm::vec3 center = (aabb.pmax + aabb.pmin) * 0.5f;
+		const glm::vec3 halfSize = (aabb.pmax - aabb.pmin) * 0.5f;
+		const glm::vec3 centerToHit = hitPos - center;
+
+		return glm::normalize(glm::sign(centerToHit) * glm::step(-RAY_NUDGE_MODIFIER, glm::abs(centerToHit) - halfSize));
 	}
 
 	/*

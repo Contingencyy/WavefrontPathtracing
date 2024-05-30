@@ -197,6 +197,7 @@
     <ClInclude Include="Source\Renderer\DX12\DX12Backend.h" />
     <ClInclude Include="Source\Renderer\RaytracingTypes.h" />
     <ClInclude Include="Source\Renderer\RaytracingUtils.h" />
+    <ClInclude Include="Source\Renderer\Renderer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
