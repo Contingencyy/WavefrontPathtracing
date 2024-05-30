@@ -63,6 +63,7 @@ namespace CPUPathtracer
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
 		// TODO: Next event estimation
+		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
 		// TODO: Crash when command line is missing --width and --height
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
@@ -88,9 +89,12 @@ namespace CPUPathtracer
 
 				switch (inst->settings.renderDataVisualization)
 				{
-				case RenderDataVisualization_HitAlbedo: energy = hit.objMat.albedo; stopTracingPath = true; break;
-				case RenderDataVisualization_HitNormal: energy = glm::abs(hit.normal); stopTracingPath = true; break;
-				case RenderDataVisualization_Depth:		energy = glm::vec3(ray.t); stopTracingPath = true; break;
+				case RenderDataVisualization_HitAlbedo:		 energy = hit.objMat.albedo; stopTracingPath = true; break;
+				case RenderDataVisualization_HitNormal:		 energy = glm::abs(hit.normal); stopTracingPath = true; break;
+				case RenderDataVisualization_HitSpecRefract: energy = glm::vec3(hit.objMat.specular, hit.objMat.refractivity, 0.0f); stopTracingPath = true; break;
+				case RenderDataVisualization_HitAbsorption:  energy = glm::vec3(hit.objMat.absorption); stopTracingPath = true; break;
+				case RenderDataVisualization_HitEmissive:	 energy = glm::vec3(hit.objMat.emissive * hit.objMat.intensity * static_cast<float>(hit.objMat.isEmissive)); stopTracingPath = true; break;
+				case RenderDataVisualization_Depth:			 energy = glm::vec3(ray.t); stopTracingPath = true; break;
 				}
 
 				if (stopTracingPath)
@@ -376,7 +380,9 @@ namespace CPUPathtracer
 
 					// Convert final color from linear to SRGB, if enabled, and if we do not use any render data visualization
 					if (inst->settings.linearToSRGB &&
-						inst->settings.renderDataVisualization == RenderDataVisualization_None)
+						(inst->settings.renderDataVisualization == RenderDataVisualization_None ||
+						inst->settings.renderDataVisualization == RenderDataVisualization_HitEmissive ||
+						inst->settings.renderDataVisualization == RenderDataVisualization_HitAbsorption))
 						finalColor.xyz = RTUtil::LinearToSRGB(finalColor.xyz);
 
 					// Write final color

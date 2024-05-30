@@ -9,6 +9,9 @@ namespace Renderer
 		
 		RenderDataVisualization_HitAlbedo,
 		RenderDataVisualization_HitNormal,
+		RenderDataVisualization_HitSpecRefract,
+		RenderDataVisualization_HitAbsorption,
+		RenderDataVisualization_HitEmissive,
 
 		RenderDataVisualization_Depth,
 
@@ -22,10 +25,10 @@ namespace Renderer
 	static const std::array<std::string, RenderDataVisualization_Count> RenderDataVisualizationLabels =
 	{
 		"None",
-		"Hit albedo", "Hit Normal",
+		"Hit albedo", "Hit normal", "Hit spec refract", "Hit absorption", "Hit emissive",
 		"Depth",
-		"Ray Recursion Depth",
-		"Russian Roulette Kill Depth"
+		"Ray recursion depth",
+		"Russian roulette kill depth"
 	};
 
 }
