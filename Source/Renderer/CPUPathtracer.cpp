@@ -25,6 +25,7 @@ namespace CPUPathtracer
 		RenderDataVisualization renderDataVisualization = RenderDataVisualization_None;
 
 		bool cosineWeightedDiffuseReflection = true;
+		bool russianRoulette = true;
 
 		glm::vec3 skyColor = glm::vec3(0.52f, 0.8f, 0.92f);
 		float skyColorIntensity = 0.5f;
@@ -61,6 +62,7 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
+		// TODO: Next event estimation
 		// TODO: Crash when command line is missing --width and --height
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
@@ -73,6 +75,7 @@ namespace CPUPathtracer
 
 		bool isSpecularRay = false;
 		uint32_t currRayDepth = 0;
+		bool survivedRR = true;
 
 		while (currRayDepth <= RAY_MAX_RECURSION_DEPTH)
 		{
@@ -85,6 +88,7 @@ namespace CPUPathtracer
 
 				switch (inst->settings.renderDataVisualization)
 				{
+				case RenderDataVisualization_HitAlbedo: energy = hit.objMat.albedo; stopTracingPath = true; break;
 				case RenderDataVisualization_HitNormal: energy = glm::abs(hit.normal); stopTracingPath = true; break;
 				case RenderDataVisualization_Depth:		energy = glm::vec3(ray.t); stopTracingPath = true; break;
 				}
@@ -93,13 +97,14 @@ namespace CPUPathtracer
 					break;
 			}
 
+			// Add sky color to energy if we have not hit an object, and terminate path
 			if (hit.objIdx == ~0u)
 			{
 				energy += inst->settings.skyColor * inst->settings.skyColorIntensity * throughput;
 				break;
 			}
 
-			Material hitMat = hit.objMat;
+			Material& hitMat = hit.objMat;
 
 			// If the surface is emissive, we simply add its color to the energy output and stop tracing
 			if (hitMat.isEmissive)
@@ -108,8 +113,28 @@ namespace CPUPathtracer
 				break;
 			}
 
+			// Russian roulette - Stop tracing the path with a probability that is based on the material albedo
+			// Since the throughput is gonna be dependent on the albedo, dark albedos carry less energy to the eye,
+			// so we can eliminate those paths with a higher probability and safe ourselves the time continuing tracing low impact paths.
+			// Need to adjust the throughput if the path survives since that path should carry a higher weight based on its survival probability.
+			if (inst->settings.russianRoulette)
+			{
+				float survivalProbability = RTUtil::SurvivalProbabilityRR(hitMat.albedo);
+				if (survivalProbability < Random::Float())
+				{
+					survivedRR = false;
+					break;
+				}
+				else
+				{
+					throughput *= 1.0f / survivalProbability;
+				}
+			}
+
+			// Get a random 0..1 range float to determine which path to take
 			float r = Random::Float();
 
+			// Specular path
 			if (r < hitMat.specular)
 			{
 				glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hit.normal);
@@ -118,6 +143,7 @@ namespace CPUPathtracer
 				throughput *= hitMat.albedo;
 				isSpecularRay = true;
 			}
+			// Refraction path
 			else if (r < hitMat.specular + hitMat.refractivity)
 			{
 				glm::vec3 N = hit.normal;
@@ -128,6 +154,7 @@ namespace CPUPathtracer
 				float Fr = 1.0f;
 				bool inside = true;
 
+				// Figure out if we are inside or outside of the object we've hit
 				if (cosi < 0.0f)
 				{
 					cosi = -cosi;
@@ -142,6 +169,7 @@ namespace CPUPathtracer
 				float eta = etai / etat;
 				float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
 
+				// Follow refraction or specular path
 				if (k >= 0.0f)
 				{
 					glm::vec3 refractDir = RTUtil::Refract(ray.dir, N, eta, cosi, k);
@@ -178,6 +206,7 @@ namespace CPUPathtracer
 					}
 				}
 			}
+			// Diffuse path
 			else
 			{
 				glm::vec3 diffuseBRDF = hitMat.albedo * INV_PI;
@@ -186,12 +215,14 @@ namespace CPUPathtracer
 				float NdotR = 0.0f;
 				float hemispherePDF = 0.0f;
 
+				// Cosine-weighted diffuse reflection
 				if (inst->settings.cosineWeightedDiffuseReflection)
 				{
 					diffuseDir = RTUtil::CosineWeightedDiffuseReflection(hit.normal);
 					NdotR = glm::dot(diffuseDir, hit.normal);
 					hemispherePDF = NdotR / PI;
 				}
+				// Uniform hemisphere diffuse reflection
 				else
 				{
 					diffuseDir = RTUtil::UniformHemisphereSample(hit.normal);
@@ -212,7 +243,15 @@ namespace CPUPathtracer
 		{
 			switch (inst->settings.renderDataVisualization)
 			{
-			case RenderDataVisualization_RayRecursionDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH)); break;
+			case RenderDataVisualization_RayRecursionDepth:
+			{
+				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH));
+			} break;
+			case RenderDataVisualization_RussianRouletteKillDepth:
+			{
+				float weight = glm::clamp((currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH)) + static_cast<float>(survivedRR), 0.0f, 1.0f);
+				energy = glm::mix(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), weight);
+			} break;
 			}
 		}
 
@@ -398,6 +437,7 @@ namespace CPUPathtracer
 			{
 				// Enable/disable cosine weighted diffuse reflections
 				ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection);
+				ImGui::Checkbox("Russian roulette", &inst->settings.russianRoulette);
 
 				// Sky color and intensity
 				ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB);

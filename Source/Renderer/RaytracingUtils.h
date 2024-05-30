@@ -236,6 +236,11 @@ namespace RTUtil
 		return 0.5f * ((sPolarized * sPolarized) + (pPolarized * pPolarized));
 	}
 
+	inline float SurvivalProbabilityRR(const glm::vec3& albedo)
+	{
+		return glm::clamp(glm::max(glm::max(albedo.x, albedo.y), albedo.z), 0.1f, 1.0f);
+	}
+
 	/*
 		COLOR
 	*/

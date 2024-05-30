@@ -7,11 +7,14 @@ namespace Renderer
 	{
 		RenderDataVisualization_None,
 		
+		RenderDataVisualization_HitAlbedo,
 		RenderDataVisualization_HitNormal,
 
 		RenderDataVisualization_Depth,
 
 		RenderDataVisualization_RayRecursionDepth,
+
+		RenderDataVisualization_RussianRouletteKillDepth,
 
 		RenderDataVisualization_Count
 	};
@@ -19,9 +22,10 @@ namespace Renderer
 	static const std::array<std::string, RenderDataVisualization_Count> RenderDataVisualizationLabels =
 	{
 		"None",
-		"Hit Normal",
+		"Hit albedo", "Hit Normal",
 		"Depth",
-		"Ray Recursion Depth"
+		"Ray Recursion Depth",
+		"Russian Roulette Kill Depth"
 	};
 
 }

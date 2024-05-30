@@ -19,7 +19,7 @@ Scene::Scene()
 			.normal = glm::vec3(0.0f, 1.0f, 0.0f)
 		}
 	};
-	Material planeMaterial = Material::MakeSpecular(glm::vec3(0.5f), 0.5f);
+	Material planeMaterial = Material::MakeSpecular(glm::vec3(1.0f), 0.5f);
 	m_SceneNodes.push_back({ plane, planeMaterial });
 
 	Primitive redSphere = {
@@ -29,7 +29,7 @@ Scene::Scene()
 			.radiusSquared = 4.0f
 		}
 	};
-	Material redSphereMaterial = Material::MakeDiffuse(glm::vec3(1.0f, 0.2f, 0.1f));
+	Material redSphereMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.1f, 0.1f));
 	m_SceneNodes.push_back({ redSphere, redSphereMaterial });
 
 	Primitive blueSphere = {
@@ -39,7 +39,7 @@ Scene::Scene()
 			.radiusSquared = 4.0f
 		}
 	};
-	Material blueSphereMaterial = Material::MakeDiffuse(glm::vec3(0.1f, 0.2f, 1.0f));
+	Material blueSphereMaterial = Material::MakeDiffuse(glm::vec3(0.1f, 0.1f, 0.9f));
 	m_SceneNodes.push_back({ blueSphere, blueSphereMaterial });
 
 	Primitive greenAABB = {
@@ -49,7 +49,7 @@ Scene::Scene()
 			.pmax = glm::vec3(3.0f, 6.0f, 18.0f)
 		}
 	};
-	Material greenAABBMaterial = Material::MakeSpecular(glm::vec3(0.1f, 1.0f, 0.1f), 0.3f);
+	Material greenAABBMaterial = Material::MakeSpecular(glm::vec3(0.1f, 0.9f, 0.1f), 0.3f);
 	m_SceneNodes.push_back({ greenAABB, greenAABBMaterial });
 
 	Primitive glassSphere = {
@@ -59,7 +59,7 @@ Scene::Scene()
 			.radiusSquared = 16.0f
 		}
 	};
-	Material glassSphereMaterial = Material::MakeRefractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.2f, 0.9f));
+	Material glassSphereMaterial = Material::MakeRefractive(glm::vec3(0.8f), 0.0f, 1.0f, 1.517f, glm::vec3(0.1f, 0.1f, 0.9f));
 	m_SceneNodes.push_back({ glassSphere, glassSphereMaterial });
 }
 
