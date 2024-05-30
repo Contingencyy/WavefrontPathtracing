@@ -120,7 +120,63 @@ namespace CPUPathtracer
 			}
 			else if (r < hitMat.specular + hitMat.refractivity)
 			{
+				glm::vec3 N = hit.normal;
 
+				float cosi = glm::clamp(glm::dot(N, ray.dir), -1.0f, 1.0f);
+				float etai = 1.0f, etat = hitMat.ior;
+
+				float Fr = 1.0f;
+				bool inside = true;
+
+				if (cosi < 0.0f)
+				{
+					cosi = -cosi;
+					inside = false;
+				}
+				else
+				{
+					std::swap(etai, etat);
+					N = -N;
+				}
+
+				float eta = etai / etat;
+				float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
+
+				if (k >= 0.0f)
+				{
+					glm::vec3 refractDir = RTUtil::Refract(ray.dir, N, eta, cosi, k);
+
+					float cosIn = glm::dot(ray.dir, hit.normal);
+					float cosOut = glm::dot(refractDir, hit.normal);
+
+					Fr = RTUtil::Fresnel(cosIn, cosOut, etai, etat);
+
+					if (Random::Float() > Fr)
+					{
+						throughput *= hitMat.albedo;
+
+						if (inside)
+						{
+							glm::vec3 absorption = glm::vec3(
+								glm::exp(-hitMat.absorption.x * ray.t),
+								glm::exp(-hitMat.absorption.y * ray.t),
+								glm::exp(-hitMat.absorption.z * ray.t)
+							);
+							throughput *= absorption;
+						}
+
+						ray = Ray(hit.pos + refractDir * RAY_NUDGE_MODIFIER, refractDir);
+						isSpecularRay = true;
+					}
+					else
+					{
+						glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hit.normal);
+						ray = Ray(hit.pos + specularDir * RAY_NUDGE_MODIFIER, specularDir);
+
+						throughput *= hitMat.albedo;
+						isSpecularRay = true;
+					}
+				}
 			}
 			else
 			{

@@ -222,6 +222,20 @@ namespace RTUtil
 		return inDir - 2.0f * normal * glm::dot(inDir, normal);
 	}
 
+	inline glm::vec3 Refract(const glm::vec3& dir, const glm::vec3& normal, float eta, float cosi, float k)
+	{
+		return glm::normalize(dir * eta + ((eta * cosi - glm::sqrt(k)) * normal));
+	}
+
+	inline float Fresnel(float in, float out, float iorOutside, float iorInside)
+	{
+		float sPolarized = (iorOutside * in - iorInside * out) /
+			(iorOutside * in + iorInside * out);
+		float pPolarized = (iorOutside * out - iorInside * in) /
+			(iorOutside * out + iorInside * in);
+		return 0.5f * ((sPolarized * sPolarized) + (pPolarized * pPolarized));
+	}
+
 	/*
 		COLOR
 	*/

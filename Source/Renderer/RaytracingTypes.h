@@ -7,17 +7,59 @@ static constexpr float INV_TWO_PI = 1.0f / TWO_PI;
 
 static constexpr float RAY_MAX_T = FLT_MAX;
 static constexpr float RAY_NUDGE_MODIFIER = 0.001f;
-static constexpr uint32_t RAY_MAX_RECURSION_DEPTH = 3;
+static constexpr uint32_t RAY_MAX_RECURSION_DEPTH = 8;
 
 struct Material
 {
 	glm::vec3 albedo = {};
 	float specular = 0.0f;
+
 	float refractivity = 0.0f;
+	float ior = 1.0f;
+	glm::vec3 absorption = {};
 
 	bool isEmissive = false;
 	glm::vec3 emissive = {};
 	float intensity = 0.0f;
+
+	static Material MakeDiffuse(const glm::vec3& albedo)
+	{
+		Material mat = {};
+		mat.albedo = albedo;
+
+		return mat;
+	}
+
+	static Material MakeSpecular(const glm::vec3& albedo, float spec)
+	{
+		Material mat = {};
+		mat.albedo = albedo;
+		mat.specular = spec;
+
+		return mat;
+	}
+
+	static Material MakeRefractive(const glm::vec3& albedo, float spec, float refract, float ior, const glm::vec3& absorption)
+	{
+		Material mat = {};
+		mat.albedo = albedo;
+		mat.specular = spec;
+		mat.refractivity = refract;
+		mat.ior = ior;
+		mat.absorption = absorption;
+
+		return mat;
+	}
+
+	static Material MakeEmissive(const glm::vec3& emissive, float intensity)
+	{
+		Material mat = {};
+		mat.isEmissive = true;
+		mat.emissive = emissive;
+		mat.intensity = intensity;
+
+		return mat;
+	}
 };
 
 struct HitSurfaceData
