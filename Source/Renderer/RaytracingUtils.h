@@ -181,21 +181,22 @@ namespace RTUtil
 		SAMPLING
 	*/
 
+	inline void CreateOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent)
+	{
+		if (glm::abs(normal.x) > glm::abs(normal.z))
+			tangent = glm::normalize(glm::vec3(-normal.y, normal.x, 0.0f));
+		else
+			tangent = glm::normalize(glm::vec3(0.0f, -normal.z, normal.y));
+
+		bitangent = glm::cross(normal, tangent);
+	}
+
 	inline glm::vec3 DirectionToNormalSpace(const glm::vec3& normal, const glm::vec3& sampleDir)
 	{
-		glm::vec3 Nt, Nb;
+		glm::vec3 tangent, bitangent;
+		CreateOrthonormalBasis(normal, tangent, bitangent);
 
-		if (glm::abs(normal.x) > glm::abs(normal.y))
-			Nt = glm::vec3(normal.z, 0.0f, -normal.x) / glm::sqrt(normal.x * normal.x + normal.z * normal.z);
-		else
-			Nt = glm::vec3(0.0f, -normal.z, normal.y) / glm::sqrt(normal.y * normal.y + normal.z * normal.z);
-		Nb = glm::cross(normal, Nt);
-
-		return glm::vec3(
-			sampleDir.x * Nb.x + sampleDir.y * normal.x + sampleDir.z * Nt.x,
-			sampleDir.x * Nb.y + sampleDir.y * normal.y + sampleDir.z * Nt.y,
-			sampleDir.x * Nb.z + sampleDir.y * normal.z + sampleDir.z * Nt.z
-		);
+		return glm::vec3(sampleDir.x * tangent + sampleDir.y * normal + sampleDir.z * bitangent);
 	}
 
 	inline glm::vec3 UniformHemisphereSample(const glm::vec3& normal)
@@ -206,15 +207,19 @@ namespace RTUtil
 		float sinTheta = glm::sqrt(1.0f - r1 * r1);
 		float phi = 2.0f * PI * r2;
 
-		float x = sinTheta * glm::cos(phi);
-		float z = sinTheta * glm::sin(phi);
-
-		return DirectionToNormalSpace(normal, glm::vec3(x, r1, z));
+		return DirectionToNormalSpace(normal, glm::vec3(sinTheta * glm::cos(phi), r1, sinTheta * glm::sin(phi)));
 	}
 
-	inline glm::vec3 CosineWeightedDiffuseReflection(const glm::vec3& normal)
+	inline glm::vec3 CosineWeightedHemisphereSample(const glm::vec3& normal)
 	{
-		return glm::normalize(normal + UniformHemisphereSample(normal));
+		float r1 = Random::Float();
+		float r2 = Random::Float();
+
+		float cosTheta = glm::sqrt(r1);
+		float sinTheta = glm::sqrt(1.0f - cosTheta * cosTheta);
+		float phi = 2.0f * PI * r2;
+
+		return DirectionToNormalSpace(normal, glm::vec3(sinTheta * glm::cos(phi), cosTheta, sinTheta * glm::sin(phi)));
 	}
 
 	inline glm::vec3 Reflect(const glm::vec3& inDir, const glm::vec3& normal)

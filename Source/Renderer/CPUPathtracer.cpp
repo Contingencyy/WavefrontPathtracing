@@ -106,7 +106,6 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
-		// FIX: Where the spheres touch the plane, its way darker with cosine weighted diffuse
 		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
 		// ? Transmittance and density instead of absorption?
 		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
@@ -274,7 +273,7 @@ namespace CPUPathtracer
 				// Cosine-weighted diffuse reflection
 				if (inst->settings.cosineWeightedDiffuseReflection)
 				{
-					diffuseDir = RTUtil::CosineWeightedDiffuseReflection(hit.normal);
+					diffuseDir = RTUtil::CosineWeightedHemisphereSample(hit.normal);
 					NdotR = glm::dot(diffuseDir, hit.normal);
 					hemispherePDF = NdotR * INV_PI;
 				}

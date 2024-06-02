@@ -19,7 +19,7 @@ Scene::Scene()
 			.normal = glm::vec3(0.0f, 1.0f, 0.0f)
 		}
 	};
-	Material planeMaterial = Material::MakeSpecular(glm::vec3(1.0f), 0.5f);
+	Material planeMaterial = Material::MakeSpecular(glm::vec3(0.5f), 0.5f);
 	m_SceneNodes.push_back({ plane, planeMaterial });
 
 	Primitive redSphere = {
