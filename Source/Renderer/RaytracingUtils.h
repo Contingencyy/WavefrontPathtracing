@@ -238,7 +238,7 @@ namespace RTUtil
 
 	inline float SurvivalProbabilityRR(const glm::vec3& albedo)
 	{
-		return glm::clamp(glm::max(glm::max(albedo.x, albedo.y), albedo.z), 0.1f, 1.0f);
+		return glm::clamp(glm::max(glm::max(albedo.x, albedo.y), albedo.z), 0.0f, 1.0f);
 	}
 
 	/*
@@ -252,11 +252,6 @@ namespace RTUtil
 		uint8_t b = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.b));
 		uint8_t a = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.a));
 		return (a << 24) | (b << 16) | (g << 8) | r;
-	}
-
-	inline glm::vec3 TonemapReinhard(const glm::vec3& color)
-	{
-		return color / (1.0f + color);
 	}
 
 	inline glm::vec3 LinearToSRGB(const glm::vec3& color)
@@ -277,6 +272,33 @@ namespace RTUtil
 			clamped / 12.92f,
 			glm::lessThan(clamped, glm::vec3(0.04045f))
 		);
+	}
+
+	/*
+		POSTFX
+	*/
+
+	inline glm::vec3 TonemapReinhard(const glm::vec3& color)
+	{
+		return color / (1.0f + color);
+	}
+
+	inline glm::vec3 TonemapReinhardWhite(const glm::vec3& color, float maxWhite)
+	{
+		float maxWhiteSquared = maxWhite * maxWhite;
+		glm::vec3 numerator = color * (1.0f + (color / glm::vec3(maxWhiteSquared)));
+		return numerator / (1.0f + color);
+	}
+
+	inline glm::vec3 AdjustContrastBrightness(const glm::vec3& color, float contrast, float brightness)
+	{
+		return glm::clamp(contrast * (color - 0.5f) + 0.5f + brightness, 0.0f, 1.0f);
+	}
+
+	inline glm::vec3 Saturate(const glm::vec3& color, float saturation)
+	{
+		float grayscale = glm::dot(color, glm::vec3(0.299f, 0.587f, 0.114f));
+		return glm::clamp(glm::mix(glm::vec3(grayscale), color, saturation), 0.0f, 1.0f);
 	}
 
 }

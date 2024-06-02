@@ -30,7 +30,15 @@ namespace CPUPathtracer
 		glm::vec3 skyColor = glm::vec3(0.52f, 0.8f, 0.92f);
 		float skyColorIntensity = 0.5f;
 
-		bool linearToSRGB = true;
+		struct PostFX
+		{
+			float maxWhite = 10.0f;
+			float exposure = 1.0f;
+			float contrast = 1.0f;
+			float brightness = 0.0f;
+			float saturation = 1.0f;
+			bool linearToSRGB = true;
+		} postfx;
 	};
 
 	struct Instance
@@ -44,6 +52,7 @@ namespace CPUPathtracer
 
 		std::vector<uint32_t> pixelBuffer;
 		std::vector<glm::vec4> pixelAccumulator;
+		double energyAccumulator = 0.0;
 		uint32_t numAccumulatedFrames = 0;
 
 		Threadpool renderThreadpool;
@@ -57,14 +66,57 @@ namespace CPUPathtracer
 	{
 		// Clear the accumulator, reset accumulated frame count
 		std::fill(inst->pixelAccumulator.begin(), inst->pixelAccumulator.end(), glm::vec4(0.0f));
+		inst->energyAccumulator = 0.0;
 		inst->numAccumulatedFrames = 0;
+	}
+
+	static glm::vec3 ApplyPostProcessing(const glm::vec3& color)
+	{
+		glm::vec3 finalColor = color;
+
+		if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+		{
+			if (inst->settings.renderDataVisualization == RenderDataVisualization_None ||
+				inst->settings.renderDataVisualization == RenderDataVisualization_HitAlbedo ||
+				inst->settings.renderDataVisualization == RenderDataVisualization_HitEmissive ||
+				inst->settings.renderDataVisualization == RenderDataVisualization_HitAbsorption)
+				return RTUtil::LinearToSRGB(finalColor);
+			else
+				return finalColor;
+		}
+
+		// Apply exposure
+		finalColor *= inst->settings.postfx.exposure;
+
+		// Contrast & Brightness
+		finalColor = RTUtil::AdjustContrastBrightness(finalColor, inst->settings.postfx.contrast, inst->settings.postfx.brightness);
+
+		// Saturation
+		finalColor = RTUtil::Saturate(finalColor, inst->settings.postfx.saturation);
+
+		// Apply simple tonemapper
+		finalColor = RTUtil::TonemapReinhardWhite(finalColor.xyz, inst->settings.postfx.maxWhite);
+
+		// Convert final color from linear to SRGB, if enabled, and if we do not use any render data visualization
+		if (inst->settings.postfx.linearToSRGB)
+			finalColor.xyz = RTUtil::LinearToSRGB(finalColor.xyz);
+
+		return finalColor;
 	}
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
-		// TODO: Next event estimation
+		// FIX: Where the spheres touch the plane, its way darker with cosine weighted diffuse
+		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
+		// ? Transmittance and density instead of absorption?
 		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
+		// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
+		// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
+		// TODO: Make any resolution work with the multi-threaded rendering dispatch
+		// TODO: Timer avg/min/max
 		// TODO: Crash when command line is missing --width and --height
+		// TODO: Next event estimation
+		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
 		// TODO: ImGuizmo to transform objects
@@ -224,7 +276,7 @@ namespace CPUPathtracer
 				{
 					diffuseDir = RTUtil::CosineWeightedDiffuseReflection(hit.normal);
 					NdotR = glm::dot(diffuseDir, hit.normal);
-					hemispherePDF = NdotR / PI;
+					hemispherePDF = NdotR * INV_PI;
 				}
 				// Uniform hemisphere diffuse reflection
 				else
@@ -253,8 +305,8 @@ namespace CPUPathtracer
 			} break;
 			case RenderDataVisualization_RussianRouletteKillDepth:
 			{
-				float weight = glm::clamp((currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH)) + static_cast<float>(survivedRR), 0.0f, 1.0f);
-				energy = glm::mix(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), weight);
+				float weight = glm::clamp((currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH)) - static_cast<float>(survivedRR), 0.0f, 1.0f);
+				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), weight);
 			} break;
 			}
 		}
@@ -320,6 +372,9 @@ namespace CPUPathtracer
 
 		float aspectRatio = inst->renderWidth / static_cast<float>(inst->renderHeight);
 		float tanFOV = glm::tan(glm::radians(inst->sceneCamera.vfov) / 2.0f);
+		
+		uint32_t numPixels = inst->renderWidth * inst->renderHeight;
+		double invNumPixels = 1.0f / static_cast<float>(numPixels);
 
 #if 0
 		for (uint32_t y = 0; y < inst->renderHeight; ++y)
@@ -352,7 +407,7 @@ namespace CPUPathtracer
 		ASSERT(inst->renderWidth % dispatchDim.x == 0);
 		ASSERT(inst->renderHeight % dispatchDim.y == 0);
 
-		auto tracePathThroughPixelJob = [&dispatchDim, &aspectRatio, &tanFOV, &scene](Threadpool::JobDispatchArgs dispatchArgs) {
+		auto tracePathThroughPixelJob = [&dispatchDim, &aspectRatio, &tanFOV, &scene, &invNumPixels](Threadpool::JobDispatchArgs dispatchArgs) {
 			const uint32_t dispatchX = (dispatchArgs.jobIndex * dispatchDim.x) % inst->renderWidth;
 			const uint32_t dispatchY = ((dispatchArgs.jobIndex * dispatchDim.x) / inst->renderWidth) * dispatchDim.y;
 
@@ -370,20 +425,14 @@ namespace CPUPathtracer
 					// Update accumulator
 					uint32_t pixelPos = y * inst->renderWidth + x;
 					inst->pixelAccumulator[pixelPos] += tracedColor;
+					inst->energyAccumulator += static_cast<double>(tracedColor.x + tracedColor.y + tracedColor.z) * invNumPixels;
 
 					// Determine final color for pixel
 					glm::vec4 finalColor = inst->pixelAccumulator[pixelPos] /
 						static_cast<float>(inst->numAccumulatedFrames);
 
-					// Apply simple tonemapper
-					finalColor.xyz = RTUtil::TonemapReinhard(finalColor.xyz);
-
-					// Convert final color from linear to SRGB, if enabled, and if we do not use any render data visualization
-					if (inst->settings.linearToSRGB &&
-						(inst->settings.renderDataVisualization == RenderDataVisualization_None ||
-						inst->settings.renderDataVisualization == RenderDataVisualization_HitEmissive ||
-						inst->settings.renderDataVisualization == RenderDataVisualization_HitAbsorption))
-						finalColor.xyz = RTUtil::LinearToSRGB(finalColor.xyz);
+					// Apply post-processing stack to final color
+					finalColor.xyz = ApplyPostProcessing(finalColor.xyz);
 
 					// Write final color
 					inst->pixelBuffer[pixelPos] = RTUtil::Vec4ToUint32(finalColor);
@@ -391,7 +440,6 @@ namespace CPUPathtracer
 			}
 		};
 
-		uint32_t numPixels = inst->renderWidth * inst->renderHeight;
 		uint32_t numJobs = numPixels / (dispatchDim.x * dispatchDim.y);
 
 		inst->renderThreadpool.Dispatch(numJobs, 16, tracePathThroughPixelJob);
@@ -407,16 +455,21 @@ namespace CPUPathtracer
 	{
 		if (ImGui::Begin("Renderer"))
 		{
+			bool resetAccumulator = false;
+
 			ImGui::Text("Render time: %.3f ms", Profiler::GetTimerResult(GlobalProfilingScope_RenderTime).lastElapsed * 1000.0f);
 
 			ImGui::Text("Resolution: %ux%u", inst->renderWidth, inst->renderHeight);
 			ImGui::Text("Accumulated frames: %u", inst->numAccumulatedFrames);
 
+			ImGui::Text("Total energy received: %.3f", inst->energyAccumulator / static_cast<double>(inst->numAccumulatedFrames) * 1000.0f);
 			ImGui::Text("Max Ray Recursion Depth: %u", RAY_MAX_RECURSION_DEPTH);
 
 			// Debug category
 			if (ImGui::CollapsingHeader("Debug"))
 			{
+				ImGui::Indent(10.0f);
+
 				// Render data visualization
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderDataVisualization].c_str(), ImGuiComboFlags_None))
@@ -428,7 +481,7 @@ namespace CPUPathtracer
 						if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
 						{
 							inst->settings.renderDataVisualization = (RenderDataVisualization)i;
-							ResetAccumulation();
+							resetAccumulator = true;
 						}
 
 						if (is_selected)
@@ -436,22 +489,44 @@ namespace CPUPathtracer
 					}
 					ImGui::EndCombo();
 				}
+
+				ImGui::Unindent(10.0f);
 			}
 
 			// Render settings
 			if (ImGui::CollapsingHeader("Settings"))
 			{
-				// Enable/disable cosine weighted diffuse reflections
-				ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection);
-				ImGui::Checkbox("Russian roulette", &inst->settings.russianRoulette);
+				ImGui::Indent(10.0f);
+
+				// Enable/disable cosine weighted diffuse reflections, russian roulette
+				if (ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection)) resetAccumulator = true;
+				if (ImGui::Checkbox("Russian roulette", &inst->settings.russianRoulette)) resetAccumulator = true;
 
 				// Sky color and intensity
-				ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB);
-				ImGui::DragFloat("Sky color intensity", &inst->settings.skyColorIntensity, 0.001f);
+				if (ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB)) resetAccumulator = true;
+				if (ImGui::DragFloat("Sky color intensity", &inst->settings.skyColorIntensity, 0.001f)) resetAccumulator = true;
 
-				// Enable/disable conversion of final color to SRGB
-				ImGui::Checkbox("Linear to SRGB", &inst->settings.linearToSRGB);
+				// Post-process settings, constract, brightness, saturation, sRGB
+				ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+				if (ImGui::CollapsingHeader("Post-processing"))
+				{
+					ImGui::Indent(10.0f);
+
+					if (ImGui::SliderFloat("Max white", &inst->settings.postfx.maxWhite, 0.0f, 100.0f)) resetAccumulator = true;
+					if (ImGui::SliderFloat("Exposure", &inst->settings.postfx.exposure, 0.0f, 100.0f)) resetAccumulator = true;
+					if (ImGui::SliderFloat("Contrast", &inst->settings.postfx.contrast, 0.0f, 3.0f)) resetAccumulator = true;
+					if (ImGui::SliderFloat("Brightness", &inst->settings.postfx.brightness, 0.0f, 1.0f)) resetAccumulator = true;
+					if (ImGui::SliderFloat("Saturation", &inst->settings.postfx.saturation, 0.0f, 10.0f)) resetAccumulator = true;
+					if (ImGui::Checkbox("Linear to SRGB", &inst->settings.postfx.linearToSRGB)) resetAccumulator = true;
+
+					ImGui::Unindent(10.0f);
+				}
+
+				ImGui::Unindent(10.0f);
 			}
+
+			if (resetAccumulator)
+				ResetAccumulation();
 		}
 		ImGui::End();
 	}
