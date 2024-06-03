@@ -84,6 +84,9 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
+		// GPU Pathtracer
+			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care
+			//		 whether the frame was rendered using the GPU or CPU pathtracer
 		// TODO: Next event estimation
 		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
 		// TODO: Transmittance and density instead of absorption?
