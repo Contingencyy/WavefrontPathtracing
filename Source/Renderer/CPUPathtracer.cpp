@@ -1,9 +1,8 @@
 #include "Pch.h"
 #include "CPUPathtracer.h"
 #include "RaytracingUtils.h"
-#include "Renderer/Renderer.h"
-#include "Renderer/Camera.h"
-#include "Renderer/CameraController.h"
+#include "Renderer/RendererCommon.h"
+#include "Core/Camera/CameraController.h"
 #include "DX12/DX12Backend.h"
 #include "Core/Logger.h"
 #include "Core/Random.h"
@@ -19,27 +18,6 @@ using namespace Renderer;
 
 namespace CPUPathtracer
 {
-
-	struct RenderSettings
-	{
-		RenderDataVisualization renderDataVisualization = RenderDataVisualization_None;
-
-		bool cosineWeightedDiffuseReflection = true;
-		bool russianRoulette = true;
-
-		glm::vec3 skyColor = glm::vec3(0.52f, 0.8f, 0.92f);
-		float skyColorIntensity = 0.5f;
-
-		struct PostFX
-		{
-			float maxWhite = 10.0f;
-			float exposure = 1.0f;
-			float contrast = 1.0f;
-			float brightness = 0.0f;
-			float saturation = 1.0f;
-			bool linearToSRGB = true;
-		} postfx;
-	};
 
 	struct Instance
 	{
@@ -106,21 +84,26 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Scene* scene, Ray& ray)
 	{
+		// TODO: Next event estimation
 		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
-		// ? Transmittance and density instead of absorption?
+		// TODO: Transmittance and density instead of absorption?
 		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
-		// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
-		// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
+			// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
+			// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Timer avg/min/max
 		// TODO: Crash when command line is missing --width and --height
-		// TODO: Next event estimation
 		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
 		// TODO: ImGuizmo to transform objects
 		// TODO: Ray/path visualization mode
 		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting dir for length 1 for example)
+		// TODO: Physically-based rendering
+		// TODO: BRDF importance sampling
+		// TODO: Bounding volume hierarchies
+		// TODO: Bottom and top-level acceleration structures
+		// TODO: Compute shaders
 
 		glm::vec3 throughput(1.0f);
 		glm::vec3 energy(0.0f);
@@ -332,7 +315,7 @@ namespace CPUPathtracer
 
 	void Exit()
 	{
-		LOG_INFO("CPUPathtracer", "Exited");
+		LOG_INFO("CPUPathtracer", "Exit");
 		
 		DX12Backend::Exit();
 

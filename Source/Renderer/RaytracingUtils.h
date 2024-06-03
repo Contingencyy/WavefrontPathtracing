@@ -1,6 +1,6 @@
 #pragma once
 #include "RaytracingTypes.h"
-#include "Camera.h"
+#include "Core/Camera/Camera.h"
 #include "Core/Random.h"
 
 namespace RTUtil

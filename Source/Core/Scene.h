@@ -1,5 +1,5 @@
 #pragma once
-#include "Renderer/CameraController.h"
+#include "Core/Camera/CameraController.h"
 #include "Renderer/RaytracingTypes.h"
 
 struct Object

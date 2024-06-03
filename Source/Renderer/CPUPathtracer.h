@@ -1,6 +1,6 @@
 #pragma once
-#include "Camera.h"
 
+struct Camera;
 class Scene;
 
 namespace CPUPathtracer

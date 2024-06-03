@@ -48,13 +48,13 @@
     <ClCompile Include="Extern\imgui\imgui_impl_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\Camera.cpp">
+    <ClCompile Include="Source\Core\Camera\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\Platform\Windows\Input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\CameraController.cpp">
+    <ClCompile Include="Source\Core\Camera\CameraController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\Core\Scene.cpp">
@@ -104,7 +104,7 @@
     <ClInclude Include="Extern\imgui\imgui_impl_win32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\Camera.h">
+    <ClInclude Include="Source\Core\Camera\Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Renderer\RaytracingUtils.h">
@@ -116,7 +116,7 @@
     <ClInclude Include="Source\Core\Input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\CameraController.h">
+    <ClInclude Include="Source\Core\Camera\CameraController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Core\Scene.h">
@@ -134,7 +134,7 @@
     <ClInclude Include="Source\Core\Profiling\Profiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\Renderer.h">
+    <ClInclude Include="Source\Renderer\RendererCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
