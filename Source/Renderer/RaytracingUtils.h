@@ -121,13 +121,32 @@ namespace RTUtil
 		return false;
 	}
 
+	inline float IntersectSSE(const __m128 aabbMin, const __m128 aabbMax, Ray& ray)
+	{
+		__m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1, 0, 0, 0));
+
+		__m128 t1 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(aabbMin, mask4), ray.origin4), ray.invDir4);
+		__m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(aabbMax, mask4), ray.origin4), ray.invDir4);
+		__m128 vmax4 = _mm_max_ps(t1, t2), vmin4 = _mm_min_ps(t1, t2);
+
+		float tmax = std::min(vmax4.m128_f32[0], std::min(vmax4.m128_f32[1], vmax4.m128_f32[2]));
+		float tmin = std::max(vmin4.m128_f32[0], std::max(vmin4.m128_f32[1], vmin4.m128_f32[2]));
+
+		if (tmax >= tmin && tmin < ray.t && tmax > 0.0f)
+		{
+			return tmin;
+		}
+
+		return FLT_MAX;
+	}
+
 	/*
 		HIT SURFACE
 	*/
 
 	inline glm::vec3 GetHitNormal(const Triangle& tri, const glm::vec3& hitPos)
 	{
-		return glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0);
+		return glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0));
 	}
 
 	inline glm::vec3 GetHitNormal(const Sphere& sphere, const glm::vec3& hitPos)

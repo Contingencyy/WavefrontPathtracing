@@ -158,6 +158,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Source\Core\Assets\AssetLoader.cpp" />
     <ClCompile Include="Source\Core\Profiling\CPUTimer.cpp" />
     <ClCompile Include="Source\Core\Profiling\Profiler.cpp" />
     <ClCompile Include="Source\Core\Scene.cpp" />
@@ -172,6 +173,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Source\Renderer\AccelerationStructure\BVH.cpp" />
     <ClCompile Include="Source\Renderer\CPUPathtracer.cpp" />
     <ClCompile Include="Source\Renderer\DX12\DX12Backend.cpp" />
   </ItemGroup>
@@ -180,6 +182,8 @@
     <ClInclude Include="Extern\imgui\imgui_impl_win32.h" />
     <ClInclude Include="Extern\imgui\imgui.h" />
     <ClInclude Include="Extern\imgui\imgui_internal.h" />
+    <ClInclude Include="Source\Core\Assets\AssetLoader.h" />
+    <ClInclude Include="Source\Core\Assets\AssetTypes.h" />
     <ClInclude Include="Source\Core\Profiling\CPUTimer.h" />
     <ClInclude Include="Source\Core\Profiling\Profiler.h" />
     <ClInclude Include="Source\Core\Random.h" />
@@ -193,6 +197,7 @@
     <ClInclude Include="Source\Core\Common.h" />
     <ClInclude Include="Source\Core\Logger.h" />
     <ClInclude Include="Source\Pch.h" />
+    <ClInclude Include="Source\Renderer\AccelerationStructure\BVH.h" />
     <ClInclude Include="Source\Renderer\CPUPathtracer.h" />
     <ClInclude Include="Source\Renderer\DX12\DX12Backend.h" />
     <ClInclude Include="Source\Renderer\RaytracingTypes.h" />

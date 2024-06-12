@@ -1,9 +1,10 @@
 #include "Pch.h"
 #include "CPUPathtracer.h"
 #include "RaytracingUtils.h"
-#include "Renderer/RendererCommon.h"
-#include "Core/Camera/CameraController.h"
 #include "DX12/DX12Backend.h"
+#include "Renderer/RendererCommon.h"
+#include "Renderer/AccelerationStructure/BVH.h"
+#include "Core/Camera/CameraController.h"
 #include "Core/Logger.h"
 #include "Core/Random.h"
 #include "Core/Threadpool.h"
@@ -12,6 +13,7 @@
 
 #include "imgui/imgui.h"
 
+// TODO: Remove eventually
 #include "Core/Scene.h"
 
 using namespace Renderer;
@@ -82,20 +84,24 @@ namespace CPUPathtracer
 		return finalColor;
 	}
 
-	static glm::vec4 TracePath(Scene* scene, Ray& ray)
+	static glm::vec4 TracePath(const Scene& scene, Ray& ray)
 	{
-		// GPU Pathtracer
+		// FIX: Crash when command line is missing --width and --height
+		// TODO: Assets, loading and storing BVH's
+		// TODO: Settings for how many intervals the SAH BVH build should test
+		// TODO: Bottom and top-level acceleration structures, BVH transforms
+		// TODO: Next event estimation
+		// TODO: GPU Pathtracer
 			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care
 			//		 whether the frame was rendered using the GPU or CPU pathtracer
-		// TODO: Next event estimation
 		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
 		// TODO: Transmittance and density instead of absorption?
 		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
 			// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
 			// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
+		// TODO: Window resizing and resolution resizing
 		// TODO: Timer avg/min/max
-		// TODO: Crash when command line is missing --width and --height
 		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
@@ -104,9 +110,6 @@ namespace CPUPathtracer
 		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting dir for length 1 for example)
 		// TODO: Physically-based rendering
 		// TODO: BRDF importance sampling
-		// TODO: Bounding volume hierarchies
-		// TODO: Bottom and top-level acceleration structures
-		// TODO: Compute shaders
 
 		glm::vec3 throughput(1.0f);
 		glm::vec3 energy(0.0f);
@@ -117,7 +120,7 @@ namespace CPUPathtracer
 
 		while (currRayDepth <= RAY_MAX_RECURSION_DEPTH)
 		{
-			HitSurfaceData hit = scene->Intersect(ray);
+			HitSurfaceData hit = scene.TraceRay(ray);
 
 			// Handle any render data visualization that can happen after a single trace
 			if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
@@ -350,7 +353,7 @@ namespace CPUPathtracer
 		inst->sceneCamera = sceneCamera;
 	}
 
-	void Render(Scene* scene)
+	void Render(const Scene& scene)
 	{
 		PROFILE_SCOPE(GlobalProfilingScope_RenderTime);
 		inst->numAccumulatedFrames++;

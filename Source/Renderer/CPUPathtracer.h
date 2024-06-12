@@ -13,7 +13,7 @@ namespace CPUPathtracer
 	void EndFrame();
 
 	void BeginScene(const Camera& sceneCamera);
-	void Render(Scene* scene);
+	void Render(const Scene& scene);
 	void EndScene();
 
 	void RenderUI();

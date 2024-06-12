@@ -52,4 +52,9 @@ namespace Renderer
 		} postfx;
 	};
 
+	struct Vertex
+	{
+		glm::vec3 position;
+	};
+
 }

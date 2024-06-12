@@ -73,9 +73,9 @@ struct HitSurfaceData
 
 struct Ray
 {
-	glm::vec3 origin = {};
-	glm::vec3 dir = {};
-	glm::vec3 invDir = {};
+	union { struct { glm::vec3 origin; float dummy; }; __m128 origin4 = {}; };
+	union { struct { glm::vec3 dir; float dummy; }; __m128 dir4 = {}; };
+	union { struct { glm::vec3 invDir; float dummy; }; __m128 invDir4 = {}; };
 	float t = RAY_MAX_T;
 
 	Ray(const glm::vec3& orig, const glm::vec3& dir)

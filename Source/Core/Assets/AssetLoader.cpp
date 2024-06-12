@@ -1,0 +1,86 @@
+#include "Pch.h"
+#include "AssetLoader.h"
+
+#define CGLTF_IMPLEMENTATION
+#include "cgltf/cgltf.h"
+
+namespace AssetLoader
+{
+
+	template<typename T>
+	static T* CGLTFGetDataPointer(const cgltf_accessor* accessor)
+	{
+		cgltf_buffer_view* buffer_view = accessor->buffer_view;
+		uint8_t* base_ptr = (uint8_t*)(buffer_view->buffer->data);
+		base_ptr += buffer_view->offset;
+		base_ptr += accessor->offset;
+
+		return (T*)base_ptr;
+	}
+
+	MeshAsset LoadGLTF(const std::filesystem::path& filepath)
+	{
+		MeshAsset meshAsset = {};
+
+		// Parse the GLTF file
+		cgltf_options gltfOptions = {};
+		cgltf_data* gltfData = nullptr;
+		cgltf_result gltfResult = cgltf_parse_file(&gltfOptions, filepath.string().c_str(), &gltfData);
+
+		if (gltfResult != cgltf_result_success)
+		{
+			FATAL_ERROR("AssetLoader::LoadGLTF", "Failed to load GLTF: %s", filepath.string());
+		}
+
+		cgltf_load_buffers(&gltfOptions, gltfData, filepath.string().c_str());
+
+		for (size_t meshIndex = 0; meshIndex < gltfData->meshes_count; ++meshIndex)
+		{
+			const cgltf_mesh& gltfMesh = gltfData->meshes[meshIndex];
+
+			for (size_t primIndex = 0; primIndex < gltfMesh.primitives_count; ++primIndex)
+			{
+				const cgltf_primitive& gltfPrim = gltfMesh.primitives[primIndex];
+
+				meshAsset.indices.resize(gltfPrim.indices->count);
+				meshAsset.vertices.resize(gltfPrim.attributes[0].data->count);
+
+				if (gltfPrim.indices->component_type == cgltf_component_type_r_32u)
+				{
+					memcpy(meshAsset.indices.data(), CGLTFGetDataPointer<uint32_t>(gltfPrim.indices), sizeof(uint32_t) * gltfPrim.indices->count);
+				}
+				else if (gltfPrim.indices->component_type == cgltf_component_type_r_16u)
+				{
+					uint16_t* indices_ptr = CGLTFGetDataPointer<uint16_t>(gltfPrim.indices);
+
+					for (size_t i = 0; i < gltfPrim.indices->count; ++i)
+					{
+						meshAsset.indices[i] = indices_ptr[i];
+					}
+				}
+
+				for (size_t attrIndex = 0; attrIndex < gltfPrim.attributes_count; ++attrIndex)
+				{
+					const cgltf_attribute& gltfAttr = gltfPrim.attributes[attrIndex];
+
+					switch (gltfAttr.type)
+					{
+					case cgltf_attribute_type_position:
+					{
+						glm::vec3* srcPtr = CGLTFGetDataPointer<glm::vec3>(gltfAttr.data);
+						
+						for (size_t vertIndex = 0; vertIndex < gltfAttr.data->count; ++vertIndex)
+						{
+							meshAsset.vertices[vertIndex].position = srcPtr[vertIndex];
+						}
+					} break;
+					}
+				}
+			}
+		}
+
+		cgltf_free(gltfData);
+		return meshAsset;
+	}
+
+}

@@ -3,15 +3,18 @@
 #include "Renderer/CPUPathtracer.h"
 
 #include "Renderer/RaytracingUtils.h"
+#include "Core/Assets/AssetLoader.h"
 
 Scene::Scene()
 {
+	// Camera Controller
 	m_CameraController = CameraController(Camera(
 		glm::vec3(0.0f, 2.0f, 0.0f), // Eye position
 		glm::vec3(0.0f, 2.0f, 1.0f), // Look at position
 		60.0f // Vertical FOV in degrees
 	));
 
+	// Plane
 	Primitive plane = {
 		.type = PrimitiveType_Plane,
 		.plane = {
@@ -20,8 +23,9 @@ Scene::Scene()
 		}
 	};
 	Material planeMaterial = Material::MakeSpecular(glm::vec3(0.5f), 0.5f);
-	m_SceneNodes.push_back({ plane, planeMaterial });
+	m_SceneNodes.emplace_back(plane, planeMaterial);
 
+	// Red sphere
 	Primitive redSphere = {
 		.type = PrimitiveType_Sphere,
 		.sphere = {
@@ -30,8 +34,9 @@ Scene::Scene()
 		}
 	};
 	Material redSphereMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.1f, 0.1f));
-	m_SceneNodes.push_back({ redSphere, redSphereMaterial });
+	m_SceneNodes.emplace_back(redSphere, redSphereMaterial);
 
+	// Blue sphere
 	Primitive blueSphere = {
 		.type = PrimitiveType_Sphere,
 		.sphere = {
@@ -40,8 +45,9 @@ Scene::Scene()
 		}
 	};
 	Material blueSphereMaterial = Material::MakeDiffuse(glm::vec3(0.1f, 0.1f, 0.9f));
-	m_SceneNodes.push_back({ blueSphere, blueSphereMaterial });
+	m_SceneNodes.emplace_back(blueSphere, blueSphereMaterial);
 
+	// Green AABB
 	Primitive greenAABB = {
 		.type = PrimitiveType_AABB,
 		.aabb = {
@@ -50,8 +56,9 @@ Scene::Scene()
 		}
 	};
 	Material greenAABBMaterial = Material::MakeSpecular(glm::vec3(0.1f, 0.9f, 0.1f), 0.3f);
-	m_SceneNodes.push_back({ greenAABB, greenAABBMaterial });
+	m_SceneNodes.emplace_back(greenAABB, greenAABBMaterial);
 
+	// Glass sphere
 	Primitive glassSphere = {
 		.type = PrimitiveType_Sphere,
 		.sphere = {
@@ -60,7 +67,12 @@ Scene::Scene()
 		}
 	};
 	Material glassSphereMaterial = Material::MakeRefractive(glm::vec3(0.8f), 0.0f, 1.0f, 1.517f, glm::vec3(0.1f, 0.1f, 0.9f));
-	m_SceneNodes.push_back({ glassSphere, glassSphereMaterial });
+	m_SceneNodes.emplace_back(glassSphere, glassSphereMaterial);
+
+	// Dragon
+	MeshAsset dragonMesh = AssetLoader::LoadGLTF("Assets/GLTF/Dragon/DragonAttenuation.gltf");
+	Material dragonMaterial = Material::MakeRefractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.8f, 0.8f));
+	m_SceneNodes.emplace_back(dragonMesh, dragonMaterial);
 }
 
 void Scene::Update(float dt)
@@ -71,42 +83,62 @@ void Scene::Update(float dt)
 void Scene::Render()
 {
 	CPUPathtracer::BeginScene(m_CameraController.GetCamera());
-	CPUPathtracer::Render(this);
+	CPUPathtracer::Render(*this);
 	CPUPathtracer::EndScene();
 }
 
-HitSurfaceData Scene::Intersect(Ray& ray)
+HitSurfaceData Scene::TraceRay(Ray& ray) const
 {
 	HitSurfaceData hitInfo = {};
+	uint32_t primitiveID = ~0u;
 
 	for (uint32_t i = 0; i < m_SceneNodes.size(); ++i)
 	{
-		Primitive& objectPrim = m_SceneNodes[i].prim;
-
-		switch (objectPrim.type)
+		if (m_SceneNodes[i].hasBVH)
 		{
-		case PrimitiveType_Triangle: if (RTUtil::Intersect(objectPrim.tri, ray)) { hitInfo.objIdx = i; }; break;
-		case PrimitiveType_Sphere: if (RTUtil::Intersect(objectPrim.sphere, ray)) { hitInfo.objIdx = i; }; break;
-		case PrimitiveType_Plane: if (RTUtil::Intersect(objectPrim.plane, ray)) { hitInfo.objIdx = i; }; break;
-		case PrimitiveType_AABB: if (RTUtil::Intersect(objectPrim.aabb, ray)) { hitInfo.objIdx = i; }; break;
-		default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
+			const BVH& objectBVH = m_SceneNodes[i].boundingVolumeHierarchy;
+			primitiveID = objectBVH.TraceRay(ray);
+
+			if (primitiveID != ~0u)
+				hitInfo.objIdx = i;
+		}
+		else
+		{
+			const Primitive& objectPrim = m_SceneNodes[i].primitive;
+
+			switch (objectPrim.type)
+			{
+			case PrimitiveType_Triangle: if (RTUtil::Intersect(objectPrim.tri, ray)) { hitInfo.objIdx = i; }; break;
+			case PrimitiveType_Sphere: if (RTUtil::Intersect(objectPrim.sphere, ray)) { hitInfo.objIdx = i; }; break;
+			case PrimitiveType_Plane: if (RTUtil::Intersect(objectPrim.plane, ray)) { hitInfo.objIdx = i; }; break;
+			case PrimitiveType_AABB: if (RTUtil::Intersect(objectPrim.aabb, ray)) { hitInfo.objIdx = i; }; break;
+			default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
+			}
 		}
 	}
 
 	if (hitInfo.objIdx != ~0u)
 	{
 		hitInfo.pos = ray.origin + ray.dir * ray.t;
-		hitInfo.objMat = m_SceneNodes[hitInfo.objIdx].mat;
+		hitInfo.objMat = m_SceneNodes[hitInfo.objIdx].material;
 
-		Primitive& hitPrim = m_SceneNodes[hitInfo.objIdx].prim;
-
-		switch (hitPrim.type)
+		if (m_SceneNodes[hitInfo.objIdx].hasBVH)
 		{
-		case PrimitiveType_Triangle: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.tri, hitInfo.pos); break;
-		case PrimitiveType_Sphere: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.sphere, hitInfo.pos); break;
-		case PrimitiveType_Plane: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.plane, hitInfo.pos); break;
-		case PrimitiveType_AABB: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.aabb, hitInfo.pos); break;
-		default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
+			const BVH& hitBVH = m_SceneNodes[hitInfo.objIdx].boundingVolumeHierarchy;
+			hitInfo.normal = RTUtil::GetHitNormal(hitBVH.GetTriangle(primitiveID), hitInfo.pos);
+		}
+		else
+		{
+			const Primitive& hitPrim = m_SceneNodes[hitInfo.objIdx].primitive;
+
+			switch (hitPrim.type)
+			{
+			case PrimitiveType_Triangle: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.tri, hitInfo.pos); break;
+			case PrimitiveType_Sphere: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.sphere, hitInfo.pos); break;
+			case PrimitiveType_Plane: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.plane, hitInfo.pos); break;
+			case PrimitiveType_AABB: hitInfo.normal = RTUtil::GetHitNormal(hitPrim.aabb, hitInfo.pos); break;
+			default: FATAL_ERROR("Scene::Intersect", "Invalid primitive type"); break;
+			}
 		}
 	}
 
