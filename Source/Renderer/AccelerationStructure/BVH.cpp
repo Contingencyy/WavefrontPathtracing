@@ -36,8 +36,9 @@ void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector
 	rootNode.leftFirst = 0;
 	rootNode.numPrimitives = static_cast<uint32_t>(m_Triangles.size());
 
-	CalculateNodeMinMax(rootNode);
-	SubdivideNode(rootNode, 0);
+	glm::vec3 centroidMin, centroidMax;
+	CalculateNodeMinMax(rootNode, centroidMin, centroidMax);
+	SubdivideNode(rootNode, centroidMin, centroidMax, 0);
 }
 
 uint32_t BVH::TraceRay(Ray& ray) const
@@ -112,20 +113,27 @@ Triangle BVH::GetTriangle(uint32_t primID) const
 	return m_Triangles[m_TriangleIndices[primID]];
 }
 
-void BVH::CalculateNodeMinMax(BVHNode& bvhNode)
+void BVH::CalculateNodeMinMax(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax)
 {
 	bvhNode.aabbMin = glm::vec3(FLT_MAX);
 	bvhNode.aabbMax = glm::vec3(-FLT_MAX);
+	centroidMin = glm::vec3(FLT_MAX);
+	centroidMax = glm::vec3(-FLT_MAX);
 
-	for (uint32_t i = bvhNode.leftFirst; i < bvhNode.leftFirst + bvhNode.numPrimitives; ++i)
+	for (uint32_t triIndex = bvhNode.leftFirst; triIndex < bvhNode.leftFirst + bvhNode.numPrimitives; ++triIndex)
 	{
-		const Triangle& triangle = m_Triangles[m_TriangleIndices[i]];
+		const Triangle& triangle = m_Triangles[m_TriangleIndices[triIndex]];
 
 		glm::vec3 triangleMin, triangleMax;
 		GetTriangleMinMax(triangle, triangleMin, triangleMax);
 
 		bvhNode.aabbMin = glm::min(bvhNode.aabbMin, triangleMin);
 		bvhNode.aabbMax = glm::max(bvhNode.aabbMax, triangleMax);
+
+		const glm::vec3& centroid = m_TriangleCentroids[m_TriangleIndices[triIndex]];
+
+		centroidMin = glm::min(centroidMin, centroid);
+		centroidMax = glm::max(centroidMax, centroid);
 	}
 }
 
@@ -134,112 +142,43 @@ float BVH::CalculateNodeCost(const BVHNode& bvhNode) const
 	return bvhNode.numPrimitives * GetAABBVolume(bvhNode.aabbMin, bvhNode.aabbMax);
 }
 
-void BVH::CalculateNodeCentroidMinMax(const BVHNode& bvhNode, glm::vec3& outAABBMin, glm::vec3& outAABBMax) const
+void BVH::SubdivideNode(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax, uint32_t depth)
 {
-	outAABBMin = glm::vec3(1e30f), outAABBMax = glm::vec3(-1e30f);
-	for (uint32_t i = bvhNode.leftFirst; i < bvhNode.leftFirst + bvhNode.numPrimitives; ++i)
+	uint32_t splitAxis = 0;
+	uint32_t splitPosition = 0.0f;
+	float splitCost = FindBestSplitPlane(bvhNode, centroidMin, centroidMax, splitAxis, splitPosition);
+
+	// If subdivideToSinglePrimitive is enabled in the build options, we always reduce the BVH down to a single primitive per leaf-node
+	if (m_BuildOptions.subdivideToSinglePrimitive)
 	{
-		const glm::vec3& triangleCentroid = m_TriangleCentroids[m_TriangleIndices[i]];
-		outAABBMin = glm::min(outAABBMin, triangleCentroid);
-		outAABBMax = glm::max(outAABBMax, triangleCentroid);
+		if (bvhNode.numPrimitives == 1)
+			return;
 	}
-}
-
-float BVH::FindBestSplitPlane(BVHNode& bvhNode, uint32_t& outAxis, float& outSplitPosition)
-{
-	float cheapestCost = FLT_MAX;
-
-	// For SAH, we do not care about the bounding box of the node itself, but the bounding box that contains all centroids
-	// Results in slightly better BVHs
-	glm::vec3 bvhNodeCentroidMin, bvhNodeCentroidMax;
-	CalculateNodeCentroidMinMax(bvhNode, bvhNodeCentroidMin, bvhNodeCentroidMax);
-	const glm::vec3 extent = bvhNodeCentroidMax - bvhNodeCentroidMin;
-
-	// Determine longest axis if we chose to not evaluate all 3 axis
-	if (!m_BuildOptions.evaluateAllAxes)
+	// Otherwise we compare the cost of doing the split to the parent node cost, and terminate if a split is not worth it
+	else
 	{
-		// Determine which axis is the longest for the current node
-		outAxis = 0;
-		if (extent.y > extent.x)
-			outAxis = 1;
-		if (extent.z > extent[outAxis])
-			outAxis = 2;
+		float parentNodeCost = CalculateNodeCost(bvhNode);
+		if (splitCost >= parentNodeCost)
+			return;
 	}
 
-	// Loop through each split interval and each axis, determine the cost for each split, and pick the cheapest one
-	for (uint32_t splitInterval = 0; splitInterval < 8; ++splitInterval)
-	{
-		if (!m_BuildOptions.evaluateAllAxes)
-		{
-			float axisWidth = bvhNodeCentroidMax[outAxis] - bvhNodeCentroidMin[outAxis];
-			float splitPosition = axisWidth * (static_cast<float>(splitInterval) / 8.0f) + bvhNodeCentroidMin[outAxis];
-			float splitCost = EvaluateSAHCost(bvhNode, outAxis, splitPosition);
-
-			if (splitCost < cheapestCost)
-			{
-				cheapestCost = splitCost;
-				outAxis = outAxis;
-				outSplitPosition = splitPosition;
-			}
-		}
-		else
-		{
-			for (uint32_t currAxis = 0; currAxis < 3; ++currAxis)
-			{
-				float axisWidth = bvhNodeCentroidMax[currAxis] - bvhNodeCentroidMin[currAxis];
-				float splitPosition = axisWidth * (static_cast<float>(splitInterval) / 8.0f) + bvhNodeCentroidMin[currAxis];
-				float splitCost = EvaluateSAHCost(bvhNode, currAxis, splitPosition);
-
-				if (splitCost < cheapestCost)
-				{
-					cheapestCost = splitCost;
-					outAxis = currAxis;
-					outSplitPosition = splitPosition;
-				}
-			}
-		}
-	}
-
-	return cheapestCost;
-}
-
-void BVH::SubdivideNode(BVHNode& bvhNode, uint32_t depth)
-{
-	if (bvhNode.numPrimitives <= 2)
-		return;
-
-	float parentNodeCost = CalculateNodeCost(bvhNode);
-
-	uint32_t axis = 0;
-	float splitPosition = 0.0f;
-	float cheapestCost = FindBestSplitPlane(bvhNode, axis, splitPosition);
-
-	// If there was no cheaper split than the parent split, its not worth to keep splitting, terminate
-	if (cheapestCost >= parentNodeCost)
-		return;
-
-	SplitNodeAlongAxisAtPosition(bvhNode, axis, splitPosition, depth);
-}
-
-void BVH::SplitNodeAlongAxisAtPosition(BVHNode& bvhNode, uint32_t axis, float splitPosition, uint32_t depth)
-{
 	// Indices to the first and last triangle indices in this node
 	int32_t i = bvhNode.leftFirst;
 	int32_t j = i + bvhNode.numPrimitives - 1;
+	float binScale = m_BuildOptions.numIntervals / (centroidMax[splitAxis] - centroidMin[splitAxis]);
 
 	// This will sort the triangles along the axis and split position
 	while (i <= j)
 	{
-		// If the center position of the current triangle is on the left of the split position, continue to the next triangle
-		if (m_TriangleCentroids[m_TriangleIndices[i]][axis] < splitPosition)
-		{
+		const glm::vec3& centroid = m_TriangleCentroids[m_TriangleIndices[i]];
+
+		int32_t binIndex = glm::min((int32_t)m_BuildOptions.numIntervals - 1,
+			(int32_t)((centroid[splitAxis] - centroidMin[splitAxis]) * binScale));
+
+		if (binIndex < splitPosition)
 			i++;
-		}
-		// If the center position of the current triangle is on the right, swap the current triangle index with one at the end, and then decrease the end index
 		else
-		{
 			std::swap(m_TriangleIndices[i], m_TriangleIndices[j--]);
-		}
 	}
 
 	// Determine how many nodes are on the left side of the split axis and position
@@ -264,53 +203,83 @@ void BVH::SplitNodeAlongAxisAtPosition(BVHNode& bvhNode, uint32_t axis, float sp
 	bvhNode.leftFirst = leftChildNodeIndex;
 	bvhNode.numPrimitives = 0;
 
-	// Calculate the node min max for the left and right child nodes
-	CalculateNodeMinMax(leftChildNode);
-	CalculateNodeMinMax(rightChildNode);
+	// Calculate min/max and subdivide left child node
+	CalculateNodeMinMax(leftChildNode, centroidMin, centroidMax);
+	SubdivideNode(leftChildNode, centroidMin, centroidMax, depth + 1);
 
-	// Subdivide the left and right child nodes
-	SubdivideNode(leftChildNode, depth + 1);
-	SubdivideNode(rightChildNode, depth + 1);
+	// Calculate min/max and subdivide right child node
+	CalculateNodeMinMax(rightChildNode, centroidMin, centroidMax);
+	SubdivideNode(rightChildNode, centroidMin, centroidMax, depth + 1);
 }
 
-float BVH::EvaluateSAHCost(BVHNode& bvhNode, uint32_t axis, float splitPosition)
+float BVH::FindBestSplitPlane(BVHNode& bvhNode, const glm::vec3& centroidMin, const glm::vec3& centroidMax, uint32_t& outAxis, uint32_t& outSplitPosition)
 {
-	// Set up the left and right side bounding min/max
-	glm::vec3 leftAABBMin(FLT_MAX), leftAABBMax(-FLT_MAX);
-	glm::vec3 rightAABBMin(FLT_MAX), rightAABBMax(-FLT_MAX);
+	float cheapestCost = FLT_MAX;
 
-	uint32_t numPrimitivesLeft = 0, numPrimitivesRight = 0;
-
-	// Go through each triangle of the current node and split it along the axis and split position
-	for (uint32_t triIndex = bvhNode.leftFirst; triIndex < bvhNode.leftFirst + bvhNode.numPrimitives; ++triIndex)
+	for (uint32_t axis = 0; axis < 3; ++axis)
 	{
-		const Triangle& triangle = m_Triangles[m_TriangleIndices[triIndex]];
-		const glm::vec3& triangleCentroid = m_TriangleCentroids[m_TriangleIndices[triIndex]];
+		float boundsMin = centroidMin[axis], boundsMax = centroidMax[axis];
+		if (boundsMin == boundsMax)
+			continue;
 
-		// Split by the triangle's centroid, and grow the corresponding AABB for the side the triangle is in
-		if (triangleCentroid[axis] < splitPosition)
+		std::vector<BVHBin> bvhBins(m_BuildOptions.numIntervals);
+		float binScale = m_BuildOptions.numIntervals / (boundsMax - boundsMin);
+
+		// Grow the bins
+		for (uint32_t triIndex = bvhNode.leftFirst; triIndex < bvhNode.leftFirst + bvhNode.numPrimitives; ++triIndex)
 		{
-			GrowAABB(leftAABBMin, leftAABBMax, triangle.p0);
-			GrowAABB(leftAABBMin, leftAABBMax, triangle.p1);
-			GrowAABB(leftAABBMin, leftAABBMax, triangle.p2);
+			const Triangle& triangle = m_Triangles[m_TriangleIndices[triIndex]];
+			const glm::vec3& centroid = m_TriangleCentroids[m_TriangleIndices[triIndex]];
 
-			numPrimitivesLeft++;
+			int32_t binIndex = glm::min((int32_t)m_BuildOptions.numIntervals - 1,
+				(int32_t)((centroid[axis] - boundsMin) * binScale));
+
+			BVHBin& bvhBin = bvhBins[binIndex];
+			bvhBin.numPrimitives++;
+			GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p0);
+			GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p1);
+			GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p2);
 		}
-		else
-		{
-			GrowAABB(rightAABBMin, rightAABBMax, triangle.p0);
-			GrowAABB(rightAABBMin, rightAABBMax, triangle.p1);
-			GrowAABB(rightAABBMin, rightAABBMax, triangle.p2);
 
-			numPrimitivesRight++;
+		// Get all necessary data for the planes between the bins
+		std::vector<float> leftArea(m_BuildOptions.numIntervals - 1), rightArea(m_BuildOptions.numIntervals - 1);
+		
+		glm::vec3 leftAABBMin(FLT_MAX), leftAABBMax(-FLT_MAX);
+		glm::vec3 rightAABBMin(FLT_MAX), rightAABBMax(-FLT_MAX);
+
+		uint32_t leftSum = 0, rightSum = 0;
+
+		for (uint32_t binIndex = 0; binIndex < m_BuildOptions.numIntervals - 1; ++binIndex)
+		{
+			const BVHBin& leftBin = bvhBins[binIndex];
+
+			leftSum += leftBin.numPrimitives;
+			GrowAABB(leftAABBMin, leftAABBMax, leftBin.aabbMin, leftBin.aabbMax);
+			leftArea[binIndex] = leftSum * GetAABBVolume(leftAABBMin, leftAABBMax);
+
+			const BVHBin& rightBin = bvhBins[m_BuildOptions.numIntervals - 1 - binIndex];
+			rightSum += rightBin.numPrimitives;
+			GrowAABB(rightAABBMin, rightAABBMax, rightBin.aabbMin, rightBin.aabbMax);
+			rightArea[m_BuildOptions.numIntervals - 2 - binIndex] = rightSum * GetAABBVolume(rightAABBMin, rightAABBMax);
+		}
+
+		// Evaluate SAH cost for each plane
+		binScale = (boundsMax - boundsMin) / m_BuildOptions.numIntervals;
+
+		for (uint32_t binIndex = 0; binIndex < m_BuildOptions.numIntervals - 1; ++binIndex)
+		{
+			float planeCost = leftArea[binIndex] + rightArea[binIndex];
+
+			if (planeCost < cheapestCost)
+			{
+				outAxis = axis;
+				outSplitPosition = binIndex + 1;
+				cheapestCost = planeCost;
+			}
 		}
 	}
 
-	// Determine the total cost of the split
-	float splitCost = numPrimitivesLeft * GetAABBVolume(leftAABBMin, leftAABBMax) +
-		numPrimitivesRight * GetAABBVolume(rightAABBMin, rightAABBMax);
-
-	return splitCost;
+	return cheapestCost;
 }
 
 glm::vec3 BVH::GetTriangleCentroid(const Triangle& triangle) const
@@ -337,4 +306,10 @@ void BVH::GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& pos)
 {
 	aabbMin = glm::min(aabbMin, pos);
 	aabbMax = glm::max(aabbMax, pos);
+}
+
+void BVH::GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& otherMin, const glm::vec3& otherMax) const
+{
+	aabbMin = glm::min(aabbMin, otherMin);
+	aabbMax = glm::max(aabbMax, otherMax);
 }

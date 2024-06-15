@@ -7,8 +7,9 @@ class BVH
 public:
 	struct BuildOptions
 	{
-		uint32_t numSplitPlanes = 8;
+		uint32_t numIntervals = 8;
 		bool evaluateAllAxes = true;
+		bool subdivideToSinglePrimitive = false;
 	};
 
 public:
@@ -26,21 +27,26 @@ private:
 		union { struct { glm::vec3 aabbMax; uint32_t numPrimitives; }; __m128 aabbMax4 = {}; };
 	};
 
-private:
-	void CalculateNodeMinMax(BVHNode& bvhNode);
-	float CalculateNodeCost(const BVHNode& bvhNode) const;
-	void CalculateNodeCentroidMinMax(const BVHNode& bvhNode, glm::vec3& outAABBMin, glm::vec3& outAABBMax) const;
+	struct BVHBin
+	{
+		glm::vec3 aabbMin = glm::vec3(FLT_MAX);
+		glm::vec3 aabbMax = glm::vec3(-FLT_MAX);
+		uint32_t numPrimitives = 0;
+	};
 
-	float FindBestSplitPlane(BVHNode& bvhNode, uint32_t& outAxis, float& outSplitPosition);
-	void SubdivideNode(BVHNode& bvhNode, uint32_t depth);
-	void SplitNodeAlongAxisAtPosition(BVHNode& bvhNode, uint32_t axis, float splitPosition, uint32_t depth);
-	float EvaluateSAHCost(BVHNode& bvhNode, uint32_t axis, float splitPosition);
+private:
+	void CalculateNodeMinMax(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax);
+	float CalculateNodeCost(const BVHNode& bvhNode) const;
+
+	void SubdivideNode(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax, uint32_t depth);
+	float FindBestSplitPlane(BVHNode& bvhNode, const glm::vec3& centroidMin, const glm::vec3& centroidMax, uint32_t& outAxis, uint32_t& outSplitPosition);
 
 	glm::vec3 GetTriangleCentroid(const Triangle& bvhTriangle) const;
 	void GetTriangleMinMax(const Triangle& bvhTriangle, glm::vec3& outMin, glm::vec3& outMax) const;
-
 	float GetAABBVolume(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const;
+
 	void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& pos) const;
+	void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& otherMin, const glm::vec3& otherMax) const;
 
 private:
 	BuildOptions m_BuildOptions = {};

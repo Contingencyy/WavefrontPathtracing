@@ -88,7 +88,7 @@ namespace CPUPathtracer
 	{
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Next event estimation
-		// TODO: Settings for how many intervals the SAH BVH build should test
+		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc.
 		// TODO: Bottom and top-level acceleration structures, BVH transforms
 		// TODO: Separate BVH Builder and BVH's, which should just contain the actual data after a finished BVH build
 		// TODO: Profiling for BVH builds, more build options
