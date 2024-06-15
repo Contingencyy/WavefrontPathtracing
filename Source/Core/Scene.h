@@ -16,7 +16,8 @@ struct SceneObject
 
 	SceneObject(const MeshAsset& mesh, const Material& mat)
 	{
-		boundingVolumeHierarchy.Build(mesh.vertices, mesh.indices, BVH::BuildHeuristic_SAH_Intervals);
+		BVH::BuildOptions buildOptions = {};
+		boundingVolumeHierarchy.Build(mesh.vertices, mesh.indices, buildOptions);
 		material = mat;
 		hasBVH = true;
 	}

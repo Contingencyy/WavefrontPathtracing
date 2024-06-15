@@ -289,7 +289,10 @@ int WINAPI wWinMain(
 	CreateConsole();
 
 	std::string cmdLineStr = WStringToString(lpCmdLine);
-	CommandLineArgs cmdArgs = ParseCommandLineArgs(cmdLineStr);
+	CommandLineArgs cmdArgs = {};
+
+	if (!cmdLineStr.empty())
+		cmdArgs = ParseCommandLineArgs(cmdLineStr);
 
 	LOG_INFO("Application", "Started with arguments: {}", cmdLineStr);
 	

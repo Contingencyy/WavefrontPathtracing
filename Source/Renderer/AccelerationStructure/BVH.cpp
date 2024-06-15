@@ -2,9 +2,9 @@
 #include "BVH.h"
 #include "Renderer/RaytracingUtils.h"
 
-void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector<uint32_t>& indices, BuildHeuristic buildHeuristic)
+void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector<uint32_t>& indices, const BuildOptions& buildOptions)
 {
-	m_BuildHeuristic = buildHeuristic;
+	m_BuildOptions = buildOptions;
 
 	m_Triangles.resize(indices.size() / 3);
 	m_TriangleIndices.resize(m_Triangles.size());
@@ -129,97 +129,96 @@ void BVH::CalculateNodeMinMax(BVHNode& bvhNode)
 	}
 }
 
+float BVH::CalculateNodeCost(const BVHNode& bvhNode) const
+{
+	return bvhNode.numPrimitives * GetAABBVolume(bvhNode.aabbMin, bvhNode.aabbMax);
+}
+
+void BVH::CalculateNodeCentroidMinMax(const BVHNode& bvhNode, glm::vec3& outAABBMin, glm::vec3& outAABBMax) const
+{
+	outAABBMin = glm::vec3(1e30f), outAABBMax = glm::vec3(-1e30f);
+	for (uint32_t i = bvhNode.leftFirst; i < bvhNode.leftFirst + bvhNode.numPrimitives; ++i)
+	{
+		const glm::vec3& triangleCentroid = m_TriangleCentroids[m_TriangleIndices[i]];
+		outAABBMin = glm::min(outAABBMin, triangleCentroid);
+		outAABBMax = glm::max(outAABBMax, triangleCentroid);
+	}
+}
+
+float BVH::FindBestSplitPlane(BVHNode& bvhNode, uint32_t& outAxis, float& outSplitPosition)
+{
+	float cheapestCost = FLT_MAX;
+
+	// For SAH, we do not care about the bounding box of the node itself, but the bounding box that contains all centroids
+	// Results in slightly better BVHs
+	glm::vec3 bvhNodeCentroidMin, bvhNodeCentroidMax;
+	CalculateNodeCentroidMinMax(bvhNode, bvhNodeCentroidMin, bvhNodeCentroidMax);
+	const glm::vec3 extent = bvhNodeCentroidMax - bvhNodeCentroidMin;
+
+	// Determine longest axis if we chose to not evaluate all 3 axis
+	if (!m_BuildOptions.evaluateAllAxes)
+	{
+		// Determine which axis is the longest for the current node
+		outAxis = 0;
+		if (extent.y > extent.x)
+			outAxis = 1;
+		if (extent.z > extent[outAxis])
+			outAxis = 2;
+	}
+
+	// Loop through each split interval and each axis, determine the cost for each split, and pick the cheapest one
+	for (uint32_t splitInterval = 0; splitInterval < 8; ++splitInterval)
+	{
+		if (!m_BuildOptions.evaluateAllAxes)
+		{
+			float axisWidth = bvhNodeCentroidMax[outAxis] - bvhNodeCentroidMin[outAxis];
+			float splitPosition = axisWidth * (static_cast<float>(splitInterval) / 8.0f) + bvhNodeCentroidMin[outAxis];
+			float splitCost = EvaluateSAHCost(bvhNode, outAxis, splitPosition);
+
+			if (splitCost < cheapestCost)
+			{
+				cheapestCost = splitCost;
+				outAxis = outAxis;
+				outSplitPosition = splitPosition;
+			}
+		}
+		else
+		{
+			for (uint32_t currAxis = 0; currAxis < 3; ++currAxis)
+			{
+				float axisWidth = bvhNodeCentroidMax[currAxis] - bvhNodeCentroidMin[currAxis];
+				float splitPosition = axisWidth * (static_cast<float>(splitInterval) / 8.0f) + bvhNodeCentroidMin[currAxis];
+				float splitCost = EvaluateSAHCost(bvhNode, currAxis, splitPosition);
+
+				if (splitCost < cheapestCost)
+				{
+					cheapestCost = splitCost;
+					outAxis = currAxis;
+					outSplitPosition = splitPosition;
+				}
+			}
+		}
+	}
+
+	return cheapestCost;
+}
+
 void BVH::SubdivideNode(BVHNode& bvhNode, uint32_t depth)
 {
-	if (m_BuildHeuristic == BuildHeuristic_NaiveSplit)
-	{
-		// We can stop splitting, already 2 or less primitives in this node, making this a leaf node
-		if (bvhNode.numPrimitives <= 2)
-			return;
+	if (bvhNode.numPrimitives <= 2)
+		return;
 
-		const glm::vec3 extent = bvhNode.aabbMax - bvhNode.aabbMin;
-		uint32_t axis = 0;
+	float parentNodeCost = CalculateNodeCost(bvhNode);
 
-		// Determine which axis is the longest for the current node
-		if (extent.y > extent.x)
-			axis = 1;
-		if (extent.z > extent[axis])
-			axis = 2;
+	uint32_t axis = 0;
+	float splitPosition = 0.0f;
+	float cheapestCost = FindBestSplitPlane(bvhNode, axis, splitPosition);
 
-		// Split the node along the longest axis
-		float splitPosition = bvhNode.aabbMin[axis] + extent[axis] * 0.5f;
-		SplitNodeAlongAxisAtPosition(bvhNode, axis, splitPosition, depth);
-	}
-	else if (m_BuildHeuristic == BuildHeuristic_SAH_Intervals)
-	{
-		float parentNodeCost = bvhNode.numPrimitives * GetAABBVolume(bvhNode.aabbMin, bvhNode.aabbMax);
+	// If there was no cheaper split than the parent split, its not worth to keep splitting, terminate
+	if (cheapestCost >= parentNodeCost)
+		return;
 
-		float cheapestCost = FLT_MAX;
-		uint32_t cheapestSplitAxis = 0;
-		float cheapestSplitPosition = 0.0f;
-
-		// Loop through each split interval and each axis, determine the cost for each split, and pick the cheapest one
-		for (uint32_t splitInterval = 0; splitInterval < 8; ++splitInterval)
-		{
-			for (uint32_t currAxis = 0; currAxis < 3; ++currAxis)
-			{
-				float axisWidth = bvhNode.aabbMax[currAxis] - bvhNode.aabbMin[currAxis];
-				float splitPosition = axisWidth * (static_cast<float>(splitInterval) / 8.0f) + bvhNode.aabbMin[currAxis];
-				float splitCost = EvaluateSAHCost(bvhNode, currAxis, splitPosition);
-
-				if (splitCost < cheapestCost)
-				{
-					cheapestCost = splitCost;
-					cheapestSplitAxis = currAxis;
-					cheapestSplitPosition = splitPosition;
-				}
-			}
-		}
-
-		// If there was no cheaper split than the parent split, its not worth to keep splitting, terminate
-		if (cheapestCost >= parentNodeCost)
-			return;
-
-		SplitNodeAlongAxisAtPosition(bvhNode, cheapestSplitAxis, cheapestSplitPosition, depth);
-	}
-	else if (m_BuildHeuristic == BuildHeuristic_SAH_Primitives)
-	{
-		float parentNodeCost = bvhNode.numPrimitives * GetAABBVolume(bvhNode.aabbMin, bvhNode.aabbMax);
-
-		float cheapestCost = FLT_MAX;
-		uint32_t cheapestSplitAxis = 0;
-		float cheapestSplitPosition = 0.0f;
-
-		// Loop through each primitive and each axis, determine the cost for each split, and pick the cheapest one
-		for (uint32_t triIndex = bvhNode.leftFirst; triIndex < bvhNode.leftFirst + bvhNode.numPrimitives; ++triIndex)
-		{
-			const glm::vec3& triangleCentroid = m_TriangleCentroids[m_TriangleIndices[triIndex]];
-
-			for (uint32_t currAxis = 0; currAxis < 3; ++currAxis)
-			{
-				float axisWidth = bvhNode.aabbMax[currAxis] - bvhNode.aabbMin[currAxis];
-				float splitPosition = triangleCentroid[currAxis];
-				float splitCost = EvaluateSAHCost(bvhNode, currAxis, splitPosition);
-
-				if (splitCost < cheapestCost)
-				{
-					cheapestCost = splitCost;
-					cheapestSplitAxis = currAxis;
-					cheapestSplitPosition = splitPosition;
-				}
-			}
-		}
-
-		// If there was no cheaper split than the parent split, its not worth to keep splitting, terminate
-		if (cheapestCost >= parentNodeCost)
-			return;
-
-		SplitNodeAlongAxisAtPosition(bvhNode, cheapestSplitAxis, cheapestSplitPosition, depth);
-	}
-	else
-	{
-		FATAL_ERROR("BVH::SubdivideNode", "Invalid build heuristic");
-	}
+	SplitNodeAlongAxisAtPosition(bvhNode, axis, splitPosition, depth);
 }
 
 void BVH::SplitNodeAlongAxisAtPosition(BVHNode& bvhNode, uint32_t axis, float splitPosition, uint32_t depth)

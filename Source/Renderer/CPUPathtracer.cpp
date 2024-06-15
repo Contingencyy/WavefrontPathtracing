@@ -86,11 +86,13 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(const Scene& scene, Ray& ray)
 	{
-		// FIX: Crash when command line is missing --width and --height
-		// TODO: Assets, loading and storing BVH's
+		// TODO: Make any resolution work with the multi-threaded rendering dispatch
+		// TODO: Next event estimation
 		// TODO: Settings for how many intervals the SAH BVH build should test
 		// TODO: Bottom and top-level acceleration structures, BVH transforms
-		// TODO: Next event estimation
+		// TODO: Separate BVH Builder and BVH's, which should just contain the actual data after a finished BVH build
+		// TODO: Profiling for BVH builds, more build options
+		// TODO: Assets, loading and storing BVH's
 		// TODO: GPU Pathtracer
 			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care
 			//		 whether the frame was rendered using the GPU or CPU pathtracer
@@ -99,7 +101,6 @@ namespace CPUPathtracer
 		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
 			// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
 			// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
-		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Window resizing and resolution resizing
 		// TODO: Timer avg/min/max
 		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
