@@ -91,7 +91,7 @@ namespace CPUPathtracer
 		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc.
 		// TODO: Bottom and top-level acceleration structures, BVH transforms
 		// TODO: Separate BVH Builder and BVH's, which should just contain the actual data after a finished BVH build
-		// TODO: Profiling for BVH builds, more build options
+		// TODO: Profiling for BVH builds and build times, more build options
 		// TODO: Assets, loading and storing BVH's
 		// TODO: GPU Pathtracer
 			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care

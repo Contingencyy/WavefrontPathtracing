@@ -8,8 +8,9 @@ public:
 	struct BuildOptions
 	{
 		uint32_t numIntervals = 8;
-		bool evaluateAllAxes = true;
 		bool subdivideToSinglePrimitive = false;
+		// Currently evaluateAllAxes does not do anything
+		bool evaluateAllAxes = false;
 	};
 
 public:

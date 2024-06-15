@@ -5,6 +5,8 @@
 #include "Renderer/RaytracingUtils.h"
 #include "Core/Assets/AssetLoader.h"
 
+#include "imgui/imgui.h"
+
 Scene::Scene()
 {
 	// Camera Controller
@@ -85,6 +87,15 @@ void Scene::Render()
 	CPUPathtracer::BeginScene(m_CameraController.GetCamera());
 	CPUPathtracer::Render(*this);
 	CPUPathtracer::EndScene();
+}
+
+void Scene::RenderUI()
+{
+	if (ImGui::Begin("Scene"))
+	{
+	}
+
+	ImGui::End();
 }
 
 HitSurfaceData Scene::TraceRay(Ray& ray) const

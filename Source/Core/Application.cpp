@@ -64,6 +64,7 @@ namespace Application
 		ImGui::End();
 
 		CPUPathtracer::RenderUI();
+		inst->activeScene.RenderUI();
 	}
 
 	static void Render()

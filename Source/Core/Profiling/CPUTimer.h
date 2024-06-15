@@ -7,17 +7,20 @@ class CPUTimer
 {
 
 public:
+	CPUTimer() = default;
 	CPUTimer(GlobalProfilingScope scope);
 	~CPUTimer();
 
 	void End();
+	float ElapsedInSeconds() const;
 
 private:
-	GlobalProfilingScope m_ProfilingScope;
+	GlobalProfilingScope m_ProfilingScope = GlobalProfilingScope_NumScopes;
 	bool m_Ended = false;
 
 	std::chrono::time_point<std::chrono::steady_clock> m_TimePointStart;
 	std::chrono::time_point<std::chrono::steady_clock> m_TimePointEnd;
+	float m_ElapsedSeconds = 0.0f;
 
 };
 

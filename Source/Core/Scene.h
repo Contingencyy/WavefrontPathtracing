@@ -50,6 +50,8 @@ public:
 	void Update(float dt);
 	void Render();
 
+	void RenderUI();
+
 	HitSurfaceData TraceRay(Ray& ray) const;
 
 private:
