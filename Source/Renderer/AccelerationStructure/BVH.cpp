@@ -46,12 +46,6 @@ void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector
 
 uint32_t BVH::TraceRay(Ray& ray) const
 {
-	// Make a copy of the original ray since we need to revert the transform once we are done tracing this BVH
-	Ray originalRay = ray;
-	ray.origin = m_WorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
-	ray.dir = m_WorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
-	ray.invDir = 1.0f / ray.dir;
-
 	uint32_t primitiveIndex = ~0u;
 
 	const BVHNode* bvhNode = &m_BVHNodes[0];
@@ -114,41 +108,17 @@ uint32_t BVH::TraceRay(Ray& ray) const
 		}
 	}
 
-	// Update the original ray's depth, and set the ray back to its original pre-transform state
-	originalRay.t = ray.t;
-	originalRay.bvhDepth = ray.bvhDepth;
-	ray = originalRay;
-
 	return primitiveIndex;
 }
 
-Triangle BVH::GetTriangle(uint32_t primID) const
+Triangle BVH::GetTriangle(uint32_t primitiveIndex) const
 {
-	return m_Triangles[m_TriangleIndices[primID]];
+	return m_Triangles[m_TriangleIndices[primitiveIndex]];
 }
 
-AABB BVH::GetWorldSpaceBoundingBox() const
+AABB BVH::GetLocalSpaceAABB() const
 {
-	return m_WorldSpaceBoundingBox;
-}
-
-void BVH::SetTransform(const glm::mat4& transform)
-{
-	// Set the world to local (bvh) transform, which will be used to transform the rays into the local space when tracing
-	m_WorldToLocalTransform = glm::inverse(transform);
-	
-	// Calculate the world space bounding box of the root node
-	glm::vec3 worldMin = m_BVHNodes[0].aabbMin, worldMax = m_BVHNodes[0].aabbMax;
-	m_WorldSpaceBoundingBox.pmin = glm::vec3(FLT_MAX);
-	m_WorldSpaceBoundingBox.pmax = glm::vec3(-FLT_MAX);
-
-	// Grow the world-space bounding box by the eight corners of the root node AABB, which is in local space
-	for (uint32_t i = 0; i < 8; ++i)
-	{
-		glm::vec3 worldPosition = transform *
-			glm::vec4(i & 1 ? worldMax.x : worldMin.x, i & 2 ? worldMax.y : worldMin.y, i & 4 ? worldMax.z : worldMin.z, 1.0f);
-		RTUtil::GrowAABB(m_WorldSpaceBoundingBox.pmin, m_WorldSpaceBoundingBox.pmax, worldPosition);
-	}
+	return { m_BVHNodes[0].aabbMin, m_BVHNodes[0].aabbMax };
 }
 
 void BVH::CalculateNodeMinMax(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax)

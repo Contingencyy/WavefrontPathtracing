@@ -68,8 +68,6 @@ struct HitSurfaceData
 
 	glm::vec3 pos = {};
 	glm::vec3 normal = {};
-
-	uint32_t primitiveID = ~0;
 };
 
 struct Ray

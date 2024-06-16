@@ -20,9 +20,7 @@ public:
 
 	uint32_t TraceRay(Ray& ray) const;
 	Triangle GetTriangle(uint32_t primID) const;
-	AABB GetWorldSpaceBoundingBox() const;
-	
-	void SetTransform(const glm::mat4& transform);
+	AABB GetLocalSpaceAABB() const;
 
 private:
 	struct BVHNode
@@ -47,9 +45,6 @@ private:
 
 private:
 	BuildOptions m_BuildOptions = {};
-
-	glm::mat4 m_WorldToLocalTransform = glm::identity<glm::mat4>();
-	AABB m_WorldSpaceBoundingBox = {};
 
 	std::vector<BVHNode> m_BVHNodes;
 	size_t m_CurrentNodeIndex = 0;

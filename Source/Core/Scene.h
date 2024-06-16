@@ -4,7 +4,7 @@
 
 // TODO: Can be removed at some point, scene does not need to be aware of renderer representations for meshes/objects
 #include "Renderer/RaytracingTypes.h"
-#include "Renderer/AccelerationStructure/BVH.h"
+#include "Renderer/AccelerationStructure/BVHInstance.h"
 #include "Renderer/AccelerationStructure/TLAS.h"
 
 struct SceneObject
@@ -15,7 +15,7 @@ struct SceneObject
 	bool hasBVH = false;
 	union
 	{
-		BVH boundingVolumeHierarchy = {};
+		BVHInstance bvhInstance = {};
 		Primitive primitive;
 	};
 
@@ -26,9 +26,8 @@ struct SceneObject
 		transform = transform * glm::mat4_cast(glm::quat(glm::radians(rot)));
 		transform = glm::scale(transform, scale);
 
-		BVH::BuildOptions buildOptions = {};
-		boundingVolumeHierarchy.Build(mesh.vertices, mesh.indices, buildOptions);
-		boundingVolumeHierarchy.SetTransform(transform);
+		bvhInstance = BVHInstance(&mesh.boundingVolumeHierarchy);
+		bvhInstance.SetTransform(transform);
 
 		material = mat;
 		hasBVH = true;
@@ -49,7 +48,7 @@ struct SceneObject
 		material = other.material;
 		hasBVH = other.hasBVH;
 		if (hasBVH)
-			boundingVolumeHierarchy = other.boundingVolumeHierarchy;
+			bvhInstance = other.bvhInstance;
 		else
 			primitive = other.primitive;
 	}

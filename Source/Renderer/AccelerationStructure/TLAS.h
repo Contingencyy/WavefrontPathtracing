@@ -1,7 +1,7 @@
 #pragma once
 
 struct Ray;
-class BVH;
+class BVHInstance;
 
 class TLAS
 {
@@ -15,15 +15,17 @@ public:
 public:
 	TLAS() = default;
 
-	void Build(const std::vector<BVH>& blas);
-	void TraceRay(Ray& ray) const;
+	void Build(const std::vector<BVHInstance>& blas);
+	TraceResult TraceRay(Ray& ray) const;
+
+	glm::vec3 GetNormal(uint32_t instanceIndex, uint32_t primitiveIndex) const;
 
 private:
 	struct TLASNode
 	{
 		// leftRight will store two separate indices, 16 bit for each
 		union { struct { glm::vec3 aabbMin; uint32_t leftRight; }; __m128 aabbMin4 = {}; };
-		union { struct { glm::vec3 aabbMax; uint32_t blasIndex; }; __m128 aabbMax4 = {}; };
+		union { struct { glm::vec3 aabbMax; uint32_t blasInstanceIndex; }; __m128 aabbMax4 = {}; };
 
 		bool IsLeafNode() const;
 	};
@@ -33,7 +35,7 @@ private:
 
 private:
 	std::vector<TLASNode> m_TLASNodes;
-	std::vector<BVH> m_BLAS;
+	std::vector<BVHInstance> m_BLASInstances;
 	
 	uint32_t m_CurrentNodeIndex = 0;
 

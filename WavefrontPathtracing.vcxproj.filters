@@ -78,6 +78,9 @@
     <ClCompile Include="Source\Renderer\AccelerationStructure\TLAS.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Renderer\AccelerationStructure\BVHInstance.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Core\Application.h">
@@ -156,6 +159,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Renderer\AccelerationStructure\TLAS.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Renderer\AccelerationStructure\BVHInstance.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

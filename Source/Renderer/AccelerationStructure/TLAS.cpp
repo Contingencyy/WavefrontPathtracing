@@ -1,12 +1,12 @@
 #include "Pch.h"
 #include "TLAS.h"
-#include "BVH.h"
+#include "BVHInstance.h"
 #include "Renderer/RaytracingUtils.h"
 
-void TLAS::Build(const std::vector<BVH>& blas)
+void TLAS::Build(const std::vector<BVHInstance>& blas)
 {
-	m_BLAS = blas;
-	m_TLASNodes.resize(m_BLAS.size() * 2);
+	m_BLASInstances = blas;
+	m_TLASNodes.resize(m_BLASInstances.size() * 2);
 
 	uint32_t nodeIndex[256] = {};
 	uint32_t nodeIndices = static_cast<uint32_t>(blas.size());
@@ -14,13 +14,13 @@ void TLAS::Build(const std::vector<BVH>& blas)
 
 	for (size_t i = 0; i < blas.size(); ++i)
 	{
-		const AABB& blasBB = m_BLAS[i].GetWorldSpaceBoundingBox();
+		const AABB& blasBB = m_BLASInstances[i].GetWorldSpaceAABB();
 
 		nodeIndex[i] = m_CurrentNodeIndex;
 
 		m_TLASNodes[m_CurrentNodeIndex].aabbMin = blasBB.pmin;
 		m_TLASNodes[m_CurrentNodeIndex].aabbMax = blasBB.pmax;
-		m_TLASNodes[m_CurrentNodeIndex].blasIndex = i;
+		m_TLASNodes[m_CurrentNodeIndex].blasInstanceIndex = i;
 		m_TLASNodes[m_CurrentNodeIndex].leftRight = 0;
 
 		m_CurrentNodeIndex++;
@@ -63,12 +63,14 @@ void TLAS::Build(const std::vector<BVH>& blas)
 	m_TLASNodes[0] = m_TLASNodes[nodeIndex[A]];
 }
 
-void TLAS::TraceRay(Ray& ray) const
+TLAS::TraceResult TLAS::TraceRay(Ray& ray) const
 {
+	TraceResult result = {};
+
 	const TLASNode* tlasNode = &m_TLASNodes[0];
 	// Check if we miss the TLAS entirely
 	if (RTUtil::IntersectSSE(tlasNode->aabbMin4, tlasNode->aabbMax4, ray) == FLT_MAX)
-		return;
+		return result;
 
 	ray.bvhDepth++;
 	const TLASNode* stack[64] = {};
@@ -79,7 +81,12 @@ void TLAS::TraceRay(Ray& ray) const
 		// The current node is a leaf node, so it contains a BVH which we need to trace against
 		if (tlasNode->IsLeafNode())
 		{
-			m_BLAS[tlasNode->blasIndex].TraceRay(ray);
+			uint32_t primitiveIndex = m_BLASInstances[tlasNode->blasInstanceIndex].TraceRay(ray);
+			if (primitiveIndex != ~0u)
+			{
+				result.primitiveIndex = primitiveIndex;
+				result.instanceIndex = tlasNode->blasInstanceIndex;
+			}
 
 			if (stackPtr == 0)
 				break;
@@ -122,6 +129,13 @@ void TLAS::TraceRay(Ray& ray) const
 				stack[stackPtr++] = rightChildNode;
 		}
 	}
+
+	return result;
+}
+
+glm::vec3 TLAS::GetNormal(uint32_t instanceIndex, uint32_t primitiveIndex) const
+{
+	return m_BLASInstances[instanceIndex].GetNormal(primitiveIndex);
 }
 
 uint32_t TLAS::FindBestMatch(uint32_t A, const std::span<uint32_t>& indices)
