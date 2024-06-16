@@ -20,6 +20,8 @@ public:
 
 	uint32_t TraceRay(Ray& ray) const;
 	Triangle GetTriangle(uint32_t primID) const;
+	
+	void SetTransform(const glm::mat4& transform);
 
 private:
 	struct BVHNode
@@ -42,15 +44,11 @@ private:
 	void SubdivideNode(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax, uint32_t depth);
 	float FindBestSplitPlane(BVHNode& bvhNode, const glm::vec3& centroidMin, const glm::vec3& centroidMax, uint32_t& outAxis, uint32_t& outSplitPosition);
 
-	glm::vec3 GetTriangleCentroid(const Triangle& bvhTriangle) const;
-	void GetTriangleMinMax(const Triangle& bvhTriangle, glm::vec3& outMin, glm::vec3& outMax) const;
-	float GetAABBVolume(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const;
-
-	void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& pos) const;
-	void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& otherMin, const glm::vec3& otherMax) const;
-
 private:
 	BuildOptions m_BuildOptions = {};
+
+	glm::mat4 m_WorldToLocalTransform = glm::identity<glm::mat4>();
+	AABB m_WorldSpaceBoundingBox = {};
 
 	std::vector<BVHNode> m_BVHNodes;
 	size_t m_CurrentNodeIndex = 0;

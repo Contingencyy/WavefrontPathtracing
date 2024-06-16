@@ -9,7 +9,7 @@ void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector
 	m_Triangles.resize(indices.size() / 3);
 	m_TriangleIndices.resize(m_Triangles.size());
 	m_TriangleCentroids.resize(m_Triangles.size());
-	m_BVHNodes.resize(m_Triangles.size() * 2 - 1);
+	m_BVHNodes.resize(m_Triangles.size() * 2);
 
 	// Make BVH triangles from vertices and indices
 	for (size_t triIndex = 0, i = 0; triIndex < m_Triangles.size(); ++triIndex, i += 3)
@@ -28,13 +28,16 @@ void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector
 	// Calculate all triangle centroids
 	for (size_t i = 0; i < m_Triangles.size(); ++i)
 	{
-		m_TriangleCentroids[i] = GetTriangleCentroid(m_Triangles[i]);
+		m_TriangleCentroids[i] = RTUtil::GetTriangleCentroid(m_Triangles[i]);
 	}
 
 	// Set the first node to be the root node
-	BVHNode& rootNode = m_BVHNodes[m_CurrentNodeIndex++];
+	BVHNode& rootNode = m_BVHNodes[m_CurrentNodeIndex];
 	rootNode.leftFirst = 0;
 	rootNode.numPrimitives = static_cast<uint32_t>(m_Triangles.size());
+
+	// Skip over m_BVHNodes[1] for cache alignment
+	m_CurrentNodeIndex = 2;
 
 	glm::vec3 centroidMin, centroidMax;
 	CalculateNodeMinMax(rootNode, centroidMin, centroidMax);
@@ -43,6 +46,12 @@ void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector
 
 uint32_t BVH::TraceRay(Ray& ray) const
 {
+	// Make a copy of the original ray since we need to revert the transform once we are done tracing this BVH
+	Ray originalRay = ray;
+	ray.origin = m_WorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
+	ray.dir = m_WorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
+	ray.invDir = 1.0f / ray.dir;
+
 	uint32_t primitiveID = ~0u;
 
 	const BVHNode* bvhNode = &m_BVHNodes[0];
@@ -87,7 +96,7 @@ uint32_t BVH::TraceRay(Ray& ray) const
 			std::swap(leftChildNode, rightChildNode);
 		}
 
-		// If we have not intersected with the left and right child nodes, we can keep traversing the stack
+		// If we have not intersected with the left and right child nodes, we can keep traversing the stack, or terminate if stack is empty
 		if (leftDistance == FLT_MAX)
 		{
 			if (stackPtr == 0)
@@ -99,11 +108,18 @@ uint32_t BVH::TraceRay(Ray& ray) const
 		// and push the other one on the stack, if we have hit that one as well
 		else
 		{
+			ray.bvhDepth++;
+
 			bvhNode = leftChildNode;
 			if (rightDistance != FLT_MAX)
 				stack[stackPtr++] = rightChildNode;
 		}
 	}
+
+	// Update the original ray's depth, and set the ray back to its original pre-transform state
+	originalRay.t = ray.t;
+	originalRay.bvhDepth = ray.bvhDepth;
+	ray = originalRay;
 
 	return primitiveID;
 }
@@ -111,6 +127,23 @@ uint32_t BVH::TraceRay(Ray& ray) const
 Triangle BVH::GetTriangle(uint32_t primID) const
 {
 	return m_Triangles[m_TriangleIndices[primID]];
+}
+
+void BVH::SetTransform(const glm::mat4& transform)
+{
+	// Set the world to local (bvh) transform, which will be used to transform the rays into the local space when tracing
+	m_WorldToLocalTransform = glm::inverse(transform);
+	
+	// Calculate the world space bounding box of the root node
+	glm::vec3 worldMin = m_BVHNodes[0].aabbMin, worldMax = m_BVHNodes[0].aabbMax;
+
+	// Grow the world-space bounding box by the eight corners of the root node AABB, which is in local space
+	for (uint32_t i = 0; i < 8; ++i)
+	{
+		glm::vec3 worldPosition = transform *
+			glm::vec4(i & 1 ? worldMax.x : worldMin.x, i & 2 ? worldMax.y : worldMin.y, i & 4 ? worldMax.z : worldMin.z, 1.0f);
+		RTUtil::GrowAABB(m_WorldSpaceBoundingBox.pmin, m_WorldSpaceBoundingBox.pmax, worldPosition);
+	}
 }
 
 void BVH::CalculateNodeMinMax(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax)
@@ -125,7 +158,7 @@ void BVH::CalculateNodeMinMax(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec
 		const Triangle& triangle = m_Triangles[m_TriangleIndices[triIndex]];
 
 		glm::vec3 triangleMin, triangleMax;
-		GetTriangleMinMax(triangle, triangleMin, triangleMax);
+		RTUtil::GetTriangleMinMax(triangle, triangleMin, triangleMax);
 
 		bvhNode.aabbMin = glm::min(bvhNode.aabbMin, triangleMin);
 		bvhNode.aabbMax = glm::max(bvhNode.aabbMax, triangleMax);
@@ -139,7 +172,7 @@ void BVH::CalculateNodeMinMax(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec
 
 float BVH::CalculateNodeCost(const BVHNode& bvhNode) const
 {
-	return bvhNode.numPrimitives * GetAABBVolume(bvhNode.aabbMin, bvhNode.aabbMax);
+	return bvhNode.numPrimitives * RTUtil::GetAABBVolume(bvhNode.aabbMin, bvhNode.aabbMax);
 }
 
 void BVH::SubdivideNode(BVHNode& bvhNode, glm::vec3& centroidMin, glm::vec3& centroidMax, uint32_t depth)
@@ -236,9 +269,9 @@ float BVH::FindBestSplitPlane(BVHNode& bvhNode, const glm::vec3& centroidMin, co
 
 			BVHBin& bvhBin = bvhBins[binIndex];
 			bvhBin.numPrimitives++;
-			GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p0);
-			GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p1);
-			GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p2);
+			RTUtil::GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p0);
+			RTUtil::GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p1);
+			RTUtil::GrowAABB(bvhBin.aabbMin, bvhBin.aabbMax, triangle.p2);
 		}
 
 		// Get all necessary data for the planes between the bins
@@ -254,13 +287,13 @@ float BVH::FindBestSplitPlane(BVHNode& bvhNode, const glm::vec3& centroidMin, co
 			const BVHBin& leftBin = bvhBins[binIndex];
 
 			leftSum += leftBin.numPrimitives;
-			GrowAABB(leftAABBMin, leftAABBMax, leftBin.aabbMin, leftBin.aabbMax);
-			leftArea[binIndex] = leftSum * GetAABBVolume(leftAABBMin, leftAABBMax);
+			RTUtil::GrowAABB(leftAABBMin, leftAABBMax, leftBin.aabbMin, leftBin.aabbMax);
+			leftArea[binIndex] = leftSum * RTUtil::GetAABBVolume(leftAABBMin, leftAABBMax);
 
 			const BVHBin& rightBin = bvhBins[m_BuildOptions.numIntervals - 1 - binIndex];
 			rightSum += rightBin.numPrimitives;
-			GrowAABB(rightAABBMin, rightAABBMax, rightBin.aabbMin, rightBin.aabbMax);
-			rightArea[m_BuildOptions.numIntervals - 2 - binIndex] = rightSum * GetAABBVolume(rightAABBMin, rightAABBMax);
+			RTUtil::GrowAABB(rightAABBMin, rightAABBMax, rightBin.aabbMin, rightBin.aabbMax);
+			rightArea[m_BuildOptions.numIntervals - 2 - binIndex] = rightSum * RTUtil::GetAABBVolume(rightAABBMin, rightAABBMax);
 		}
 
 		// Evaluate SAH cost for each plane
@@ -280,36 +313,4 @@ float BVH::FindBestSplitPlane(BVHNode& bvhNode, const glm::vec3& centroidMin, co
 	}
 
 	return cheapestCost;
-}
-
-glm::vec3 BVH::GetTriangleCentroid(const Triangle& triangle) const
-{
-	return (triangle.p0 + triangle.p1 + triangle.p2) * 0.3333f;
-}
-
-void BVH::GetTriangleMinMax(const Triangle& triangle, glm::vec3& outMin, glm::vec3& outMax) const
-{
-	outMin = glm::min(triangle.p0, triangle.p1);
-	outMax = glm::max(triangle.p0, triangle.p1);
-
-	outMin = glm::min(outMin, triangle.p2);
-	outMax = glm::max(outMax, triangle.p2);
-}
-
-float BVH::GetAABBVolume(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const
-{
-	const glm::vec3 extent = aabbMax - aabbMin;
-	return extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
-}
-
-void BVH::GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& pos) const
-{
-	aabbMin = glm::min(aabbMin, pos);
-	aabbMax = glm::max(aabbMax, pos);
-}
-
-void BVH::GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& otherMin, const glm::vec3& otherMax) const
-{
-	aabbMin = glm::min(aabbMin, otherMin);
-	aabbMax = glm::max(aabbMax, otherMax);
 }

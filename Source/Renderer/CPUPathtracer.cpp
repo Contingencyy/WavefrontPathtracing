@@ -54,12 +54,12 @@ namespace CPUPathtracer
 	{
 		glm::vec3 finalColor = color;
 
-		if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+		if (inst->settings.renderDataVisualization != RenderVisualization_None)
 		{
-			if (inst->settings.renderDataVisualization == RenderDataVisualization_None ||
-				inst->settings.renderDataVisualization == RenderDataVisualization_HitAlbedo ||
-				inst->settings.renderDataVisualization == RenderDataVisualization_HitEmissive ||
-				inst->settings.renderDataVisualization == RenderDataVisualization_HitAbsorption)
+			if (inst->settings.renderDataVisualization == RenderVisualization_None ||
+				inst->settings.renderDataVisualization == RenderVisualization_HitAlbedo ||
+				inst->settings.renderDataVisualization == RenderVisualization_HitEmissive ||
+				inst->settings.renderDataVisualization == RenderVisualization_HitAbsorption)
 				return RTUtil::LinearToSRGB(finalColor);
 			else
 				return finalColor;
@@ -86,13 +86,20 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(const Scene& scene, Ray& ray)
 	{
-		// TODO: Make any resolution work with the multi-threaded rendering dispatch
-		// TODO: Next event estimation
-		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc.
+		// FIX: BVH Depth visualization is weird, it only shows the boxes above the camera's y-position somehow
 		// TODO: Bottom and top-level acceleration structures, BVH transforms
+		// TODO: BVH hotmap render visualization
+		// TODO: Next event estimation
+		
+		// TODO: Make any resolution work with the multi-threaded rendering dispatch
+		// TODO: Make renderer and game representation of a mesh separate, BVH should probably be on the renderer side only, RenderResourceHandle to the game/engine side
+		// TODO: Setting for accumulation should be a render setting, with defaults for each render visualization
+		// TODO: BVH Refitting and Rebuilding (https://jacco.ompf2.com/2022/04/26/how-to-build-a-bvh-part-4-animation/)
+		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc. in the mesh assets once I have menus for that
 		// TODO: Separate BVH Builder and BVH's, which should just contain the actual data after a finished BVH build
-		// TODO: Profiling for BVH builds and build times, more build options
+		// TODO: Profile BVH build times
 		// TODO: Assets, loading and storing BVH's
+		// TODO: DOF (https://youtu.be/Qz0KTGYJtUk)
 		// TODO: GPU Pathtracer
 			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care
 			//		 whether the frame was rendered using the GPU or CPU pathtracer
@@ -119,23 +126,24 @@ namespace CPUPathtracer
 		uint32_t currRayDepth = 0;
 		bool survivedRR = true;
 
-		while (currRayDepth <= RAY_MAX_RECURSION_DEPTH)
+		while (currRayDepth <= inst->settings.rayMaxRecursionDepth)
 		{
 			HitSurfaceData hit = scene.TraceRay(ray);
 
 			// Handle any render data visualization that can happen after a single trace
-			if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+			if (inst->settings.renderDataVisualization != RenderVisualization_None)
 			{
 				bool stopTracingPath = false;
 
 				switch (inst->settings.renderDataVisualization)
 				{
-				case RenderDataVisualization_HitAlbedo:		 energy = hit.objMat.albedo; stopTracingPath = true; break;
-				case RenderDataVisualization_HitNormal:		 energy = glm::abs(hit.normal); stopTracingPath = true; break;
-				case RenderDataVisualization_HitSpecRefract: energy = glm::vec3(hit.objMat.specular, hit.objMat.refractivity, 0.0f); stopTracingPath = true; break;
-				case RenderDataVisualization_HitAbsorption:  energy = glm::vec3(hit.objMat.absorption); stopTracingPath = true; break;
-				case RenderDataVisualization_HitEmissive:	 energy = glm::vec3(hit.objMat.emissive * hit.objMat.intensity * static_cast<float>(hit.objMat.isEmissive)); stopTracingPath = true; break;
-				case RenderDataVisualization_Depth:			 energy = glm::vec3(ray.t); stopTracingPath = true; break;
+				case RenderVisualization_HitAlbedo:		 energy = hit.objMat.albedo; stopTracingPath = true; break;
+				case RenderVisualization_HitNormal:		 energy = glm::abs(hit.normal); stopTracingPath = true; break;
+				case RenderVisualization_HitSpecRefract: energy = glm::vec3(hit.objMat.specular, hit.objMat.refractivity, 0.0f); stopTracingPath = true; break;
+				case RenderVisualization_HitAbsorption:  energy = glm::vec3(hit.objMat.absorption); stopTracingPath = true; break;
+				case RenderVisualization_HitEmissive:	 energy = glm::vec3(hit.objMat.emissive * hit.objMat.intensity * static_cast<float>(hit.objMat.isEmissive)); stopTracingPath = true; break;
+				case RenderVisualization_Depth:			 energy = glm::vec3(ray.t); stopTracingPath = true; break;
+				case RenderVisualization_BVHDepth:		 energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
 				}
 
 				if (stopTracingPath)
@@ -284,17 +292,17 @@ namespace CPUPathtracer
 		}
 
 		// Handle any render data visualization that needs to trace the full path first
-		if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+		if (inst->settings.renderDataVisualization != RenderVisualization_None)
 		{
 			switch (inst->settings.renderDataVisualization)
 			{
-			case RenderDataVisualization_RayRecursionDepth:
+			case RenderVisualization_RayRecursionDepth:
 			{
-				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH));
+				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(inst->settings.rayMaxRecursionDepth));
 			} break;
-			case RenderDataVisualization_RussianRouletteKillDepth:
+			case RenderVisualization_RussianRouletteKillDepth:
 			{
-				float weight = glm::clamp((currRayDepth / static_cast<float>(RAY_MAX_RECURSION_DEPTH)) - static_cast<float>(survivedRR), 0.0f, 1.0f);
+				float weight = glm::clamp((currRayDepth / static_cast<float>(inst->settings.rayMaxRecursionDepth)) - static_cast<float>(survivedRR), 0.0f, 1.0f);
 				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), weight);
 			} break;
 			}
@@ -333,7 +341,7 @@ namespace CPUPathtracer
 	{
 		DX12Backend::BeginFrame();
 
-		if (inst->settings.renderDataVisualization != RenderDataVisualization_None)
+		if (inst->settings.renderDataVisualization != RenderVisualization_None)
 			ResetAccumulation();
 	}
 
@@ -365,33 +373,6 @@ namespace CPUPathtracer
 		uint32_t numPixels = inst->renderWidth * inst->renderHeight;
 		double invNumPixels = 1.0f / static_cast<float>(numPixels);
 
-#if 0
-		for (uint32_t y = 0; y < inst->renderHeight; ++y)
-		{
-			for (uint32_t x = 0; x < inst->renderWidth; ++x)
-			{
-				// Construct primary ray from camera through the current pixel
-				Ray ray = RTUtil::ConstructCameraRay(inst->sceneCamera, x, y, tanFOV,
-					aspectRatio, inst->invRenderWidth, inst->invRenderHeight);
-
-				// Start tracing path through pixel
-				glm::vec4 tracedColor = TracePath(scene, ray);
-
-				// Update accumulator
-				uint32_t pixelPos = y * inst->renderWidth + x;
-				inst->pixelAccumulator[pixelPos] += tracedColor;
-
-				// Determine final color for pixel
-				glm::vec4 finalColor = inst->pixelAccumulator[pixelPos] /
-					static_cast<float>(inst->numAccumulatedFrames);
-				finalColor.xyz = RTUtil::TonemapReinhard(finalColor.xyz);
-				if (inst->settings.linearToSRGB)
-					finalColor.xyz = RTUtil::LinearToSRGB(finalColor.xyz);
-
-				inst->pixelBuffer[pixelPos] = RTUtil::Vec4ToUint32(finalColor);
-			}
-		}
-#else
 		glm::uvec2 dispatchDim = { 16, 16 };
 		ASSERT(inst->renderWidth % dispatchDim.x == 0);
 		ASSERT(inst->renderHeight % dispatchDim.y == 0);
@@ -433,7 +414,6 @@ namespace CPUPathtracer
 
 		inst->renderThreadpool.Dispatch(numJobs, 16, tracePathThroughPixelJob);
 		inst->renderThreadpool.WaitAll();
-#endif
 	}
 
 	void EndScene()
@@ -450,9 +430,7 @@ namespace CPUPathtracer
 
 			ImGui::Text("Resolution: %ux%u", inst->renderWidth, inst->renderHeight);
 			ImGui::Text("Accumulated frames: %u", inst->numAccumulatedFrames);
-
 			ImGui::Text("Total energy received: %.3f", inst->energyAccumulator / static_cast<double>(inst->numAccumulatedFrames) * 1000.0f);
-			ImGui::Text("Max Ray Recursion Depth: %u", RAY_MAX_RECURSION_DEPTH);
 
 			// Debug category
 			if (ImGui::CollapsingHeader("Debug"))
@@ -463,13 +441,13 @@ namespace CPUPathtracer
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderDataVisualization].c_str(), ImGuiComboFlags_None))
 				{
-					for (uint32_t i = 0; i < RenderDataVisualization_Count; ++i)
+					for (uint32_t i = 0; i < RenderVisualization_Count; ++i)
 					{
 						bool is_selected = i == inst->settings.renderDataVisualization;
 
 						if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
 						{
-							inst->settings.renderDataVisualization = (RenderDataVisualization)i;
+							inst->settings.renderDataVisualization = (RenderVisualization)i;
 							resetAccumulator = true;
 						}
 
@@ -486,6 +464,8 @@ namespace CPUPathtracer
 			if (ImGui::CollapsingHeader("Settings"))
 			{
 				ImGui::Indent(10.0f);
+
+				if (ImGui::SliderInt("Max Ray Recursion Depth: %u", reinterpret_cast<int32_t*>(&inst->settings.rayMaxRecursionDepth), 0, 8)) resetAccumulator = true;
 
 				// Enable/disable cosine weighted diffuse reflections, russian roulette
 				if (ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection)) resetAccumulator = true;

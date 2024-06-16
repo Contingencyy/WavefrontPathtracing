@@ -7,7 +7,6 @@ static constexpr float INV_TWO_PI = 1.0f / TWO_PI;
 
 static constexpr float RAY_MAX_T = FLT_MAX;
 static constexpr float RAY_NUDGE_MODIFIER = 0.001f;
-static constexpr uint32_t RAY_MAX_RECURSION_DEPTH = 8;
 
 struct Material
 {
@@ -69,6 +68,8 @@ struct HitSurfaceData
 
 	glm::vec3 pos = {};
 	glm::vec3 normal = {};
+
+	uint32_t primitiveID = ~0;
 };
 
 struct Ray
@@ -77,6 +78,7 @@ struct Ray
 	union { struct { glm::vec3 dir; float dummy; }; __m128 dir4 = {}; };
 	union { struct { glm::vec3 invDir; float dummy; }; __m128 invDir4 = {}; };
 	float t = RAY_MAX_T;
+	uint32_t bvhDepth = 0;
 
 	Ray(const glm::vec3& orig, const glm::vec3& dir)
 		: origin(orig), dir(dir)

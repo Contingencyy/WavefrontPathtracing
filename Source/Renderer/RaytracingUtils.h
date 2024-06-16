@@ -144,7 +144,7 @@ namespace RTUtil
 		HIT SURFACE
 	*/
 
-	inline glm::vec3 GetHitNormal(const Triangle& tri, const glm::vec3& hitPos)
+	inline glm::vec3 GetHitNormal(const Triangle& tri)
 	{
 		return glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0));
 	}
@@ -154,7 +154,7 @@ namespace RTUtil
 		return glm::normalize(hitPos - sphere.center);
 	}
 
-	inline glm::vec3 GetHitNormal(const Plane& plane, const glm::vec3& hitPos)
+	inline glm::vec3 GetHitNormal(const Plane& plane)
 	{
 		return plane.normal;
 	}
@@ -166,6 +166,42 @@ namespace RTUtil
 		const glm::vec3 centerToHit = hitPos - center;
 
 		return glm::normalize(glm::sign(centerToHit) * glm::step(-RAY_NUDGE_MODIFIER, glm::abs(centerToHit) - halfSize));
+	}
+
+	/*
+		PRIMITIVES
+	*/
+
+	inline glm::vec3 GetTriangleCentroid(const Triangle& triangle)
+	{
+		return (triangle.p0 + triangle.p1 + triangle.p2) * 0.3333f;
+	}
+
+	inline void GetTriangleMinMax(const Triangle& triangle, glm::vec3& outMin, glm::vec3& outMax)
+	{
+		outMin = glm::min(triangle.p0, triangle.p1);
+		outMax = glm::max(triangle.p0, triangle.p1);
+
+		outMin = glm::min(outMin, triangle.p2);
+		outMax = glm::max(outMax, triangle.p2);
+	}
+
+	inline float GetAABBVolume(const glm::vec3& aabbMin, const glm::vec3& aabbMax)
+	{
+		const glm::vec3 extent = aabbMax - aabbMin;
+		return extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
+	}
+
+	inline void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& pos)
+	{
+		aabbMin = glm::min(aabbMin, pos);
+		aabbMax = glm::max(aabbMax, pos);
+	}
+
+	inline void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& otherMin, const glm::vec3& otherMax)
+	{
+		aabbMin = glm::min(aabbMin, otherMin);
+		aabbMax = glm::max(aabbMax, otherMax);
 	}
 
 	/*
