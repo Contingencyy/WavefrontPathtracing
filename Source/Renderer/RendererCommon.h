@@ -3,7 +3,7 @@
 namespace Renderer
 {
 
-	enum RenderVisualization
+	enum RenderVisualization : uint32_t
 	{
 		RenderVisualization_None,
 		
@@ -50,11 +50,6 @@ namespace Renderer
 			float saturation = 1.0f;
 			bool linearToSRGB = true;
 		} postfx;
-	};
-
-	struct Vertex
-	{
-		glm::vec3 position;
 	};
 
 }

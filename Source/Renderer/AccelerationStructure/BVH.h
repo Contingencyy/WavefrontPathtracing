@@ -1,6 +1,7 @@
 #pragma once
-#include "Renderer/RendererCommon.h"
 #include "Renderer/RaytracingTypes.h"
+
+struct Vertex;
 
 class BVH
 {
@@ -16,7 +17,7 @@ public:
 public:
 	BVH() = default;
 
-	void Build(const std::vector<Renderer::Vertex>& vertices, const std::vector<uint32_t>& indices, const BuildOptions& buildOptions);
+	void Build(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices, const BuildOptions& buildOptions);
 
 	uint32_t TraceRay(Ray& ray) const;
 	Triangle GetTriangle(uint32_t primID) const;

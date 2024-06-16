@@ -1,13 +1,7 @@
 #pragma once
-#include "Renderer/RendererCommon.h"
-#include "Renderer/AccelerationStructure/BVH.h"
+#include "Renderer/RendererFwd.h"
 
-#include <vector>
-
-struct MeshAsset
+struct SceneAsset
 {
-	std::vector<Renderer::Vertex> vertices;
-	std::vector<uint32_t> indices;
-
-	BVH boundingVolumeHierarchy;
+	std::vector<RenderMeshHandle> renderMeshHandles;
 };

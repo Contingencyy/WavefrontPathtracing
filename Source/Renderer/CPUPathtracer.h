@@ -1,7 +1,8 @@
 #pragma once
+#include "Renderer/RendererFwd.h"
 
 struct Camera;
-class Scene;
+struct Material;
 
 namespace CPUPathtracer
 {
@@ -13,9 +14,12 @@ namespace CPUPathtracer
 	void EndFrame();
 
 	void BeginScene(const Camera& sceneCamera);
-	void Render(const Scene& scene);
+	void Render();
 	void EndScene();
-
+	
 	void RenderUI();
+
+	RenderMeshHandle CreateMesh(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices);
+	void SubmitMesh(RenderMeshHandle renderMeshHandle, const glm::mat4& transform, const Material& material);
 
 }

@@ -10,6 +10,11 @@ public:
 	{
 		uint32_t instanceIndex = ~0u;
 		uint32_t primitiveIndex = ~0u;
+
+		bool HasHitGeometry() const
+		{
+			return (instanceIndex != ~0u && primitiveIndex != ~0u);
+		}
 	};
 
 public:

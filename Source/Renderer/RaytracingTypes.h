@@ -61,15 +61,6 @@ struct Material
 	}
 };
 
-struct HitSurfaceData
-{
-	uint32_t objIdx = ~0u;
-	Material objMat = {};
-
-	glm::vec3 pos = {};
-	glm::vec3 normal = {};
-};
-
 struct Ray
 {
 	union { struct { glm::vec3 origin; float dummy; }; __m128 origin4 = {}; };

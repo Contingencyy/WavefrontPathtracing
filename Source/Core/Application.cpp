@@ -78,14 +78,13 @@ namespace Application
 	void Init()
 	{
 		LOG_INFO("Application", "Init");
-		
-		inst = new Instance();
 
 		int32_t clientWidth = 0, clientHeight = 0;
 		GetWindowClientArea(clientWidth, clientHeight);
 
 		CPUPathtracer::Init(clientWidth, clientHeight);
 
+		inst = new Instance();
 		inst->is_running = true;
 	}
 

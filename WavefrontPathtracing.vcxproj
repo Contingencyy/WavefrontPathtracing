@@ -207,6 +207,8 @@
     <ClInclude Include="Source\Renderer\RaytracingTypes.h" />
     <ClInclude Include="Source\Renderer\RaytracingUtils.h" />
     <ClInclude Include="Source\Renderer\RendererCommon.h" />
+    <ClInclude Include="Source\Renderer\RendererFwd.h" />
+    <ClInclude Include="Source\Renderer\ResourceSlotmap.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

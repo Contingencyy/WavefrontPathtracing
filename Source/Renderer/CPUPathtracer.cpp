@@ -3,7 +3,10 @@
 #include "RaytracingUtils.h"
 #include "DX12/DX12Backend.h"
 #include "Renderer/RendererCommon.h"
+#include "Renderer/ResourceSlotmap.h"
 #include "Renderer/AccelerationStructure/BVH.h"
+#include "Renderer/AccelerationStructure/BVHInstance.h"
+#include "Renderer/AccelerationStructure/TLAS.h"
 #include "Core/Camera/CameraController.h"
 #include "Core/Logger.h"
 #include "Core/Random.h"
@@ -13,9 +16,6 @@
 
 #include "imgui/imgui.h"
 
-// TODO: Remove eventually
-#include "Core/Scene.h"
-
 using namespace Renderer;
 
 namespace CPUPathtracer
@@ -23,6 +23,11 @@ namespace CPUPathtracer
 
 	struct Instance
 	{
+		ResourceSlotmap<RenderMeshHandle, BVH> BVHMap;
+		
+		std::vector<BVHInstance> BVHInstances;
+		std::vector<Material> BVHMaterials;
+		TLAS sceneTLAS;
 		Camera sceneCamera;
 
 		uint32_t renderWidth = 0;
@@ -56,8 +61,7 @@ namespace CPUPathtracer
 
 		if (inst->settings.renderVisualization != RenderVisualization_None)
 		{
-			if (inst->settings.renderVisualization == RenderVisualization_None ||
-				inst->settings.renderVisualization == RenderVisualization_HitAlbedo ||
+			if (inst->settings.renderVisualization == RenderVisualization_HitAlbedo ||
 				inst->settings.renderVisualization == RenderVisualization_HitEmissive ||
 				inst->settings.renderVisualization == RenderVisualization_HitAbsorption)
 				return RTUtil::LinearToSRGB(finalColor);
@@ -84,10 +88,14 @@ namespace CPUPathtracer
 		return finalColor;
 	}
 
-	static glm::vec4 TracePath(const Scene& scene, Ray& ray)
+	static glm::vec4 TracePath(Ray& ray)
 	{
+		// TODO: Application window for profiler, Timer avg/min/max
+		// TODO: Profiling for TLAS builds
 		// TODO: BVH bounding box visualization
 		// TODO: Next event estimation
+		// TODO: Stop moving mouse back to center when window loses focus
+		// TODO: Profile BVH build times for the BLAS and also the TLAS
 		
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Make renderer and game representation of a mesh separate, BVH should probably be on the renderer side only, RenderResourceHandle to the game/engine side
@@ -95,7 +103,6 @@ namespace CPUPathtracer
 		// TODO: BVH Refitting and Rebuilding (https://jacco.ompf2.com/2022/04/26/how-to-build-a-bvh-part-4-animation/)
 		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc. in the mesh assets once I have menus for that
 		// TODO: Separate BVH Builder and BVH's, which should just contain the actual data after a finished BVH build
-		// TODO: Profile BVH build times
 		// TODO: Assets, loading and storing BVH's
 		// TODO: DOF (https://youtu.be/Qz0KTGYJtUk)
 		// TODO: GPU Pathtracer
@@ -107,7 +114,6 @@ namespace CPUPathtracer
 			// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
 			// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
 		// TODO: Window resizing and resolution resizing
-		// TODO: Timer avg/min/max
 		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
@@ -126,7 +132,11 @@ namespace CPUPathtracer
 
 		while (currRayDepth <= inst->settings.rayMaxRecursionDepth)
 		{
-			HitSurfaceData hit = scene.TraceRay(ray);
+			TLAS::TraceResult traceResult = inst->sceneTLAS.TraceRay(ray);
+
+			glm::vec3 hitPosition = traceResult.HasHitGeometry() ? ray.origin + ray.dir * ray.t : glm::vec3(0.0f);
+			glm::vec3 hitNormal = traceResult.HasHitGeometry() ? inst->sceneTLAS.GetNormal(traceResult.instanceIndex, traceResult.primitiveIndex) : glm::vec3(0.0f);
+			Material hitMaterial = traceResult.HasHitGeometry() ? inst->BVHMaterials[traceResult.instanceIndex] : Material();
 
 			// Handle any render data visualization that can happen after a single trace
 			if (inst->settings.renderVisualization != RenderVisualization_None)
@@ -135,13 +145,13 @@ namespace CPUPathtracer
 
 				switch (inst->settings.renderVisualization)
 				{
-				case RenderVisualization_HitAlbedo:					  energy = hit.objMat.albedo; stopTracingPath = true; break;
-				case RenderVisualization_HitNormal:					  energy = glm::abs(hit.normal); stopTracingPath = true; break;
-				case RenderVisualization_HitSpecRefract:			  energy = glm::vec3(hit.objMat.specular, hit.objMat.refractivity, 0.0f); stopTracingPath = true; break;
-				case RenderVisualization_HitAbsorption:				  energy = glm::vec3(hit.objMat.absorption); stopTracingPath = true; break;
-				case RenderVisualization_HitEmissive:				  energy = glm::vec3(hit.objMat.emissive * hit.objMat.intensity * static_cast<float>(hit.objMat.isEmissive)); stopTracingPath = true; break;
-				case RenderVisualization_Depth:						  energy = glm::vec3(ray.t); stopTracingPath = true; break;
-				case RenderVisualization_AccelerationStructureDepth:  energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
+				case RenderVisualization_HitAlbedo:					 energy = hitMaterial.albedo; stopTracingPath = true; break;
+				case RenderVisualization_HitNormal:					 energy = glm::abs(hitNormal); stopTracingPath = true; break;
+				case RenderVisualization_HitSpecRefract:			 energy = glm::vec3(hitMaterial.specular, hitMaterial.refractivity, 0.0f); stopTracingPath = true; break;
+				case RenderVisualization_HitAbsorption:				 energy = glm::vec3(hitMaterial.absorption); stopTracingPath = true; break;
+				case RenderVisualization_HitEmissive:				 energy = glm::vec3(hitMaterial.emissive * hitMaterial.intensity * static_cast<float>(hitMaterial.isEmissive)); stopTracingPath = true; break;
+				case RenderVisualization_Depth:						 energy = glm::vec3(ray.t * 0.01f); stopTracingPath = true; break;
+				case RenderVisualization_AccelerationStructureDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
 				}
 
 				if (stopTracingPath)
@@ -149,18 +159,16 @@ namespace CPUPathtracer
 			}
 
 			// Add sky color to energy if we have not hit an object, and terminate path
-			if (hit.objIdx == ~0u)
+			if (!traceResult.HasHitGeometry())
 			{
 				energy += inst->settings.skyColor * inst->settings.skyColorIntensity * throughput;
 				break;
 			}
 
-			Material& hitMat = hit.objMat;
-
 			// If the surface is emissive, we simply add its color to the energy output and stop tracing
-			if (hitMat.isEmissive)
+			if (hitMaterial.isEmissive)
 			{
-				energy += hitMat.emissive * hitMat.intensity * throughput;
+				energy += hitMaterial.emissive * hitMaterial.intensity * throughput;
 				break;
 			}
 
@@ -170,7 +178,7 @@ namespace CPUPathtracer
 			// Need to adjust the throughput if the path survives since that path should carry a higher weight based on its survival probability.
 			if (inst->settings.russianRoulette)
 			{
-				float survivalProbability = RTUtil::SurvivalProbabilityRR(hitMat.albedo);
+				float survivalProbability = RTUtil::SurvivalProbabilityRR(hitMaterial.albedo);
 				if (survivalProbability < Random::Float())
 				{
 					survivedRR = false;
@@ -186,21 +194,21 @@ namespace CPUPathtracer
 			float r = Random::Float();
 
 			// Specular path
-			if (r < hitMat.specular)
+			if (r < hitMaterial.specular)
 			{
-				glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hit.normal);
-				ray = Ray(hit.pos + specularDir * RAY_NUDGE_MODIFIER, specularDir);
+				glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hitNormal);
+				ray = Ray(hitPosition + specularDir * RAY_NUDGE_MODIFIER, specularDir);
 
-				throughput *= hitMat.albedo;
+				throughput *= hitMaterial.albedo;
 				isSpecularRay = true;
 			}
 			// Refraction path
-			else if (r < hitMat.specular + hitMat.refractivity)
+			else if (r < hitMaterial.specular + hitMaterial.refractivity)
 			{
-				glm::vec3 N = hit.normal;
+				glm::vec3 N = hitNormal;
 
 				float cosi = glm::clamp(glm::dot(N, ray.dir), -1.0f, 1.0f);
-				float etai = 1.0f, etat = hitMat.ior;
+				float etai = 1.0f, etat = hitMaterial.ior;
 
 				float Fr = 1.0f;
 				bool inside = true;
@@ -225,34 +233,34 @@ namespace CPUPathtracer
 				{
 					glm::vec3 refractDir = RTUtil::Refract(ray.dir, N, eta, cosi, k);
 
-					float cosIn = glm::dot(ray.dir, hit.normal);
-					float cosOut = glm::dot(refractDir, hit.normal);
+					float cosIn = glm::dot(ray.dir, hitNormal);
+					float cosOut = glm::dot(refractDir, hitNormal);
 
 					Fr = RTUtil::Fresnel(cosIn, cosOut, etai, etat);
 
 					if (Random::Float() > Fr)
 					{
-						throughput *= hitMat.albedo;
+						throughput *= hitMaterial.albedo;
 
 						if (inside)
 						{
 							glm::vec3 absorption = glm::vec3(
-								glm::exp(-hitMat.absorption.x * ray.t),
-								glm::exp(-hitMat.absorption.y * ray.t),
-								glm::exp(-hitMat.absorption.z * ray.t)
+								glm::exp(-hitMaterial.absorption.x * ray.t),
+								glm::exp(-hitMaterial.absorption.y * ray.t),
+								glm::exp(-hitMaterial.absorption.z * ray.t)
 							);
 							throughput *= absorption;
 						}
 
-						ray = Ray(hit.pos + refractDir * RAY_NUDGE_MODIFIER, refractDir);
+						ray = Ray(hitPosition + refractDir * RAY_NUDGE_MODIFIER, refractDir);
 						isSpecularRay = true;
 					}
 					else
 					{
-						glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hit.normal);
-						ray = Ray(hit.pos + specularDir * RAY_NUDGE_MODIFIER, specularDir);
+						glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hitNormal);
+						ray = Ray(hitPosition + specularDir * RAY_NUDGE_MODIFIER, specularDir);
 
-						throughput *= hitMat.albedo;
+						throughput *= hitMaterial.albedo;
 						isSpecularRay = true;
 					}
 				}
@@ -260,7 +268,7 @@ namespace CPUPathtracer
 			// Diffuse path
 			else
 			{
-				glm::vec3 diffuseBRDF = hitMat.albedo * INV_PI;
+				glm::vec3 diffuseBRDF = hitMaterial.albedo * INV_PI;
 				glm::vec3 diffuseDir(0.0f);
 
 				float NdotR = 0.0f;
@@ -269,19 +277,19 @@ namespace CPUPathtracer
 				// Cosine-weighted diffuse reflection
 				if (inst->settings.cosineWeightedDiffuseReflection)
 				{
-					diffuseDir = RTUtil::CosineWeightedHemisphereSample(hit.normal);
-					NdotR = glm::dot(diffuseDir, hit.normal);
+					diffuseDir = RTUtil::CosineWeightedHemisphereSample(hitNormal);
+					NdotR = glm::dot(diffuseDir, hitNormal);
 					hemispherePDF = NdotR * INV_PI;
 				}
 				// Uniform hemisphere diffuse reflection
 				else
 				{
-					diffuseDir = RTUtil::UniformHemisphereSample(hit.normal);
-					NdotR = glm::dot(diffuseDir, hit.normal);
+					diffuseDir = RTUtil::UniformHemisphereSample(hitNormal);
+					NdotR = glm::dot(diffuseDir, hitNormal);
 					hemispherePDF = INV_TWO_PI;
 				}
 
-				ray = Ray(hit.pos + diffuseDir * RAY_NUDGE_MODIFIER, diffuseDir);
+				ray = Ray(hitPosition + diffuseDir * RAY_NUDGE_MODIFIER, diffuseDir);
 				throughput *= (NdotR * diffuseBRDF) / hemispherePDF;
 				isSpecularRay = false;
 			}
@@ -360,10 +368,14 @@ namespace CPUPathtracer
 		inst->sceneCamera = sceneCamera;
 	}
 
-	void Render(const Scene& scene)
+	void Render()
 	{
 		PROFILE_SCOPE(GlobalProfilingScope_RenderTime);
 		inst->numAccumulatedFrames++;
+
+		// Build the current scene's TLAS
+		inst->sceneTLAS = TLAS();
+		inst->sceneTLAS.Build(inst->BVHInstances);
 
 		float aspectRatio = inst->renderWidth / static_cast<float>(inst->renderHeight);
 		float tanFOV = glm::tan(glm::radians(inst->sceneCamera.vfov) / 2.0f);
@@ -375,7 +387,7 @@ namespace CPUPathtracer
 		ASSERT(inst->renderWidth % dispatchDim.x == 0);
 		ASSERT(inst->renderHeight % dispatchDim.y == 0);
 
-		auto tracePathThroughPixelJob = [&dispatchDim, &aspectRatio, &tanFOV, &scene, &invNumPixels](Threadpool::JobDispatchArgs dispatchArgs) {
+		auto tracePathThroughPixelJob = [&dispatchDim, &aspectRatio, &tanFOV, &invNumPixels](Threadpool::JobDispatchArgs dispatchArgs) {
 			const uint32_t dispatchX = (dispatchArgs.jobIndex * dispatchDim.x) % inst->renderWidth;
 			const uint32_t dispatchY = ((dispatchArgs.jobIndex * dispatchDim.x) / inst->renderWidth) * dispatchDim.y;
 
@@ -388,7 +400,7 @@ namespace CPUPathtracer
 						aspectRatio, inst->invRenderWidth, inst->invRenderHeight);
 
 					// Start tracing path through pixel
-					glm::vec4 tracedColor = TracePath(scene, ray);
+					glm::vec4 tracedColor = TracePath(ray);
 
 					// Update accumulator
 					uint32_t pixelPos = y * inst->renderWidth + x;
@@ -416,6 +428,8 @@ namespace CPUPathtracer
 
 	void EndScene()
 	{
+		inst->BVHInstances.clear();
+		inst->BVHMaterials.clear();
 	}
 
 	void RenderUI()
@@ -496,6 +510,30 @@ namespace CPUPathtracer
 				ResetAccumulation();
 		}
 		ImGui::End();
+	}
+
+	RenderMeshHandle CreateMesh(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices)
+	{
+		BVH::BuildOptions buildOptions = {};
+
+		BVH meshBVH = {};
+		meshBVH.Build(vertices, indices, buildOptions);
+
+		RenderMeshHandle meshHandle = inst->BVHMap.Add(std::move(meshBVH));
+		return meshHandle;
+	}
+
+	void SubmitMesh(RenderMeshHandle renderMeshHandle, const glm::mat4& transform, const Material& material)
+	{
+		const BVH* bvh = inst->BVHMap.Find(renderMeshHandle);
+		if (!bvh)
+			return;
+
+		BVHInstance instance(bvh);
+		instance.SetTransform(transform);
+
+		inst->BVHInstances.push_back(std::move(instance));
+		inst->BVHMaterials.push_back(material);
 	}
 
 }

@@ -6,6 +6,6 @@
 namespace AssetLoader
 {
 
-	MeshAsset LoadGLTF(const std::filesystem::path& filepath);
+	SceneAsset LoadGLTF(const std::filesystem::path& filepath);
 
 }

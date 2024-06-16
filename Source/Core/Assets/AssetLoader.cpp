@@ -1,5 +1,6 @@
 #include "Pch.h"
 #include "AssetLoader.h"
+#include "Renderer/CPUPathtracer.h"
 
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
@@ -18,9 +19,10 @@ namespace AssetLoader
 		return (T*)base_ptr;
 	}
 
-	MeshAsset LoadGLTF(const std::filesystem::path& filepath)
+	SceneAsset LoadGLTF(const std::filesystem::path& filepath)
 	{
-		MeshAsset meshAsset = {};
+		SceneAsset sceneAsset = {};
+		size_t currentMeshIndex = 0;
 
 		// Parse the GLTF file
 		cgltf_options gltfOptions = {};
@@ -42,12 +44,12 @@ namespace AssetLoader
 			{
 				const cgltf_primitive& gltfPrim = gltfMesh.primitives[primIndex];
 
-				meshAsset.indices.resize(gltfPrim.indices->count);
-				meshAsset.vertices.resize(gltfPrim.attributes[0].data->count);
+				std::vector<uint32_t> indices(gltfPrim.indices->count);
+				std::vector<Vertex> vertices(gltfPrim.attributes[0].data->count);
 
 				if (gltfPrim.indices->component_type == cgltf_component_type_r_32u)
 				{
-					memcpy(meshAsset.indices.data(), CGLTFGetDataPointer<uint32_t>(gltfPrim.indices), sizeof(uint32_t) * gltfPrim.indices->count);
+					memcpy(indices.data(), CGLTFGetDataPointer<uint32_t>(gltfPrim.indices), sizeof(uint32_t) * gltfPrim.indices->count);
 				}
 				else if (gltfPrim.indices->component_type == cgltf_component_type_r_16u)
 				{
@@ -55,7 +57,7 @@ namespace AssetLoader
 
 					for (size_t i = 0; i < gltfPrim.indices->count; ++i)
 					{
-						meshAsset.indices[i] = indices_ptr[i];
+						indices[i] = indices_ptr[i];
 					}
 				}
 
@@ -71,16 +73,20 @@ namespace AssetLoader
 						
 						for (size_t vertIndex = 0; vertIndex < gltfAttr.data->count; ++vertIndex)
 						{
-							meshAsset.vertices[vertIndex].position = srcPtr[vertIndex];
+							vertices[vertIndex].position = srcPtr[vertIndex];
 						}
 					} break;
 					}
 				}
+
+				// Create render mesh
+				sceneAsset.renderMeshHandles.push_back(CPUPathtracer::CreateMesh(vertices, indices));
+				currentMeshIndex++;
 			}
 		}
 
 		cgltf_free(gltfData);
-		return meshAsset;
+		return sceneAsset;
 	}
 
 }

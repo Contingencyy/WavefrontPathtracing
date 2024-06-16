@@ -1,8 +1,9 @@
 #include "Pch.h"
 #include "BVH.h"
 #include "Renderer/RaytracingUtils.h"
+#include "Renderer/RendererFwd.h"
 
-void BVH::Build(const std::vector<Renderer::Vertex>& vertices, const std::vector<uint32_t>& indices, const BuildOptions& buildOptions)
+void BVH::Build(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices, const BuildOptions& buildOptions)
 {
 	m_BuildOptions = buildOptions;
 
