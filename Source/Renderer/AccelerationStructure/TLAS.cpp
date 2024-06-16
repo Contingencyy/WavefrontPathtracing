@@ -7,31 +7,79 @@ void TLAS::Build(const std::vector<BVH>& blas)
 {
 	m_BLAS = blas;
 	m_TLASNodes.resize(m_BLAS.size() * 2);
-	m_CurrentNodeIndex = 2;
 
-	m_TLASNodes[2].leftBLAS = 0;
-	m_TLASNodes[2].aabbMin = glm::vec3(FLT_MAX);
-	m_TLASNodes[2].aabbMax = glm::vec3(-FLT_MAX);
-	m_TLASNodes[2].isLeaf = true;
+	uint32_t nodeIndex[256] = {};
+	uint32_t nodeIndices = static_cast<uint32_t>(blas.size());
+	m_CurrentNodeIndex = 1;
 
-	m_TLASNodes[3].leftBLAS = 1;
-	m_TLASNodes[3].aabbMin = glm::vec3(FLT_MAX);
-	m_TLASNodes[3].aabbMax = glm::vec3(-FLT_MAX);
-	m_TLASNodes[3].isLeaf = true;
+	for (size_t i = 0; i < blas.size(); ++i)
+	{
+		const AABB& blasBB = m_BLAS[i].GetWorldSpaceBoundingBox();
+
+		nodeIndex[i] = m_CurrentNodeIndex;
+
+		m_TLASNodes[m_CurrentNodeIndex].aabbMin = blasBB.pmin;
+		m_TLASNodes[m_CurrentNodeIndex].aabbMax = blasBB.pmax;
+		m_TLASNodes[m_CurrentNodeIndex].blasIndex = i;
+		m_TLASNodes[m_CurrentNodeIndex].leftRight = 0;
+
+		m_CurrentNodeIndex++;
+	}
+
+	// Apply agglomerative clustering to build the TLAS
+	uint32_t A = 0;
+	uint32_t B = FindBestMatch(A, std::span<uint32_t>(nodeIndex, nodeIndices));
+
+	while (nodeIndices > 1)
+	{
+		uint32_t C = FindBestMatch(B, std::span<uint32_t>(nodeIndex, nodeIndices));
+
+		// B is the best match for A, so now we check if the best match for B is also A, and if true, combine
+		if (A == C)
+		{
+			const uint32_t nodeIndexA = nodeIndex[A];
+			const uint32_t nodeIndexB = nodeIndex[B];
+
+			const TLASNode& nodeA = m_TLASNodes[nodeIndexA];
+			const TLASNode& nodeB = m_TLASNodes[nodeIndexB];
+			TLASNode& newNode = m_TLASNodes[m_CurrentNodeIndex];
+
+			newNode.leftRight = nodeIndexA + (nodeIndexB << 16);
+			newNode.aabbMin = glm::min(nodeA.aabbMin, nodeB.aabbMin);
+			newNode.aabbMax = glm::max(nodeA.aabbMax, nodeB.aabbMax);
+
+			nodeIndex[A] = m_CurrentNodeIndex++;
+			nodeIndex[B] = nodeIndex[nodeIndices - 1];
+
+			B = FindBestMatch(A, std::span<uint32_t>(nodeIndex, --nodeIndices));
+		}
+		else
+		{
+			A = B;
+			B = C;
+		}
+	}
+
+	m_TLASNodes[0] = m_TLASNodes[nodeIndex[A]];
 }
 
-void TLAS::TraceRay(Ray& ray)
+void TLAS::TraceRay(Ray& ray) const
 {
-	TLASNode* tlasNode = &m_TLASNodes[0];
-	TLASNode* stack[64] = {};
+	const TLASNode* tlasNode = &m_TLASNodes[0];
+	// Check if we miss the TLAS entirely
+	if (RTUtil::IntersectSSE(tlasNode->aabbMin4, tlasNode->aabbMax4, ray) == FLT_MAX)
+		return;
+
+	ray.bvhDepth++;
+	const TLASNode* stack[64] = {};
 	uint32_t stackPtr = 0;
 
 	while (true)
 	{
 		// The current node is a leaf node, so it contains a BVH which we need to trace against
-		if (tlasNode->isLeaf)
+		if (tlasNode->IsLeafNode())
 		{
-			uint32_t primitiveIndex = m_BLAS[tlasNode->leftBLAS].TraceRay(ray);
+			m_BLAS[tlasNode->blasIndex].TraceRay(ray);
 
 			if (stackPtr == 0)
 				break;
@@ -41,8 +89,8 @@ void TLAS::TraceRay(Ray& ray)
 		}
 
 		// If the current node is not a leaf node, keep traversing the left and right child nodes
-		TLASNode* leftChildNode = &m_TLASNodes[tlasNode->leftBLAS];
-		TLASNode* rightChildNode = &m_TLASNodes[tlasNode->leftBLAS + 1];
+		const TLASNode* leftChildNode = &m_TLASNodes[tlasNode->leftRight >> 16];
+		const TLASNode* rightChildNode = &m_TLASNodes[tlasNode->leftRight & 0x0000FFFF];
 
 		// Determine distance to left and right child nodes, using SSE AABB intersections
 		float leftDistance = RTUtil::IntersectSSE(leftChildNode->aabbMin4, leftChildNode->aabbMax4, ray);
@@ -67,9 +115,42 @@ void TLAS::TraceRay(Ray& ray)
 		// and push the other one on the stack, if we have hit that one as well
 		else
 		{
+			ray.bvhDepth++;
+
 			tlasNode = leftChildNode;
 			if (rightDistance != FLT_MAX)
 				stack[stackPtr++] = rightChildNode;
 		}
 	}
+}
+
+uint32_t TLAS::FindBestMatch(uint32_t A, const std::span<uint32_t>& indices)
+{
+	float smallestArea = FLT_MAX;
+	uint32_t bestFitIndex = ~0u;
+
+	// Find the combination of node at index A and any other node that yields the smallest bounding box
+	for (size_t B = 0; B < indices.size(); ++B)
+	{
+		if (B != A)
+		{
+			glm::vec3 bmin = glm::max(m_TLASNodes[indices[A]].aabbMin, m_TLASNodes[indices[B]].aabbMin);
+			glm::vec3 bmax = glm::max(m_TLASNodes[indices[A]].aabbMax, m_TLASNodes[indices[B]].aabbMax);
+			glm::vec3 extent = bmax - bmin;
+
+			float area = RTUtil::GetAABBVolume(bmin, bmax);
+			if (area < smallestArea)
+			{
+				smallestArea = area;
+				bestFitIndex = B;
+			}
+		}
+	}
+
+	return bestFitIndex;
+}
+
+bool TLAS::TLASNode::IsLeafNode() const
+{
+	return leftRight == 0;
 }

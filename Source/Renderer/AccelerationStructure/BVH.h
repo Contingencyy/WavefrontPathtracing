@@ -20,6 +20,7 @@ public:
 
 	uint32_t TraceRay(Ray& ray) const;
 	Triangle GetTriangle(uint32_t primID) const;
+	AABB GetWorldSpaceBoundingBox() const;
 	
 	void SetTransform(const glm::mat4& transform);
 

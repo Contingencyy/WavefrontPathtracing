@@ -17,7 +17,7 @@ namespace Renderer
 
 		RenderVisualization_RayRecursionDepth,
 		RenderVisualization_RussianRouletteKillDepth,
-		RenderVisualization_BVHDepth,
+		RenderVisualization_AccelerationStructureDepth,
 
 		RenderVisualization_Count
 	};
@@ -27,13 +27,12 @@ namespace Renderer
 		"None",
 		"Hit albedo", "Hit normal", "Hit spec refract", "Hit absorption", "Hit emissive",
 		"Depth",
-		"Ray recursion depth", "Russian roulette kill depth", "BVH depth"
+		"Ray recursion depth", "Russian roulette kill depth", "Acceleration structure depth"
 	};
 
 	struct RenderSettings
 	{
-		RenderVisualization renderDataVisualization = RenderVisualization_None;
-
+		RenderVisualization renderVisualization = RenderVisualization_None;
 		uint32_t rayMaxRecursionDepth = 8;
 		
 		bool cosineWeightedDiffuseReflection = true;

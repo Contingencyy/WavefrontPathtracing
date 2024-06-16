@@ -39,8 +39,9 @@ Scene::Scene()
 	dragonMaterial = Material::MakeDiffuse(glm::vec3(0.05f, 0.1f, 0.9f));
 	m_SceneNodes.emplace_back(dragonMesh, dragonMaterial, glm::vec3(8.0f, 0.0f, 15.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(1.0f));
 
-	/*std::vector<BVH> dragonBVH = { m_SceneNodes[1].boundingVolumeHierarchy, m_SceneNodes[2].boundingVolumeHierarchy };
-	m_SceneTLAS.Build(dragonBVH);*/
+	// This does an unnecessary copy now, but it will all be better once acceleration structures will be renderer side only
+	std::vector<BVH> dragonBVH = { m_SceneNodes[1].boundingVolumeHierarchy, m_SceneNodes[2].boundingVolumeHierarchy };
+	m_SceneTLAS.Build(dragonBVH);
 }
 
 void Scene::Update(float dt)
@@ -67,6 +68,12 @@ void Scene::RenderUI()
 HitSurfaceData Scene::TraceRay(Ray& ray) const
 {
 	HitSurfaceData hitInfo = {};
+
+	// TEST
+	m_SceneTLAS.TraceRay(ray);
+	hitInfo.pos = ray.origin + ray.dir * ray.t;
+	return hitInfo;
+	// TEST END
 
 	for (uint32_t i = 0; i < m_SceneNodes.size(); ++i)
 	{

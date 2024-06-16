@@ -54,12 +54,12 @@ namespace CPUPathtracer
 	{
 		glm::vec3 finalColor = color;
 
-		if (inst->settings.renderDataVisualization != RenderVisualization_None)
+		if (inst->settings.renderVisualization != RenderVisualization_None)
 		{
-			if (inst->settings.renderDataVisualization == RenderVisualization_None ||
-				inst->settings.renderDataVisualization == RenderVisualization_HitAlbedo ||
-				inst->settings.renderDataVisualization == RenderVisualization_HitEmissive ||
-				inst->settings.renderDataVisualization == RenderVisualization_HitAbsorption)
+			if (inst->settings.renderVisualization == RenderVisualization_None ||
+				inst->settings.renderVisualization == RenderVisualization_HitAlbedo ||
+				inst->settings.renderVisualization == RenderVisualization_HitEmissive ||
+				inst->settings.renderVisualization == RenderVisualization_HitAbsorption)
 				return RTUtil::LinearToSRGB(finalColor);
 			else
 				return finalColor;
@@ -86,9 +86,7 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(const Scene& scene, Ray& ray)
 	{
-		// FIX: BVH Depth visualization is weird, it only shows the boxes above the camera's y-position somehow
-		// TODO: Bottom and top-level acceleration structures, BVH transforms
-		// TODO: BVH hotmap render visualization
+		// TODO: BVH bounding box visualization
 		// TODO: Next event estimation
 		
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
@@ -131,19 +129,19 @@ namespace CPUPathtracer
 			HitSurfaceData hit = scene.TraceRay(ray);
 
 			// Handle any render data visualization that can happen after a single trace
-			if (inst->settings.renderDataVisualization != RenderVisualization_None)
+			if (inst->settings.renderVisualization != RenderVisualization_None)
 			{
 				bool stopTracingPath = false;
 
-				switch (inst->settings.renderDataVisualization)
+				switch (inst->settings.renderVisualization)
 				{
-				case RenderVisualization_HitAlbedo:		 energy = hit.objMat.albedo; stopTracingPath = true; break;
-				case RenderVisualization_HitNormal:		 energy = glm::abs(hit.normal); stopTracingPath = true; break;
-				case RenderVisualization_HitSpecRefract: energy = glm::vec3(hit.objMat.specular, hit.objMat.refractivity, 0.0f); stopTracingPath = true; break;
-				case RenderVisualization_HitAbsorption:  energy = glm::vec3(hit.objMat.absorption); stopTracingPath = true; break;
-				case RenderVisualization_HitEmissive:	 energy = glm::vec3(hit.objMat.emissive * hit.objMat.intensity * static_cast<float>(hit.objMat.isEmissive)); stopTracingPath = true; break;
-				case RenderVisualization_Depth:			 energy = glm::vec3(ray.t); stopTracingPath = true; break;
-				case RenderVisualization_BVHDepth:		 energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
+				case RenderVisualization_HitAlbedo:					  energy = hit.objMat.albedo; stopTracingPath = true; break;
+				case RenderVisualization_HitNormal:					  energy = glm::abs(hit.normal); stopTracingPath = true; break;
+				case RenderVisualization_HitSpecRefract:			  energy = glm::vec3(hit.objMat.specular, hit.objMat.refractivity, 0.0f); stopTracingPath = true; break;
+				case RenderVisualization_HitAbsorption:				  energy = glm::vec3(hit.objMat.absorption); stopTracingPath = true; break;
+				case RenderVisualization_HitEmissive:				  energy = glm::vec3(hit.objMat.emissive * hit.objMat.intensity * static_cast<float>(hit.objMat.isEmissive)); stopTracingPath = true; break;
+				case RenderVisualization_Depth:						  energy = glm::vec3(ray.t); stopTracingPath = true; break;
+				case RenderVisualization_AccelerationStructureDepth:  energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
 				}
 
 				if (stopTracingPath)
@@ -292,9 +290,9 @@ namespace CPUPathtracer
 		}
 
 		// Handle any render data visualization that needs to trace the full path first
-		if (inst->settings.renderDataVisualization != RenderVisualization_None)
+		if (inst->settings.renderVisualization != RenderVisualization_None)
 		{
-			switch (inst->settings.renderDataVisualization)
+			switch (inst->settings.renderVisualization)
 			{
 			case RenderVisualization_RayRecursionDepth:
 			{
@@ -341,7 +339,7 @@ namespace CPUPathtracer
 	{
 		DX12Backend::BeginFrame();
 
-		if (inst->settings.renderDataVisualization != RenderVisualization_None)
+		if (inst->settings.renderVisualization != RenderVisualization_None)
 			ResetAccumulation();
 	}
 
@@ -439,15 +437,15 @@ namespace CPUPathtracer
 
 				// Render data visualization
 				ImGui::Text("Render data visualization mode");
-				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderDataVisualization].c_str(), ImGuiComboFlags_None))
+				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderVisualization].c_str(), ImGuiComboFlags_None))
 				{
 					for (uint32_t i = 0; i < RenderVisualization_Count; ++i)
 					{
-						bool is_selected = i == inst->settings.renderDataVisualization;
+						bool is_selected = i == inst->settings.renderVisualization;
 
 						if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
 						{
-							inst->settings.renderDataVisualization = (RenderVisualization)i;
+							inst->settings.renderVisualization = (RenderVisualization)i;
 							resetAccumulator = true;
 						}
 

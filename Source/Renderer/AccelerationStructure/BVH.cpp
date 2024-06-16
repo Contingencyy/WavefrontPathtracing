@@ -52,7 +52,7 @@ uint32_t BVH::TraceRay(Ray& ray) const
 	ray.dir = m_WorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
 	ray.invDir = 1.0f / ray.dir;
 
-	uint32_t primitiveID = ~0u;
+	uint32_t primitiveIndex = ~0u;
 
 	const BVHNode* bvhNode = &m_BVHNodes[0];
 	const BVHNode* stack[64] = {};
@@ -69,9 +69,7 @@ uint32_t BVH::TraceRay(Ray& ray) const
 				bool intersected = RTUtil::Intersect(triangle, ray);
 
 				if (intersected)
-				{
-					primitiveID = triIndex;
-				}
+					primitiveIndex = triIndex;
 			}
 
 			if (stackPtr == 0)
@@ -121,12 +119,17 @@ uint32_t BVH::TraceRay(Ray& ray) const
 	originalRay.bvhDepth = ray.bvhDepth;
 	ray = originalRay;
 
-	return primitiveID;
+	return primitiveIndex;
 }
 
 Triangle BVH::GetTriangle(uint32_t primID) const
 {
 	return m_Triangles[m_TriangleIndices[primID]];
+}
+
+AABB BVH::GetWorldSpaceBoundingBox() const
+{
+	return m_WorldSpaceBoundingBox;
 }
 
 void BVH::SetTransform(const glm::mat4& transform)
@@ -136,6 +139,8 @@ void BVH::SetTransform(const glm::mat4& transform)
 	
 	// Calculate the world space bounding box of the root node
 	glm::vec3 worldMin = m_BVHNodes[0].aabbMin, worldMax = m_BVHNodes[0].aabbMax;
+	m_WorldSpaceBoundingBox.pmin = glm::vec3(FLT_MAX);
+	m_WorldSpaceBoundingBox.pmax = glm::vec3(-FLT_MAX);
 
 	// Grow the world-space bounding box by the eight corners of the root node AABB, which is in local space
 	for (uint32_t i = 0; i < 8; ++i)
