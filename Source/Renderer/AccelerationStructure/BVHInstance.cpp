@@ -22,7 +22,7 @@ void BVHInstance::SetTransform(const glm::mat4& transform)
 	// Grow the world-space bounding box by the eight corners of the root node AABB, which is in local space
 	for (uint32_t i = 0; i < 8; ++i)
 	{
-		glm::vec3 worldPosition = transform *
+		glm::vec3 worldPosition = m_LocalToWorldTransform *
 			glm::vec4(i & 1 ? bvhLocalAABB.pmax.x : bvhLocalAABB.pmin.x, i & 2 ? bvhLocalAABB.pmax.y : bvhLocalAABB.pmin.y, i & 4 ? bvhLocalAABB.pmax.z : bvhLocalAABB.pmin.z, 1.0f);
 		RTUtil::GrowAABB(m_WorldSpaceAABB.pmin, m_WorldSpaceAABB.pmax, worldPosition);
 	}
@@ -54,5 +54,5 @@ AABB BVHInstance::GetWorldSpaceAABB() const
 
 glm::vec3 BVHInstance::GetNormal(uint32_t primitiveIndex) const
 {
-	return m_LocalToWorldTransform * glm::vec4(RTUtil::GetHitNormal(m_BLAS->GetTriangle(primitiveIndex)), 0.0f);
+	return glm::normalize(m_LocalToWorldTransform * glm::vec4(RTUtil::GetHitNormal(m_BLAS->GetTriangle(primitiveIndex)), 0.0f));
 }

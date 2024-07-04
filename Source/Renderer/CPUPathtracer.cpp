@@ -23,12 +23,14 @@ namespace CPUPathtracer
 
 	struct Instance
 	{
+		ResourceSlotmap<RenderTextureHandle, Texture> textureMap;
 		ResourceSlotmap<RenderMeshHandle, BVH> BVHMap;
 		
 		std::vector<BVHInstance> BVHInstances;
 		std::vector<Material> BVHMaterials;
 		TLAS sceneTLAS;
 		Camera sceneCamera;
+		Texture* sceneHDREnvTexture;
 
 		uint32_t renderWidth = 0;
 		uint32_t renderHeight = 0;
@@ -53,6 +55,17 @@ namespace CPUPathtracer
 		std::fill(inst->pixelAccumulator.begin(), inst->pixelAccumulator.end(), glm::vec4(0.0f));
 		inst->energyAccumulator = 0.0;
 		inst->numAccumulatedFrames = 0;
+	}
+
+	static glm::vec3 SampleHDREnvironment(const glm::vec3& dir)
+	{
+		glm::vec2 uv = RTUtil::DirectionToEquirectangularUV(dir);
+		uv.y = glm::abs(uv.y - 1.0f);
+
+		glm::uvec2 texelPos = uv * glm::vec2(inst->sceneHDREnvTexture->width, inst->sceneHDREnvTexture->height);
+		glm::vec4 color = inst->sceneHDREnvTexture->pixelData[texelPos.y * inst->sceneHDREnvTexture->width + texelPos.x];
+
+		return color.xyz;
 	}
 
 	static glm::vec3 ApplyPostProcessing(const glm::vec3& color)
@@ -90,6 +103,10 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Ray& ray)
 	{
+		// FIX: Scaling a BVH instance is broken
+		// REMEMBER: Set DXC to not use legacy struct padding
+		// TOOD: DX12 Agility SDK & Enhanced Barriers
+		// TODO: HDR environment maps
 		// TODO: Application window for profiler, Timer avg/min/max
 		// TODO: Profiling for TLAS builds
 		// TODO: BVH bounding box visualization
@@ -98,7 +115,6 @@ namespace CPUPathtracer
 		// TODO: Profile BVH build times for the BLAS and also the TLAS
 		
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
-		// TODO: Make renderer and game representation of a mesh separate, BVH should probably be on the renderer side only, RenderResourceHandle to the game/engine side
 		// TODO: Setting for accumulation should be a render setting, with defaults for each render visualization
 		// TODO: BVH Refitting and Rebuilding (https://jacco.ompf2.com/2022/04/26/how-to-build-a-bvh-part-4-animation/)
 		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc. in the mesh assets once I have menus for that
@@ -122,6 +138,8 @@ namespace CPUPathtracer
 		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting dir for length 1 for example)
 		// TODO: Physically-based rendering
 		// TODO: BRDF importance sampling
+		// TODO: Denoising
+		// TODO: ReSTIR
 
 		glm::vec3 throughput(1.0f);
 		glm::vec3 energy(0.0f);
@@ -161,7 +179,8 @@ namespace CPUPathtracer
 			// Add sky color to energy if we have not hit an object, and terminate path
 			if (!traceResult.HasHitGeometry())
 			{
-				energy += inst->settings.skyColor * inst->settings.skyColorIntensity * throughput;
+				//energy += inst->settings.skyColor * inst->settings.skyColorIntensity * throughput;
+				energy += SampleHDREnvironment(ray.dir) * throughput;
 				break;
 			}
 
@@ -360,12 +379,14 @@ namespace CPUPathtracer
 		inst->frameIndex++;
 	}
 
-	void BeginScene(const Camera& sceneCamera)
+	void BeginScene(const Camera& sceneCamera, RenderTextureHandle hdrEnvHandle)
 	{
 		if (inst->sceneCamera.viewMatrix != sceneCamera.viewMatrix)
 			ResetAccumulation();
 
 		inst->sceneCamera = sceneCamera;
+		inst->sceneHDREnvTexture = inst->textureMap.Find(hdrEnvHandle);
+		ASSERT(inst->sceneHDREnvTexture);
 	}
 
 	void Render()
@@ -496,7 +517,7 @@ namespace CPUPathtracer
 					if (ImGui::SliderFloat("Max white", &inst->settings.postfx.maxWhite, 0.0f, 100.0f)) resetAccumulator = true;
 					if (ImGui::SliderFloat("Exposure", &inst->settings.postfx.exposure, 0.0f, 100.0f)) resetAccumulator = true;
 					if (ImGui::SliderFloat("Contrast", &inst->settings.postfx.contrast, 0.0f, 3.0f)) resetAccumulator = true;
-					if (ImGui::SliderFloat("Brightness", &inst->settings.postfx.brightness, 0.0f, 1.0f)) resetAccumulator = true;
+					if (ImGui::SliderFloat("Brightness", &inst->settings.postfx.brightness, -1.0f, 1.0f)) resetAccumulator = true;
 					if (ImGui::SliderFloat("Saturation", &inst->settings.postfx.saturation, 0.0f, 10.0f)) resetAccumulator = true;
 					if (ImGui::Checkbox("Linear to SRGB", &inst->settings.postfx.linearToSRGB)) resetAccumulator = true;
 
@@ -510,6 +531,17 @@ namespace CPUPathtracer
 				ResetAccumulation();
 		}
 		ImGui::End();
+	}
+
+	RenderTextureHandle CreateTexture(uint32_t textureWidth, uint32_t textureHeight, const std::vector<glm::vec4>& pixelData)
+	{
+		Texture texture = {};
+		texture.width = textureWidth;
+		texture.height = textureHeight;
+		texture.pixelData = pixelData;
+
+		RenderTextureHandle textureHandle = inst->textureMap.Add(std::move(texture));
+		return textureHandle;
 	}
 
 	RenderMeshHandle CreateMesh(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices)
@@ -533,7 +565,7 @@ namespace CPUPathtracer
 		instance.SetTransform(transform);
 
 		inst->BVHInstances.push_back(std::move(instance));
-		inst->BVHMaterials.push_back(material);
+		inst->BVHMaterials.push_back(std::move(material));
 	}
 
 }

@@ -4,6 +4,7 @@ static constexpr float PI = 3.14159265f;
 static constexpr float TWO_PI = 2.0f * PI;
 static constexpr float INV_PI = 1.0f / PI;
 static constexpr float INV_TWO_PI = 1.0f / TWO_PI;
+static constexpr glm::vec2 INV_ATAN = glm::vec2(0.1591f, 0.3183f);
 
 static constexpr float RAY_MAX_T = FLT_MAX;
 static constexpr float RAY_NUDGE_MODIFIER = 0.001f;

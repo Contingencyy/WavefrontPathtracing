@@ -16,7 +16,7 @@ struct SceneObject
 
 		transform = glm::translate(glm::identity<glm::mat4>(), pos);
 		transform = transform * glm::mat4_cast(glm::quat(glm::radians(rot)));
-		transform = glm::scale(transform, scale);
+		transform = transform * glm::scale(glm::identity<glm::mat4>(), scale);
 
 		material = mat;
 	}

@@ -60,11 +60,13 @@ uint32_t BVH::TraceRay(Ray& ray) const
 		{
 			for (uint32_t triIndex = bvhNode->leftFirst; triIndex < bvhNode->leftFirst + bvhNode->numPrimitives; ++triIndex)
 			{
-				const Triangle triangle = m_Triangles[m_TriangleIndices[triIndex]];
+				const Triangle& triangle = m_Triangles[m_TriangleIndices[triIndex]];
 				bool intersected = RTUtil::Intersect(triangle, ray);
 
 				if (intersected)
+				{
 					primitiveIndex = triIndex;
+				}
 			}
 
 			if (stackPtr == 0)

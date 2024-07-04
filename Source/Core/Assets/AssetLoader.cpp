@@ -2,11 +2,33 @@
 #include "AssetLoader.h"
 #include "Renderer/CPUPathtracer.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 
 namespace AssetLoader
 {
+
+	TextureAsset LoadImageHDR(const std::filesystem::path& filepath)
+	{
+		int32_t imageWidth, imageHeight, numChannels;
+		float* imageData = stbi_loadf(filepath.string().c_str(), &imageWidth, &imageHeight, &numChannels, STBI_rgb_alpha);
+
+		if (!imageData)
+		{
+			FATAL_ERROR("AssetLoader::LoadImageHDR", "Failed to load HDR image: %s", filepath.string());
+		}
+
+		std::vector<glm::vec4> pixelData(imageWidth * imageHeight);
+		TextureAsset textureAsset = {};
+
+		memcpy(pixelData.data(), imageData, imageWidth * imageHeight * numChannels * sizeof(float));
+		textureAsset.renderTextureHandle = CPUPathtracer::CreateTexture(imageWidth, imageHeight, pixelData);
+
+		return textureAsset;
+	}
 
 	template<typename T>
 	static T* CGLTFGetDataPointer(const cgltf_accessor* accessor)
@@ -64,6 +86,7 @@ namespace AssetLoader
 				for (size_t attrIndex = 0; attrIndex < gltfPrim.attributes_count; ++attrIndex)
 				{
 					const cgltf_attribute& gltfAttr = gltfPrim.attributes[attrIndex];
+					ASSERT(gltfAttr.data->count == vertices.size());
 
 					switch (gltfAttr.type)
 					{

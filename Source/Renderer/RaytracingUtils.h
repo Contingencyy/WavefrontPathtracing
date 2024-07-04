@@ -19,7 +19,7 @@ namespace RTUtil
 		glm::vec3 H = glm::cross(ray.dir, edge2);
 		float a = glm::dot(edge1, H);
 
-		if (std::fabs(a) < 0.001f)
+		if (glm::abs(a) < 0.001f)
 			return false;
 
 		float f = 1.0f / a;
@@ -121,7 +121,7 @@ namespace RTUtil
 		return false;
 	}
 
-	inline float IntersectSSE(const __m128 aabbMin, const __m128 aabbMax, Ray& ray)
+	inline float IntersectSSE(const __m128 aabbMin, const __m128 aabbMax, const Ray& ray)
 	{
 		__m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1, 0, 0, 0));
 
@@ -299,6 +299,15 @@ namespace RTUtil
 	inline float SurvivalProbabilityRR(const glm::vec3& albedo)
 	{
 		return glm::clamp(glm::max(glm::max(albedo.x, albedo.y), albedo.z), 0.0f, 1.0f);
+	}
+
+	inline glm::vec2 DirectionToEquirectangularUV(const glm::vec3& dir)
+	{
+		glm::vec2 uv = glm::vec2(glm::atan(dir.z, dir.x), glm::asin(dir.y));
+		uv *= INV_ATAN;
+		uv += 0.5f;
+
+		return uv;
 	}
 
 	/*
