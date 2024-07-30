@@ -8,6 +8,11 @@ BVHInstance::BVHInstance(const BVH* blas)
 {
 }
 
+glm::mat4 BVHInstance::GetWorldToLocalTransform() const
+{
+	return m_WorldToLocalTransform;
+}
+
 void BVHInstance::SetTransform(const glm::mat4& transform)
 {
 	// Set the world to local (bvh) transform, which will be used to transform the rays into the local space when tracing
@@ -30,21 +35,8 @@ void BVHInstance::SetTransform(const glm::mat4& transform)
 
 uint32_t BVHInstance::TraceRay(Ray& ray) const
 {
-	// Make a copy of the original ray since we need to revert the transform once we are done tracing this BVH
-	Ray originalRay = ray;
-	ray.origin = m_WorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
-	ray.dir = m_WorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
-	ray.invDir = 1.0f / ray.dir;
-
 	// Trace ray through the BVH
-	uint32_t primitiveIndex = m_BLAS->TraceRay(ray);
-
-	// Restore original ray origin and direction before transform
-	originalRay.t = ray.t;
-	originalRay.bvhDepth = ray.bvhDepth;
-	ray = originalRay;
-
-	return primitiveIndex;
+	return m_BLAS->TraceRay(ray);
 }
 
 AABB BVHInstance::GetWorldSpaceAABB() const

@@ -9,6 +9,7 @@ public:
 	BVHInstance() = default;
 	BVHInstance(const BVH* blas);
 
+	glm::mat4 GetWorldToLocalTransform() const;
 	void SetTransform(const glm::mat4& transform);
 	uint32_t TraceRay(Ray& ray) const;
 

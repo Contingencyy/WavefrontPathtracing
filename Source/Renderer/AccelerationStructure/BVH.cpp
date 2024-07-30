@@ -47,7 +47,7 @@ void BVH::Build(const std::span<Vertex>& vertices, const std::span<uint32_t>& in
 
 uint32_t BVH::TraceRay(Ray& ray) const
 {
-	uint32_t primitiveIndex = ~0u;
+	uint32_t primIdx = ~0u;
 
 	const BVHNode* bvhNode = &m_BVHNodes[0];
 	const BVHNode* stack[64] = {};
@@ -65,7 +65,7 @@ uint32_t BVH::TraceRay(Ray& ray) const
 
 				if (intersected)
 				{
-					primitiveIndex = triIndex;
+					primIdx = triIndex;
 				}
 			}
 
@@ -111,12 +111,12 @@ uint32_t BVH::TraceRay(Ray& ray) const
 		}
 	}
 
-	return primitiveIndex;
+	return primIdx;
 }
 
-Triangle BVH::GetTriangle(uint32_t primitiveIndex) const
+Triangle BVH::GetTriangle(uint32_t primIdx) const
 {
-	return m_Triangles[m_TriangleIndices[primitiveIndex]];
+	return m_Triangles[m_TriangleIndices[primIdx]];
 }
 
 AABB BVH::GetLocalSpaceAABB() const

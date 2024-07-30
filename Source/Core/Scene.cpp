@@ -30,8 +30,8 @@ Scene::Scene()
 	//Material planeMaterial = Material::MakeDiffuse(glm::vec3(1.0f));
 	//m_SceneObjects.emplace_back(plane, planeMaterial);
 
-	hdrEnvironment = AssetLoader::LoadImageHDR("Assets/Textures/HDR_Env_Victorian_Hall.hdr");
-	//hdrEnvironment = AssetLoader::LoadImageHDR("Assets/Textures/HDR_Env_St_Peters_Square_Night.hdr");
+	//hdrEnvironment = AssetLoader::LoadImageHDR("Assets/Textures/HDR_Env_Victorian_Hall.hdr");
+	hdrEnvironment = AssetLoader::LoadImageHDR("Assets/Textures/HDR_Env_St_Peters_Square_Night.hdr");
 	static SceneAsset dragonGLTF = AssetLoader::LoadGLTF("Assets/GLTF/Dragon/DragonAttenuation.gltf");
 	// Dragon 1
 	//Material dragonMaterial = Material::MakeRefractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
@@ -51,8 +51,8 @@ Scene::Scene()
 	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(8.0f, 0.0f, 30.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(1.0f));
 
 	// Dragon 5
-	dragonMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.1f, 0.9f));
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(0.0f, 0.0f, 100.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(10.0f));
+	dragonMaterial = Material::MakeSpecular(glm::vec3(0.9f, 0.1f, 0.9f), 1.0f);
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(0.0f, 0.0f, 100.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(20.0f));
 }
 
 void Scene::Update(float dt)

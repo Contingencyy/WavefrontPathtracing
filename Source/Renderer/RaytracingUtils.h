@@ -12,7 +12,6 @@ namespace RTUtil
 
 	inline bool Intersect(const Triangle& tri, Ray& ray)
 	{
-		float t = 0.0f;
 		glm::vec3 edge1 = tri.p1 - tri.p0;
 		glm::vec3 edge2 = tri.p2 - tri.p0;
 
@@ -35,7 +34,7 @@ namespace RTUtil
 		if (v < 0.0f || u + v > 1.0f)
 			return false;
 
-		t = f * glm::dot(edge2, Q);
+		float t = f * glm::dot(edge2, Q);
 
 		if (t > 0.0f && t < ray.t)
 		{
@@ -323,24 +322,26 @@ namespace RTUtil
 		return (a << 24) | (b << 16) | (g << 8) | r;
 	}
 
-	inline glm::vec3 LinearToSRGB(const glm::vec3& color)
+	inline glm::vec3 LinearToSRGB(const glm::vec3& linear)
 	{
-		glm::vec3 clamped = glm::clamp(color, 0.0f, 1.0f);
-		return glm::mix(
-			glm::pow(clamped, glm::vec3((1.0f / 2.4f) * 1.055f - 0.055f)),
-			clamped * 12.92f,
-			glm::lessThan(clamped, glm::vec3(0.0031308f))
-		);
+		glm::vec3 clamped = glm::clamp(linear, 0.0f, 1.0f);
+
+		glm::bvec3 cutoff = glm::lessThan(clamped, glm::vec3(0.0031308f));
+		glm::vec3 higher = glm::vec3(1.055f) * glm::pow(clamped, glm::vec3(1.0f / 2.4f)) - glm::vec3(0.055f);
+		glm::vec3 lower = clamped * glm::vec3(12.92f);
+		
+		return glm::mix(higher, lower, cutoff);
 	}
 
-	inline glm::vec3 SRGBToLinear(const glm::vec3& color)
+	inline glm::vec3 SRGBToLinear(const glm::vec3& srgb)
 	{
-		glm::vec3 clamped = glm::clamp(color, 0.0f, 1.0f);
-		return glm::mix(
-			glm::pow((clamped + 0.055f) / 1.055f, glm::vec3(2.4f)),
-			clamped / 12.92f,
-			glm::lessThan(clamped, glm::vec3(0.04045f))
-		);
+		glm::vec3 clamped = glm::clamp(srgb, 0.0f, 1.0f);
+
+		glm::bvec3 cutoff = lessThan(clamped, glm::vec3(0.04045f));
+		glm::vec3 higher = glm::pow((clamped + glm::vec3(0.055f)) / glm::vec3(1.055f), glm::vec3(2.4f));
+		glm::vec3 lower = clamped / glm::vec3(12.92f);
+
+		return glm::mix(higher, lower, cutoff);
 	}
 
 	/*

@@ -20,7 +20,7 @@ void TLAS::Build(const std::vector<BVHInstance>& blas)
 
 		m_TLASNodes[m_CurrentNodeIndex].aabbMin = blasBB.pmin;
 		m_TLASNodes[m_CurrentNodeIndex].aabbMax = blasBB.pmax;
-		m_TLASNodes[m_CurrentNodeIndex].blasInstanceIndex = i;
+		m_TLASNodes[m_CurrentNodeIndex].blasInstanceIdx = i;
 		m_TLASNodes[m_CurrentNodeIndex].leftRight = 0;
 
 		m_CurrentNodeIndex++;
@@ -63,14 +63,14 @@ void TLAS::Build(const std::vector<BVHInstance>& blas)
 	m_TLASNodes[0] = m_TLASNodes[nodeIndex[A]];
 }
 
-TLAS::TraceResult TLAS::TraceRay(Ray& ray) const
+HitResult TLAS::TraceRay(Ray& ray) const
 {
-	TraceResult result = {};
+	HitResult hitResult = {};
 
 	const TLASNode* tlasNode = &m_TLASNodes[0];
 	// Check if we miss the TLAS entirely
 	if (RTUtil::IntersectSSE(tlasNode->aabbMin4, tlasNode->aabbMax4, ray) == FLT_MAX)
-		return result;
+		return hitResult;
 
 	ray.bvhDepth++;
 	const TLASNode* stack[64] = {};
@@ -81,11 +81,26 @@ TLAS::TraceResult TLAS::TraceRay(Ray& ray) const
 		// The current node is a leaf node, so it contains a BVH which we need to trace against
 		if (tlasNode->IsLeafNode())
 		{
-			uint32_t primitiveIndex = m_BLASInstances[tlasNode->blasInstanceIndex].TraceRay(ray);
-			if (primitiveIndex != ~0u)
+			const BVHInstance& blasInstance = m_BLASInstances[tlasNode->blasInstanceIdx];
+			const glm::mat4& blasWorldToLocalTransform = blasInstance.GetWorldToLocalTransform();
+
+			Ray intersectRay = ray;
+			intersectRay.origin = blasWorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
+			intersectRay.dir = blasWorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
+			intersectRay.invDir = 1.0f / intersectRay.dir;
+
+			uint32_t primIdx = blasInstance.TraceRay(intersectRay);
+
+			ray.t = intersectRay.t;
+			ray.bvhDepth = intersectRay.bvhDepth;
+
+			if (primIdx != PRIM_IDX_INVALID)
 			{
-				result.primitiveIndex = primitiveIndex;
-				result.instanceIndex = tlasNode->blasInstanceIndex;
+				hitResult.primIdx = primIdx;
+				hitResult.t = ray.t;
+				hitResult.pos = ray.origin + ray.dir * ray.t;
+				hitResult.normal = blasInstance.GetNormal(primIdx);
+				hitResult.instanceIdx = tlasNode->blasInstanceIdx;
 			}
 
 			if (stackPtr == 0)
@@ -130,7 +145,7 @@ TLAS::TraceResult TLAS::TraceRay(Ray& ray) const
 		}
 	}
 
-	return result;
+	return hitResult;
 }
 
 glm::vec3 TLAS::GetNormal(uint32_t instanceIndex, uint32_t primitiveIndex) const
