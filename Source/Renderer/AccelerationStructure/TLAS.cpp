@@ -84,16 +84,21 @@ HitResult TLAS::TraceRay(Ray& ray) const
 			const BVHInstance& blasInstance = m_BLASInstances[tlasNode->blasInstanceIdx];
 			const glm::mat4& blasWorldToLocalTransform = blasInstance.GetWorldToLocalTransform();
 
+			// Create a new ray that is in object-space of the BVH we want to intersect
+			// This is the same as if we transformed the BVH to world-space instead
 			Ray intersectRay = ray;
 			intersectRay.origin = blasWorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
 			intersectRay.dir = blasWorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
 			intersectRay.invDir = 1.0f / intersectRay.dir;
 
+			// Trace object-space ray against object-space BVH
 			uint32_t primIdx = blasInstance.TraceRay(intersectRay);
 
+			// Update the ray with the object-space ray depth
 			ray.t = intersectRay.t;
 			ray.bvhDepth = intersectRay.bvhDepth;
 
+			// If we have hit a triangle, update the hit result
 			if (primIdx != PRIM_IDX_INVALID)
 			{
 				hitResult.primIdx = primIdx;

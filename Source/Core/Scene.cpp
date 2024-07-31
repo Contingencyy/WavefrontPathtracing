@@ -52,7 +52,7 @@ Scene::Scene()
 
 	// Dragon 5
 	dragonMaterial = Material::MakeSpecular(glm::vec3(0.9f, 0.1f, 0.9f), 1.0f);
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(0.0f, 0.0f, 100.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(20.0f));
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(0.0f, 0.0f, 100.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(1000000));
 }
 
 void Scene::Update(float dt)

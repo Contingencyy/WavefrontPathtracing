@@ -12,13 +12,16 @@ namespace RTUtil
 
 	inline bool Intersect(const Triangle& tri, Ray& ray)
 	{
+		// This algorithm is very sensitive to epsilon values, so we need a very small one, otherwise transforming/scaling the ray breaks this
+		const float epsilon = 0.00000000001f;
+
 		glm::vec3 edge1 = tri.p1 - tri.p0;
 		glm::vec3 edge2 = tri.p2 - tri.p0;
 
 		glm::vec3 H = glm::cross(ray.dir, edge2);
 		float a = glm::dot(edge1, H);
 
-		if (glm::abs(a) < 0.001f)
+		if (glm::abs(a) < epsilon)
 			return false;
 
 		float f = 1.0f / a;
@@ -36,13 +39,11 @@ namespace RTUtil
 
 		float t = f * glm::dot(edge2, Q);
 
-		if (t > 0.0f && t < ray.t)
-		{
-			ray.t = t;
-			return true;
-		}
+		if (t < epsilon || t >= ray.t)
+			return false;
 
-		return false;
+		ray.t = t;
+		return true;
 	}
 
 	inline bool Intersect(const Sphere& sphere, Ray& ray)

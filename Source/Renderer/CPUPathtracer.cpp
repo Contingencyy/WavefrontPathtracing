@@ -103,9 +103,9 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Ray& ray)
 	{
+		// TODO: Add Config.h which has a whole bunch of defines like which intersection algorithms to use and what not
 		// REMEMBER: Set DXC to not use legacy struct padding
-		// FIX: Scaling a BVH instance is broken
-		// TODO: Normal per vertex, interpolate with UV coordinates
+		// TODO: Normal per vertex, interpolate with UV coordinates, hit result should have UV coordinates
 		// TOOD: DX12 Agility SDK & Enhanced Barriers
 		// TODO: HDR environment maps
 		// TODO: Application window for profiler, Timer avg/min/max
