@@ -103,10 +103,10 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Ray& ray)
 	{
+		// TODO: Normal per vertex, interpolate with UV coordinates, hit result should have UV coordinates
 		// TODO: Find a better epsilon for the Möller-Trumbore Triangle Intersection Algorithm
 		// TODO: Add Config.h which has a whole bunch of defines like which intersection algorithms to use and what not
 		// REMEMBER: Set DXC to not use legacy struct padding
-		// TODO: Normal per vertex, interpolate with UV coordinates, hit result should have UV coordinates
 		// TOOD: DX12 Agility SDK & Enhanced Barriers
 		// TODO: HDR environment maps
 		// TODO: Application window for profiler, Timer avg/min/max
@@ -173,6 +173,7 @@ namespace CPUPathtracer
 				{
 				case RenderVisualization_HitAlbedo:					 energy = hitMaterial.albedo; stopTracingPath = true; break;
 				case RenderVisualization_HitNormal:					 energy = glm::abs(hit.normal); stopTracingPath = true; break;
+				case RenderVisualization_HitBarycentrics:			 energy = hit.bary; stopTracingPath = true; break;
 				case RenderVisualization_HitSpecRefract:			 energy = glm::vec3(hitMaterial.specular, hitMaterial.refractivity, 0.0f); stopTracingPath = true; break;
 				case RenderVisualization_HitAbsorption:				 energy = glm::vec3(hitMaterial.absorption); stopTracingPath = true; break;
 				case RenderVisualization_HitEmissive:				 energy = glm::vec3(hitMaterial.emissive * hitMaterial.intensity * static_cast<float>(hitMaterial.isEmissive)); stopTracingPath = true; break;

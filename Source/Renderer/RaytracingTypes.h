@@ -9,6 +9,25 @@ static constexpr glm::vec2 INV_ATAN = glm::vec2(0.1591f, 0.3183f);
 static constexpr float RAY_MAX_T = FLT_MAX;
 static constexpr float RAY_NUDGE_MODIFIER = 0.001f;
 
+static constexpr uint32_t INSTANCE_IDX_INVALID = ~0u;
+static constexpr uint32_t PRIM_IDX_INVALID = ~0u;
+
+struct HitResult
+{
+	glm::vec3 pos = glm::vec3(0.0f);
+	glm::vec3 normal = glm::vec3(0.0f);
+	glm::vec3 bary = glm::vec3(0.0f);
+	float t = FLT_MAX;
+
+	uint32_t instanceIdx = INSTANCE_IDX_INVALID;
+	uint32_t primIdx = PRIM_IDX_INVALID;
+
+	bool HasHitGeometry() const
+	{
+		return (instanceIdx != INSTANCE_IDX_INVALID && primIdx != PRIM_IDX_INVALID);
+	}
+};
+
 struct Material
 {
 	glm::vec3 albedo = {};
@@ -82,6 +101,10 @@ struct Triangle
 	glm::vec3 p0 = {};
 	glm::vec3 p1 = {};
 	glm::vec3 p2 = {};
+
+	glm::vec3 n0 = {};
+	glm::vec3 n1 = {};
+	glm::vec3 n2 = {};
 };
 
 struct Sphere
@@ -121,22 +144,4 @@ struct Primitive
 		Plane plane;
 		AABB aabb;
 	};
-};
-
-static constexpr uint32_t INSTANCE_IDX_INVALID = ~0u;
-static constexpr uint32_t PRIM_IDX_INVALID = ~0u;
-
-struct HitResult
-{
-	glm::vec3 pos = glm::vec3(0.0f);
-	glm::vec3 normal = glm::vec3(0.0f);
-	float t = FLT_MAX;
-
-	uint32_t instanceIdx = INSTANCE_IDX_INVALID;
-	uint32_t primIdx = PRIM_IDX_INVALID;
-
-	bool HasHitGeometry() const
-	{
-		return (instanceIdx != INSTANCE_IDX_INVALID && primIdx != PRIM_IDX_INVALID);
-	}
 };

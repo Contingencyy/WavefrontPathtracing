@@ -18,12 +18,16 @@ void BVH::Build(const std::span<Vertex>& vertices, const std::span<uint32_t>& in
 		m_Triangles[triIndex].p0 = vertices[indices[i]].position;
 		m_Triangles[triIndex].p1 = vertices[indices[i + 1]].position;
 		m_Triangles[triIndex].p2 = vertices[indices[i + 2]].position;
+
+		m_Triangles[triIndex].n0 = vertices[indices[i]].normal;
+		m_Triangles[triIndex].n1 = vertices[indices[i + 1]].normal;
+		m_Triangles[triIndex].n2 = vertices[indices[i + 2]].normal;
 	}
 
 	// Fill all triangle indices with their default value
 	for (size_t i = 0; i < m_TriangleIndices.size(); ++i)
 	{
-		m_TriangleIndices[i] = i;
+		m_TriangleIndices[i] = static_cast<uint32_t>(i);
 	}
 
 	// Calculate all triangle centroids
@@ -45,9 +49,9 @@ void BVH::Build(const std::span<Vertex>& vertices, const std::span<uint32_t>& in
 	SubdivideNode(rootNode, centroidMin, centroidMax, 0);
 }
 
-uint32_t BVH::TraceRay(Ray& ray) const
+const Triangle* BVH::TraceRay(Ray& ray, HitResult& hitResult) const
 {
-	uint32_t primIdx = ~0u;
+	const Triangle* hitTri = nullptr;
 
 	const BVHNode* bvhNode = &m_BVHNodes[0];
 	const BVHNode* stack[64] = {};
@@ -61,11 +65,12 @@ uint32_t BVH::TraceRay(Ray& ray) const
 			for (uint32_t triIndex = bvhNode->leftFirst; triIndex < bvhNode->leftFirst + bvhNode->numPrimitives; ++triIndex)
 			{
 				const Triangle& triangle = m_Triangles[m_TriangleIndices[triIndex]];
-				bool intersected = RTUtil::Intersect(triangle, ray);
+				bool intersected = RTUtil::Intersect(triangle, ray, hitResult.t, hitResult.bary);
 
 				if (intersected)
 				{
-					primIdx = triIndex;
+					hitResult.primIdx = triIndex;
+					hitTri = &m_Triangles[m_TriangleIndices[triIndex]];
 				}
 			}
 
@@ -111,12 +116,7 @@ uint32_t BVH::TraceRay(Ray& ray) const
 		}
 	}
 
-	return primIdx;
-}
-
-Triangle BVH::GetTriangle(uint32_t primIdx) const
-{
-	return m_Triangles[m_TriangleIndices[primIdx]];
+	return hitTri;
 }
 
 AABB BVH::GetLocalSpaceAABB() const

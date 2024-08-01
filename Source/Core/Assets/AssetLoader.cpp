@@ -99,6 +99,15 @@ namespace AssetLoader
 							vertices[vertIndex].position = srcPtr[vertIndex];
 						}
 					} break;
+					case cgltf_attribute_type_normal:
+					{
+						glm::vec3* srcPtr = CGLTFGetDataPointer<glm::vec3>(gltfAttr.data);
+
+						for (size_t vertIndex = 0; vertIndex < gltfAttr.data->count; ++vertIndex)
+						{
+							vertices[vertIndex].normal = srcPtr[vertIndex];
+						}
+					} break;
 					}
 				}
 

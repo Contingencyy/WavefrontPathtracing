@@ -82,29 +82,14 @@ HitResult TLAS::TraceRay(Ray& ray) const
 		if (tlasNode->IsLeafNode())
 		{
 			const BVHInstance& blasInstance = m_BLASInstances[tlasNode->blasInstanceIdx];
-			const glm::mat4& blasWorldToLocalTransform = blasInstance.GetWorldToLocalTransform();
-
-			// Create a new ray that is in object-space of the BVH we want to intersect
-			// This is the same as if we transformed the BVH to world-space instead
-			Ray intersectRay = ray;
-			intersectRay.origin = blasWorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
-			intersectRay.dir = blasWorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
-			intersectRay.invDir = 1.0f / intersectRay.dir;
 
 			// Trace object-space ray against object-space BVH
-			uint32_t primIdx = blasInstance.TraceRay(intersectRay);
-
-			// Update the ray with the object-space ray depth
-			ray.t = intersectRay.t;
-			ray.bvhDepth = intersectRay.bvhDepth;
+			const Triangle* hitTri = blasInstance.TraceRay(ray, hitResult);
 
 			// If we have hit a triangle, update the hit result
-			if (primIdx != PRIM_IDX_INVALID)
+			if (hitTri)
 			{
-				hitResult.primIdx = primIdx;
-				hitResult.t = ray.t;
-				hitResult.pos = ray.origin + ray.dir * ray.t;
-				hitResult.normal = blasInstance.GetNormal(primIdx);
+				// Hit t, bary and primIdx are written in BVH::TraceRay, Hit pos and normal in BVHInstance::TraceRay
 				hitResult.instanceIdx = tlasNode->blasInstanceIdx;
 			}
 
@@ -151,11 +136,6 @@ HitResult TLAS::TraceRay(Ray& ray) const
 	}
 
 	return hitResult;
-}
-
-glm::vec3 TLAS::GetNormal(uint32_t instanceIndex, uint32_t primitiveIndex) const
-{
-	return m_BLASInstances[instanceIndex].GetNormal(primitiveIndex);
 }
 
 uint32_t TLAS::FindBestMatch(uint32_t A, const std::span<uint32_t>& indices)

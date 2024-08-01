@@ -19,8 +19,7 @@ public:
 
 	void Build(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices, const BuildOptions& buildOptions);
 
-	uint32_t TraceRay(Ray& ray) const;
-	Triangle GetTriangle(uint32_t primIdx) const;
+	const Triangle* TraceRay(Ray& ray, HitResult& hitResult) const;
 	AABB GetLocalSpaceAABB() const;
 
 private:

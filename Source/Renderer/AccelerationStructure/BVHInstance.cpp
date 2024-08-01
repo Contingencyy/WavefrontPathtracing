@@ -33,18 +33,33 @@ void BVHInstance::SetTransform(const glm::mat4& transform)
 	}
 }
 
-uint32_t BVHInstance::TraceRay(Ray& ray) const
+const Triangle* BVHInstance::TraceRay(Ray& ray, HitResult& hitResult) const
 {
+	// Create a new ray that is in object-space of the BVH we want to intersect
+	// This is the same as if we transformed the BVH to world-space instead
+	Ray intersectRay = ray;
+	intersectRay.origin = m_WorldToLocalTransform * glm::vec4(ray.origin, 1.0f);
+	intersectRay.dir = m_WorldToLocalTransform * glm::vec4(ray.dir, 0.0f);
+	intersectRay.invDir = 1.0f / intersectRay.dir;
+
 	// Trace ray through the BVH
-	return m_BLAS->TraceRay(ray);
+	const Triangle* hitTri = m_BLAS->TraceRay(intersectRay, hitResult);
+
+	// Update the ray with the object-space ray depth
+	ray.t = intersectRay.t;
+	ray.bvhDepth = intersectRay.bvhDepth;
+
+	if (hitTri)
+	{
+		hitResult.pos = ray.origin + ray.dir * ray.t;
+		glm::vec4 worldSpaceNormal = m_LocalToWorldTransform * glm::vec4(RTUtil::GetHitNormal(*hitTri, hitResult.bary), 0.0f);
+		hitResult.normal = glm::normalize(worldSpaceNormal);
+	}
+
+	return hitTri;
 }
 
 AABB BVHInstance::GetWorldSpaceAABB() const
 {
 	return m_WorldSpaceAABB;
-}
-
-glm::vec3 BVHInstance::GetNormal(uint32_t primitiveIndex) const
-{
-	return glm::normalize(m_LocalToWorldTransform * glm::vec4(RTUtil::GetHitNormal(m_BLAS->GetTriangle(primitiveIndex)), 0.0f));
 }

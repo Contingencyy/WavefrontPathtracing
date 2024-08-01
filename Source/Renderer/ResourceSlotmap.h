@@ -18,7 +18,7 @@ public:
 
 		for (size_t i = 0; i < capacity - 1; ++i)
 		{
-			m_Slots[i].nextFree = i + 1;
+			m_Slots[i].nextFree = static_cast<uint32_t>(i) + 1;
 			m_Slots[i].version = 0;
 		}
 	}

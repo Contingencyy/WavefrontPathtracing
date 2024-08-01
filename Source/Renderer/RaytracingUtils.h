@@ -10,11 +10,13 @@ namespace RTUtil
 		INTERSECTION FUNCTIONS
 	*/
 
-	inline bool Intersect(const Triangle& tri, Ray& ray)
+	// Möller-Trumbore
+	inline bool Intersect(const Triangle& tri, Ray& ray, float& outT, glm::vec3& outBary)
 	{
 		// This algorithm is very sensitive to epsilon values, so we need a very small one, otherwise transforming/scaling the ray breaks this
 		const float epsilon = 0.00000000001f;
 
+		// First check whether we hit the plane the triangle is on
 		glm::vec3 edge1 = tri.p1 - tri.p0;
 		glm::vec3 edge2 = tri.p2 - tri.p0;
 
@@ -24,25 +26,30 @@ namespace RTUtil
 		if (glm::abs(a) < epsilon)
 			return false;
 
+		// Then check whether the ray-plane intersection lies outside of the triangle using barycentric coordinates
 		float f = 1.0f / a;
 		glm::vec3 S = ray.origin - tri.p0;
-		float u = f * glm::dot(S, H);
+		float v = f * glm::dot(S, H);
 
-		if (u < 0.0f || u > 1.0f)
+		if (v < 0.0f || v > 1.0f)
 			return false;
 
 		glm::vec3 Q = glm::cross(S, edge1);
-		float v = f * glm::dot(ray.dir, Q);
+		float w = f * glm::dot(ray.dir, Q);
 
-		if (v < 0.0f || u + v > 1.0f)
+		if (w < 0.0f || v + w > 1.0f)
 			return false;
 
+		// Ray-plane intersection is inside the triangle, so we can compute "t" now
 		float t = f * glm::dot(edge2, Q);
 
 		if (t < epsilon || t >= ray.t)
 			return false;
 
 		ray.t = t;
+		outT = t;
+		outBary = glm::vec3(1.0f - v - w, v, w);
+
 		return true;
 	}
 
@@ -144,9 +151,9 @@ namespace RTUtil
 		HIT SURFACE
 	*/
 
-	inline glm::vec3 GetHitNormal(const Triangle& tri)
+	inline glm::vec3 GetHitNormal(const Triangle& tri, const glm::vec3& bary)
 	{
-		return glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0));
+		return glm::normalize(glm::vec3(bary.x * tri.n0 + bary.y * tri.n1 + bary.z * tri.n2));
 	}
 
 	inline glm::vec3 GetHitNormal(const Sphere& sphere, const glm::vec3& hitPos)

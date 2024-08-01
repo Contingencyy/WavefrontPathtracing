@@ -12,8 +12,6 @@ public:
 	void Build(const std::vector<BVHInstance>& blas);
 	HitResult TraceRay(Ray& ray) const;
 
-	glm::vec3 GetNormal(uint32_t instanceIndex, uint32_t primitiveIndex) const;
-
 private:
 	struct TLASNode
 	{

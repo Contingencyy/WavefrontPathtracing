@@ -11,10 +11,9 @@ public:
 
 	glm::mat4 GetWorldToLocalTransform() const;
 	void SetTransform(const glm::mat4& transform);
-	uint32_t TraceRay(Ray& ray) const;
+	const Triangle* TraceRay(Ray& ray, HitResult& hitResult) const;
 
 	AABB GetWorldSpaceAABB() const;
-	glm::vec3 GetNormal(uint32_t primitiveIndex) const;
 
 private:
 	const BVH* m_BLAS = nullptr;

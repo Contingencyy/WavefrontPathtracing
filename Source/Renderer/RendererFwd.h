@@ -33,4 +33,5 @@ using RenderMeshHandle = RenderResourceHandle<struct RenderMeshTag>;
 struct Vertex
 {
 	glm::vec3 position;
+	glm::vec3 normal;
 };
