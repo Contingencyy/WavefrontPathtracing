@@ -10,7 +10,7 @@ public:
 	TLAS() = default;
 
 	void Build(const std::vector<BVHInstance>& blas);
-	HitResult TraceRay(Ray& ray) const;
+	void TraceRay(Ray& ray, HitResult& hitResult) const;
 
 private:
 	struct TLASNode

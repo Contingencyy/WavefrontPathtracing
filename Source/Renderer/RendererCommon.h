@@ -39,8 +39,7 @@ namespace Renderer
 		bool cosineWeightedDiffuseReflection = true;
 		bool russianRoulette = true;
 
-		glm::vec3 skyColor = glm::vec3(0.52f, 0.8f, 0.92f);
-		float skyColorIntensity = 0.5f;
+		float hdrEnvIntensity = 1.0f;
 
 		struct PostFX
 		{

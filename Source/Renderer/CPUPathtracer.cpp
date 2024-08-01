@@ -103,20 +103,17 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Ray& ray)
 	{
-		// TODO: Normal per vertex, interpolate with UV coordinates, hit result should have UV coordinates
+		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Find a better epsilon for the Möller-Trumbore Triangle Intersection Algorithm
 		// TODO: Add Config.h which has a whole bunch of defines like which intersection algorithms to use and what not
 		// REMEMBER: Set DXC to not use legacy struct padding
 		// TOOD: DX12 Agility SDK & Enhanced Barriers
-		// TODO: HDR environment maps
 		// TODO: Application window for profiler, Timer avg/min/max
 		// TODO: Profiling for TLAS builds
-		// TODO: BVH bounding box visualization
 		// TODO: Next event estimation
 		// TODO: Stop moving mouse back to center when window loses focus
 		// TODO: Profile BVH build times for the BLAS and also the TLAS
 		
-		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Setting for accumulation should be a render setting, with defaults for each render visualization
 		// TODO: BVH Refitting and Rebuilding (https://jacco.ompf2.com/2022/04/26/how-to-build-a-bvh-part-4-animation/)
 		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc. in the mesh assets once I have menus for that
@@ -152,33 +149,46 @@ namespace CPUPathtracer
 
 		while (currRayDepth <= inst->settings.rayMaxRecursionDepth)
 		{
-			HitResult hit = inst->sceneTLAS.TraceRay(ray);
+			HitResult hit = {};
+			inst->sceneTLAS.TraceRay(ray, hit);
 
-			// Add sky color to energy if we have not hit an object, and terminate path
-			if (!hit.HasHitGeometry())
-			{
-				//energy += inst->settings.skyColor * inst->settings.skyColorIntensity * throughput;
-				energy += SampleHDREnvironment(ray.dir) * throughput;
-				break;
-			}
-
-			Material hitMaterial = inst->BVHMaterials[hit.instanceIdx];
-
-			// Handle any render data visualization that can happen after a single trace
+			// Render visualizations that are not depending on valid geometry data
 			if (inst->settings.renderVisualization != RenderVisualization_None)
 			{
 				bool stopTracingPath = false;
 
 				switch (inst->settings.renderVisualization)
 				{
-				case RenderVisualization_HitAlbedo:					 energy = hitMaterial.albedo; stopTracingPath = true; break;
-				case RenderVisualization_HitNormal:					 energy = glm::abs(hit.normal); stopTracingPath = true; break;
-				case RenderVisualization_HitBarycentrics:			 energy = hit.bary; stopTracingPath = true; break;
-				case RenderVisualization_HitSpecRefract:			 energy = glm::vec3(hitMaterial.specular, hitMaterial.refractivity, 0.0f); stopTracingPath = true; break;
-				case RenderVisualization_HitAbsorption:				 energy = glm::vec3(hitMaterial.absorption); stopTracingPath = true; break;
-				case RenderVisualization_HitEmissive:				 energy = glm::vec3(hitMaterial.emissive * hitMaterial.intensity * static_cast<float>(hitMaterial.isEmissive)); stopTracingPath = true; break;
-				case RenderVisualization_Depth:						 energy = glm::vec3(hit.t * 0.01f); stopTracingPath = true; break;
-				case RenderVisualization_AccelerationStructureDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
+					case RenderVisualization_AccelerationStructureDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
+				}
+
+				if (stopTracingPath)
+					break;
+			}
+
+			// Add sky color to energy if we have not hit an object, and terminate path
+			if (!hit.HasHitGeometry())
+			{
+				energy += inst->settings.hdrEnvIntensity * SampleHDREnvironment(ray.dir) * throughput;
+				break;
+			}
+
+			Material hitMaterial = inst->BVHMaterials[hit.instanceIdx];
+
+			// Render visualizations that are depending on valid geometry data
+			if (inst->settings.renderVisualization != RenderVisualization_None)
+			{
+				bool stopTracingPath = false;
+
+				switch (inst->settings.renderVisualization)
+				{
+				case RenderVisualization_HitAlbedo:		  energy = hitMaterial.albedo; stopTracingPath = true; break;
+				case RenderVisualization_HitNormal:		  energy = glm::abs(hit.normal); stopTracingPath = true; break;
+				case RenderVisualization_HitBarycentrics: energy = hit.bary; stopTracingPath = true; break;
+				case RenderVisualization_HitSpecRefract:  energy = glm::vec3(hitMaterial.specular, hitMaterial.refractivity, 0.0f); stopTracingPath = true; break;
+				case RenderVisualization_HitAbsorption:	  energy = glm::vec3(hitMaterial.absorption); stopTracingPath = true; break;
+				case RenderVisualization_HitEmissive:	  energy = glm::vec3(hitMaterial.emissive * hitMaterial.intensity * static_cast<float>(hitMaterial.isEmissive)); stopTracingPath = true; break;
+				case RenderVisualization_Depth:			  energy = glm::vec3(hit.t * 0.01f); stopTracingPath = true; break;
 				}
 
 				if (stopTracingPath)
@@ -505,9 +515,8 @@ namespace CPUPathtracer
 				if (ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection)) resetAccumulator = true;
 				if (ImGui::Checkbox("Russian roulette", &inst->settings.russianRoulette)) resetAccumulator = true;
 
-				// Sky color and intensity
-				if (ImGui::ColorEdit3("Sky color", &inst->settings.skyColor[0], ImGuiColorEditFlags_DisplayRGB)) resetAccumulator = true;
-				if (ImGui::DragFloat("Sky color intensity", &inst->settings.skyColorIntensity, 0.001f)) resetAccumulator = true;
+				// HDR environment intensity
+				if (ImGui::DragFloat("HDR env intensity", &inst->settings.hdrEnvIntensity, 0.001f)) resetAccumulator = true;
 
 				// Post-process settings, constract, brightness, saturation, sRGB
 				ImGui::SetNextItemOpen(true, ImGuiCond_Once);

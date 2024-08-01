@@ -63,14 +63,12 @@ void TLAS::Build(const std::vector<BVHInstance>& blas)
 	m_TLASNodes[0] = m_TLASNodes[nodeIndex[A]];
 }
 
-HitResult TLAS::TraceRay(Ray& ray) const
+void TLAS::TraceRay(Ray& ray, HitResult& hitResult) const
 {
-	HitResult hitResult = {};
-
 	const TLASNode* tlasNode = &m_TLASNodes[0];
 	// Check if we miss the TLAS entirely
 	if (RTUtil::IntersectSSE(tlasNode->aabbMin4, tlasNode->aabbMax4, ray) == FLT_MAX)
-		return hitResult;
+		return;
 
 	ray.bvhDepth++;
 	const TLASNode* stack[64] = {};
@@ -134,8 +132,6 @@ HitResult TLAS::TraceRay(Ray& ray) const
 				stack[stackPtr++] = rightChildNode;
 		}
 	}
-
-	return hitResult;
 }
 
 uint32_t TLAS::FindBestMatch(uint32_t A, const std::span<uint32_t>& indices)
