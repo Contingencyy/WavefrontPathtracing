@@ -103,6 +103,7 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Ray& ray)
 	{
+		// TODO: Find a better epsilon for the Möller-Trumbore Triangle Intersection Algorithm
 		// TODO: Add Config.h which has a whole bunch of defines like which intersection algorithms to use and what not
 		// REMEMBER: Set DXC to not use legacy struct padding
 		// TODO: Normal per vertex, interpolate with UV coordinates, hit result should have UV coordinates
