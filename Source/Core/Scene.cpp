@@ -13,8 +13,8 @@ Scene::Scene()
 {
 	// Camera Controller
 	m_CameraController = CameraController(Camera(
-		glm::vec3(0.0f, 5.0f, 0.0f), // Eye position
-		glm::vec3(0.0f, 5.0f, 1.0f), // Look at position
+		glm::vec3(0.0f, 10.0f, 0.0f), // Eye position
+		glm::vec3(0.0f, 10.0f, 1.0f), // Look at position
 		60.0f // Vertical FOV in degrees
 	));
 
@@ -38,23 +38,23 @@ Scene::Scene()
 	// Dragon 1
 	//Material dragonMaterial = Material::MakeRefractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
 	Material dragonMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.1f, 0.05f));
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(-8.0f, 0.0f, 20.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(0.4f));
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(-15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(1.0f));
 
 	// Dragon 2
 	dragonMaterial = Material::MakeDiffuse(glm::vec3(0.05f, 0.1f, 0.9f));
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(8.0f, 0.0f, 20.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(0.6f));
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.0f));
 
 	// Dragon 3
 	dragonMaterial = Material::MakeDiffuse(glm::vec3(0.1f, 0.9f, 0.1f));
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(-8.0f, 0.0f, 30.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(0.8f));
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
 
 	// Dragon 4
 	dragonMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.9f, 0.1f));
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(8.0f, 0.0f, 30.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(1.0f));
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
 
 	// Dragon 5
 	dragonMaterial = Material::MakeSpecular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
-	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(0.0f, 0.0f, 60.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(5.0f));
+	m_SceneObjects.emplace_back(dragonGLTF.renderMeshHandles[1], dragonMaterial, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(5.0f));
 }
 
 void Scene::Update(float dt)
