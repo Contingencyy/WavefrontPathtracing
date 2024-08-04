@@ -15,19 +15,18 @@ struct MemoryArena
 	u8* PtrAt;
 	u8* PtrCommitted;
 
-	u64 TotalBytes;
-
 	static void* Alloc(MemoryArena* Arena, u64 Size, u64 Align);
 	static void* AllocZero(MemoryArena* Arena, u64 Size, u64 Align);
 
+	static void Decommit(MemoryArena* Arena, u8* Ptr);
 	static void Free(MemoryArena* Arena, u8* Ptr);
 	static void Clear(MemoryArena* Arena);
 	static void Release(MemoryArena* Arena);
 
-	/*static u64 TotalReserved(MemoryArena* Arena);
+	static u64 TotalReserved(MemoryArena* Arena);
 	static u64 TotalAllocated(MemoryArena* Arena);
 	static u64 TotalFree(MemoryArena* Arena);
-	static u64 TotalCommitted(MemoryArena* Arena);*/
+	static u64 TotalCommitted(MemoryArena* Arena);
 
 #define ARENA_ALLOC(Arena, Size, Align) MemoryArena::Alloc(Arena, Size, Align)
 #define ARENA_ALLOC_ZERO(Arena, Size, Align) MemoryArena::AllocZero(Arena, Size, Align)

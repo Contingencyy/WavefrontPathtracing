@@ -54,6 +54,20 @@ void* MemoryArena::AllocZero(MemoryArena* Arena, u64 Size, u64 Align)
 	return Result;
 }
 
+void MemoryArena::Decommit(MemoryArena* Arena, u8* Ptr)
+{
+	ASSERT(Ptr);
+
+	// Decommit memory until Ptr, except the first ARENA_DECOMMIT_KEEP_CHUNK_SIZE bytes after that pointer
+	u8* PtrDecommit = Ptr + ARENA_DECOMMIT_KEEP_CHUNK_SIZE;
+	if (Arena->PtrCommitted > PtrDecommit)
+	{
+		u64 DecommitSize = Arena->PtrCommitted - PtrDecommit;
+		VirtualMemory::Decommit(PtrDecommit, DecommitSize);
+		Arena->PtrCommitted -= DecommitSize;
+	}
+}
+
 void MemoryArena::Free(MemoryArena* Arena, u8* Ptr)
 {
 	ASSERT(Ptr);
@@ -67,15 +81,7 @@ void MemoryArena::Free(MemoryArena* Arena, u8* Ptr)
 	{
 		// Move the current pointer back to free Size memory
 		Arena->PtrAt -= BytesToFree;
-
-		// Also decommit the freed memory, except the first ARENA_DECOMMIT_KEEP_CHUNK_SIZE bytes after the current pointer
-		u8* PtrDecommit = Arena->PtrAt + ARENA_DECOMMIT_KEEP_CHUNK_SIZE;
-
-		if (Arena->PtrCommitted > PtrDecommit)
-		{
-			u64 DecommitSize = Arena->PtrCommitted - PtrDecommit;
-			VirtualMemory::Decommit(PtrDecommit, DecommitSize);
-		}
+		MemoryArena::Decommit(Arena, Arena->PtrAt);
 	}
 }
 
@@ -83,20 +89,31 @@ void MemoryArena::Clear(MemoryArena* Arena)
 {
 	// Reset the arena current pointer to its base
 	Arena->PtrAt = Arena->PtrBase;
-
-	// We decommit all memory except the first ARENA_DECOMMIT_KEEP_CHUNK_SIZE bytes
-	u8* PtrDecommit = Arena->PtrBase + ARENA_DECOMMIT_KEEP_CHUNK_SIZE;
-
-	if (Arena->PtrCommitted > PtrDecommit)
-	{
-		u64 DecommitSize = Arena->PtrCommitted - PtrDecommit;
-		VirtualMemory::Decommit(PtrDecommit, DecommitSize);
-	}
+	MemoryArena::Decommit(Arena, Arena->PtrBase);
 }
 
 void MemoryArena::Release(MemoryArena* Arena)
 {
 	VirtualMemory::Release(Arena->PtrBase);
 	Arena->PtrBase = Arena->PtrAt = Arena->PtrEnd = Arena->PtrCommitted = nullptr;
-	Arena->TotalBytes = 0;
+}
+
+u64 MemoryArena::TotalReserved(MemoryArena* Arena)
+{
+	return Arena->PtrEnd - Arena->PtrBase;
+}
+
+u64 MemoryArena::TotalAllocated(MemoryArena* Arena)
+{
+	return Arena->PtrAt - Arena->PtrBase;
+}
+
+u64 MemoryArena::TotalFree(MemoryArena* Arena)
+{
+	return Arena->PtrCommitted - Arena->PtrAt;
+}
+
+u64 MemoryArena::TotalCommitted(MemoryArena* Arena)
+{
+	return Arena->PtrCommitted - Arena->PtrBase;
 }

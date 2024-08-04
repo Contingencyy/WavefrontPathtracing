@@ -2,7 +2,16 @@
 #include "AssetLoader.h"
 #include "Renderer/CPUPathtracer.h"
 
+namespace AssetLoader
+{
+	static void* Stbi_Malloc(u64 Size);
+	static void* Stbi_Realloc(void* Ptr, u64 OldSize, u64 NewSize);
+}
+
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_MALLOC(Size) AssetLoader::Stbi_Malloc(Size)
+#define STBI_REALLOC_SIZED(Ptr, OldSize, NewSize) AssetLoader::Stbi_Realloc(Ptr, OldSize, NewSize)
+#define STBI_FREE(Ptr) // No-op, freeing is done by the arena itself
 #include "stb/stb_image.h"
 
 #define CGLTF_IMPLEMENTATION
@@ -11,18 +20,38 @@
 namespace AssetLoader
 {
 
+	// Make stb_image use our arena allocator
+	static MemoryArena* s_StbiCurrentArena;
+
+	static void* Stbi_Malloc(u64 Size)
+	{
+		return ARENA_ALLOC_ZERO(s_StbiCurrentArena, Size, 4);
+	}
+
+	static void* Stbi_Realloc(void* Ptr, u64 OldSize, u64 NewSize)
+	{
+		void* PtrNew = ARENA_ALLOC_ZERO(s_StbiCurrentArena, NewSize, 4);
+		memcpy(PtrNew, Ptr, OldSize);
+		return PtrNew;
+	}
+
 	TextureAsset* LoadImageHDR(MemoryArena* Arena, const char* Filepath)
 	{
-		i32 ImageWidth, ImageHeight, ChannelCount;
-		f32* PtrImageData = stbi_loadf(Filepath, &ImageWidth, &ImageHeight, &ChannelCount, STBI_rgb_alpha);
+		s_StbiCurrentArena = Arena;
+		TextureAsset* Asset = ARENA_ALLOC_STRUCT_ZERO(Arena, TextureAsset);
 
-		if (!PtrImageData)
+		ARENA_MEMORY_SCOPE(Arena)
 		{
-			FATAL_ERROR("AssetLoader::LoadImageHDR", "Failed to load HDR image: %s", Filepath);
-		}
+			i32 ImageWidth, ImageHeight, ChannelCount;
+			f32* PtrImageData = stbi_loadf(Filepath, &ImageWidth, &ImageHeight, &ChannelCount, STBI_rgb_alpha);
 
-		TextureAsset* Asset = ARENA_ALLOC_STRUCT(Arena, TextureAsset);
-		Asset->RTextureHandle = CPUPathtracer::CreateTexture(ImageWidth, ImageHeight, PtrImageData);
+			if (!PtrImageData)
+			{
+				FATAL_ERROR("AssetLoader::LoadImageHDR", "Failed to load HDR image: %s", Filepath);
+			}
+
+			Asset->RTextureHandle = CPUPathtracer::CreateTexture(ImageWidth, ImageHeight, PtrImageData);
+		}
 
 		return Asset;
 	}
@@ -42,6 +71,20 @@ namespace AssetLoader
 	{
 		// Parse the GLTF file
 		cgltf_options CGLTFOptions = {};
+
+		// Make CGLTF use our arena for allocations
+		CGLTFOptions.memory.user_data = Arena;
+		CGLTFOptions.memory.alloc_func = [](void* User, cgltf_size Size)
+			{
+				MemoryArena* Arena = (MemoryArena*)User;
+				return ARENA_ALLOC_ZERO(Arena, Size, 16);
+			};
+		// No-op, freeing is done by the arena itself
+		CGLTFOptions.memory.free_func = [](void* User, void* Ptr)
+			{
+				(void)User; (void)Ptr;
+			};
+
 		cgltf_data* PtrCGLTFData = nullptr;
 		cgltf_result CGLTFResult = cgltf_parse_file(&CGLTFOptions, Filepath, &PtrCGLTFData);
 
@@ -59,7 +102,7 @@ namespace AssetLoader
 			MeshCount += CGLTFMesh.primitives_count;
 		}
 
-		SceneAsset* Asset = ARENA_ALLOC_STRUCT(Arena, SceneAsset);
+		SceneAsset* Asset = ARENA_ALLOC_STRUCT_ZERO(Arena, SceneAsset);
 		Asset->RMeshHandles = ARENA_ALLOC_ARRAY_ZERO(Arena, RenderMeshHandle, MeshCount);
 
 		// Use a temporary memory scope here since CPUPathtracer::CreateMesh is blocking, so we can do the scope inside the loop
@@ -128,7 +171,6 @@ namespace AssetLoader
 			}
 		}
 
-		cgltf_free(PtrCGLTFData);
 		return Asset;
 	}
 

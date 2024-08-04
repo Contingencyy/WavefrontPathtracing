@@ -590,8 +590,8 @@ namespace CPUPathtracer
 		Texture Texture = {};
 		Texture.Width = Width;
 		Texture.Height = Height;
-		Texture.PtrPixelData = PtrPixelData;// ARENA_ALLOC_ARRAY(Inst->Arena, f32, Width * Height * 4);
-		//memcpy(Texture.PtrPixelData, PtrPixelData, Width * Height * sizeof(float) * 4);
+		Texture.PtrPixelData = ARENA_ALLOC_ARRAY(Inst->Arena, f32, Width * Height * 4);
+		memcpy(Texture.PtrPixelData, PtrPixelData, Width * Height * sizeof(float) * 4);
 
 		RenderTextureHandle textureHandle = Inst->TextureSlotmap.Add(std::move(Texture));
 		return textureHandle;
