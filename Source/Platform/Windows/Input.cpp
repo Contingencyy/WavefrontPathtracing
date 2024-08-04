@@ -1,5 +1,6 @@
 #include "Pch.h"
 #include "Core/Input.h"
+#include "Core/Containers/Hashmap.h"
 
 #define WINDOWS_LEAN_AND_MEAN
 #define NOMINMAX
@@ -11,12 +12,22 @@ void GetWindowCenter(i32& windowCenterX, i32& windowCenterY);
 namespace Input
 {
 
-	static std::unordered_map<WPARAM, KeyCode> WParamToKeyCode
+	static KeyCode WParamToKeyCode(WPARAM WParam)
 	{
-		{ VK_LBUTTON, KeyCode_LeftMouse }, { VK_RBUTTON, KeyCode_RightMouse },
-		{ 0x57, KeyCode_W }, { 0x53, KeyCode_S }, { 0x41, KeyCode_A }, { 0x44, KeyCode_D },
-		{ VK_SPACE, KeyCode_Space }, { VK_CONTROL, KeyCode_LeftCtrl } , { VK_SHIFT, KeyCode_LeftShift }
-	};
+		switch (WParam)
+		{
+		case VK_LBUTTON: return KeyCode_LeftMouse;
+		case VK_RBUTTON: return KeyCode_RightMouse;
+		case 0x57:		 return KeyCode_W;
+		case 0x53:		 return KeyCode_S;
+		case 0x41:		 return KeyCode_A;
+		case 0x44:		 return KeyCode_D;
+		case VK_SPACE:	 return KeyCode_Space;
+		case VK_CONTROL: return KeyCode_LeftCtrl;
+		case VK_SHIFT:	 return KeyCode_LeftShift;
+		default:		 return KeyCode_NumKeys;
+		}
+	}
 
 	static b8 KeyStates[KeyCode_NumKeys];
 	static b8 bCapturingMouse = false;
@@ -31,8 +42,8 @@ namespace Input
 
 	void OnPlatformKeyButtonStateChanged(u64 PlatformCode, b8 bPressed)
 	{
-		if (WParamToKeyCode.find(PlatformCode) != WParamToKeyCode.end())
-			KeyStates[WParamToKeyCode.at(PlatformCode)] = bPressed;
+		if (WParamToKeyCode(PlatformCode) != KeyCode_NumKeys)
+			KeyStates[WParamToKeyCode(PlatformCode)] = bPressed;
 	}
 
 	void OnMouseWheelScrolled(f32 WheelDelta)

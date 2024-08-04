@@ -186,6 +186,8 @@
     <ClInclude Include="Extern\imgui\imgui_internal.h" />
     <ClInclude Include="Source\Core\Assets\AssetLoader.h" />
     <ClInclude Include="Source\Core\Assets\AssetTypes.h" />
+    <ClInclude Include="Source\Core\Containers\Hashmap.h" />
+    <ClInclude Include="Source\Core\Hash.h" />
     <ClInclude Include="Source\Core\Memory\MemoryArena.h" />
     <ClInclude Include="Source\Core\Memory\VirtualMemory.h" />
     <ClInclude Include="Source\Core\Random.h" />

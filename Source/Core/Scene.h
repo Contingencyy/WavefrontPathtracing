@@ -33,9 +33,10 @@ private:
 
 	CameraController m_CameraController;
 
-	SceneObject* m_SceneObjects;
+	// TODO: Free-list for scene objects
 	u32 m_SceneObjectCount;
 	u32 m_SceneObjectAt;
+	SceneObject* m_SceneObjects;
 
 	TextureAsset* m_HDREnvAsset;
 	SceneAsset* m_DragonAsset;
