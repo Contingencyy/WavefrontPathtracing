@@ -11,8 +11,6 @@
 #include "Core/Logger.h"
 #include "Core/Random.h"
 #include "Core/Threadpool.h"
-#include "Core/Profiling/Profiler.h"
-#include "Core/Profiling/CPUTimer.h"
 
 #include "imgui/imgui.h"
 
@@ -23,95 +21,108 @@ namespace CPUPathtracer
 
 	struct Instance
 	{
-		ResourceSlotmap<RenderTextureHandle, Texture> textureMap;
-		ResourceSlotmap<RenderMeshHandle, BVH> BVHMap;
+		MemoryArena* Arena;
+		u8* ArenaMarkerFrame;
+
+		u32 RenderWidth;
+		u32 RenderHeight;
+		f32 InvRenderWidth;
+		f32 InvRenderHeight;
+
+		u32* PixelBuffer;
+		glm::vec4* PixelAccumulator;
+		f64 AvgEnergyAccumulator;
+		u32 AccumulatedFrameCount;
+
+		ResourceSlotmap<RenderTextureHandle, Texture> TextureSlotmap;
+		ResourceSlotmap<RenderMeshHandle, BVH> BvhSlotmap;
 		
-		std::vector<BVHInstance> BVHInstances;
-		std::vector<Material> BVHMaterials;
-		TLAS sceneTLAS;
-		Camera sceneCamera;
-		Texture* sceneHDREnvTexture;
+		u32 BVHInstanceCount;
+		u32 BVHInstanceAt;
+		BVHInstance* BVHInstances;
+		Material* BVHMaterials;
 
-		uint32_t renderWidth = 0;
-		uint32_t renderHeight = 0;
-		float invRenderWidth = 0.0f;
-		float invRenderHeight = 0.0f;
+		TLAS SceneTLAS;
+		Camera SceneCamera;
+		Texture* SceneHdrEnv;
 
-		std::vector<uint32_t> pixelBuffer;
-		std::vector<glm::vec4> pixelAccumulator;
-		double energyAccumulator = 0.0;
-		uint32_t numAccumulatedFrames = 0;
-
-		Threadpool renderThreadpool;
-
-		uint64_t frameIndex = 0;
-
-		RenderSettings settings;
-	} static *inst;
+		Threadpool RenderThreadpool;
+		uint64_t FrameIndex;
+		RenderSettings Settings;
+	} static *Inst;
 
 	static void ResetAccumulation()
 	{
 		// Clear the accumulator, reset accumulated frame count
-		std::fill(inst->pixelAccumulator.begin(), inst->pixelAccumulator.end(), glm::vec4(0.0f));
-		inst->energyAccumulator = 0.0;
-		inst->numAccumulatedFrames = 0;
+		memset(Inst->PixelAccumulator, 0, Inst->RenderWidth * Inst->RenderHeight * sizeof(Inst->PixelAccumulator[0]));
+		Inst->AvgEnergyAccumulator = 0.0;
+		Inst->AccumulatedFrameCount = 0;
 	}
 
-	static glm::vec3 SampleHDREnvironment(const glm::vec3& dir)
+	static glm::vec3 SampleHDREnvironment(const glm::vec3& Dir)
 	{
-		glm::vec2 uv = RTUtil::DirectionToEquirectangularUV(dir);
+		glm::vec2 uv = RTUtil::DirectionToEquirectangularUV(Dir);
 		uv.y = glm::abs(uv.y - 1.0f);
 
-		glm::uvec2 texelPos = uv * glm::vec2(inst->sceneHDREnvTexture->width, inst->sceneHDREnvTexture->height);
-		glm::vec4 color = inst->sceneHDREnvTexture->pixelData[texelPos.y * inst->sceneHDREnvTexture->width + texelPos.x];
+		glm::uvec2 TexelPos = uv * glm::vec2(Inst->SceneHdrEnv->Width, Inst->SceneHdrEnv->Height);
 
-		return color.xyz;
+		glm::vec4 Color = {};
+		Color.r = Inst->SceneHdrEnv->PtrPixelData[TexelPos.y * Inst->SceneHdrEnv->Width * 4 + TexelPos.x * 4];
+		Color.g = Inst->SceneHdrEnv->PtrPixelData[TexelPos.y * Inst->SceneHdrEnv->Width * 4 + TexelPos.x * 4 + 1];
+		Color.b = Inst->SceneHdrEnv->PtrPixelData[TexelPos.y * Inst->SceneHdrEnv->Width * 4 + TexelPos.x * 4 + 2];
+		Color.a = Inst->SceneHdrEnv->PtrPixelData[TexelPos.y * Inst->SceneHdrEnv->Width * 4 + TexelPos.x * 4 + 3];
+
+		return Color.xyz;
 	}
 
-	static glm::vec3 ApplyPostProcessing(const glm::vec3& color)
+	static glm::vec3 ApplyPostProcessing(const glm::vec3& Color)
 	{
-		glm::vec3 finalColor = color;
+		glm::vec3 FinalColor = Color;
 
-		if (inst->settings.renderVisualization != RenderVisualization_None)
+		if (Inst->Settings.RenderVisualization != RenderVisualization_None)
 		{
-			if (inst->settings.renderVisualization == RenderVisualization_HitAlbedo ||
-				inst->settings.renderVisualization == RenderVisualization_HitEmissive ||
-				inst->settings.renderVisualization == RenderVisualization_HitAbsorption)
-				return RTUtil::LinearToSRGB(finalColor);
+			if (Inst->Settings.RenderVisualization == RenderVisualization_HitAlbedo ||
+				Inst->Settings.RenderVisualization == RenderVisualization_HitEmissive ||
+				Inst->Settings.RenderVisualization == RenderVisualization_HitAbsorption)
+				return RTUtil::LinearToSRGB(FinalColor);
 			else
-				return finalColor;
+				return FinalColor;
 		}
 
 		// Apply exposure
-		finalColor *= inst->settings.postfx.exposure;
+		FinalColor *= Inst->Settings.Postfx.Exposure;
 
 		// Contrast & Brightness
-		finalColor = RTUtil::AdjustContrastBrightness(finalColor, inst->settings.postfx.contrast, inst->settings.postfx.brightness);
+		FinalColor = RTUtil::AdjustContrastBrightness(FinalColor, Inst->Settings.Postfx.Contrast, Inst->Settings.Postfx.Brightness);
 
 		// Saturation
-		finalColor = RTUtil::Saturate(finalColor, inst->settings.postfx.saturation);
+		FinalColor = RTUtil::Saturate(FinalColor, Inst->Settings.Postfx.Saturation);
 
 		// Apply simple tonemapper
-		finalColor = RTUtil::TonemapReinhardWhite(finalColor.xyz, inst->settings.postfx.maxWhite);
+		FinalColor = RTUtil::TonemapReinhardWhite(FinalColor.xyz, Inst->Settings.Postfx.MaxWhite);
 
 		// Convert final color from linear to SRGB, if enabled, and if we do not use any render data visualization
-		if (inst->settings.postfx.linearToSRGB)
-			finalColor.xyz = RTUtil::LinearToSRGB(finalColor.xyz);
+		if (Inst->Settings.Postfx.bLinearToSRGB)
+			FinalColor.xyz = RTUtil::LinearToSRGB(FinalColor.xyz);
 
-		return finalColor;
+		return FinalColor;
 	}
 
-	static glm::vec4 TracePath(Ray& ray)
+	static glm::vec4 TracePath(Ray& Ray)
 	{
+		// TODO: MemoryArena/bump allocators
+		// TODO: Custom string class, counted strings
+		// TODO: SafeTruncate for int and uint types, asserting if the value of a u64 is larger than the one to truncate to
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Find a better epsilon for the Möller-Trumbore Triangle Intersection Algorithm
 		// TODO: Add Config.h which has a whole bunch of defines like which intersection algorithms to use and what not
 		// REMEMBER: Set DXC to not use legacy struct padding
 		// TOOD: DX12 Agility SDK & Enhanced Barriers
+		// TODO: Profiling
 		// TODO: Application window for profiler, Timer avg/min/max
 		// TODO: Profiling for TLAS builds
 		// TODO: Next event estimation
-		// TODO: Stop moving mouse back to center when window loses focus
+		// TODO: Stop moving mouse back to Center when window loses focus
 		// TODO: Profile BVH build times for the BLAS and also the TLAS
 		
 		// TODO: Setting for accumulation should be a render setting, with defaults for each render visualization
@@ -124,130 +135,130 @@ namespace CPUPathtracer
 			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care
 			//		 whether the frame was rendered using the GPU or CPU pathtracer
 		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
-		// TODO: Transmittance and density instead of absorption?
-		// TODO: Total energy received, accumulated over time so it slowly stabilizes, for comparisons
+		// TODO: Transmittance and density instead of Absorption?
+		// TODO: Total Energy received, accumulated over time so it slowly stabilizes, for comparisons
 			// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
-			// FIX: Why does the amount of average energy received change when we toggle inst->settings.linearToSRGB?
+			// FIX: Why does the amount of average Energy received change when we toggle Inst->Settings.linearToSRGB?
 		// TODO: Window resizing and resolution resizing
 		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
 		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
 		// TODO: ImGuizmo to transform objects
 		// TODO: Ray/path visualization mode
-		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting dir for length 1 for example)
+		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting Dir for length 1 for example)
 		// TODO: Physically-based rendering
 		// TODO: BRDF importance sampling
 		// TODO: Denoising
 		// TODO: ReSTIR
 
-		glm::vec3 throughput(1.0f);
-		glm::vec3 energy(0.0f);
+		glm::vec3 Throughput(1.0f);
+		glm::vec3 Energy(0.0f);
 
-		bool isSpecularRay = false;
-		uint32_t currRayDepth = 0;
-		bool survivedRR = true;
+		u32 RayDepth = 0;
+		b8 bSpecularRay = false;
+		b8 bSurvivedRR = true;
 
-		while (currRayDepth <= inst->settings.rayMaxRecursionDepth)
+		while (RayDepth <= Inst->Settings.RayMaxRecursionDepth)
 		{
-			HitResult hit = {};
-			inst->sceneTLAS.TraceRay(ray, hit);
+			HitResult Hit = {};
+			Inst->SceneTLAS.TraceRay(Ray, Hit);
 
 			// Render visualizations that are not depending on valid geometry data
-			if (inst->settings.renderVisualization != RenderVisualization_None)
+			if (Inst->Settings.RenderVisualization != RenderVisualization_None)
 			{
-				bool stopTracingPath = false;
+				b8 StopTrace = false;
 
-				switch (inst->settings.renderVisualization)
+				switch (Inst->Settings.RenderVisualization)
 				{
-					case RenderVisualization_AccelerationStructureDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvhDepth / 50.0f); stopTracingPath = true; break;
+					case RenderVisualization_AccelerationStructureDepth: Energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), Ray.BvhDepth / 50.0f); StopTrace = true; break;
 				}
 
-				if (stopTracingPath)
+				if (StopTrace)
 					break;
 			}
 
-			// Add sky color to energy if we have not hit an object, and terminate path
-			if (!hit.HasHitGeometry())
+			// Add sky color to Energy if we have not Hit an object, and terminate path
+			if (!Hit.HasHitGeometry())
 			{
-				energy += inst->settings.hdrEnvIntensity * SampleHDREnvironment(ray.dir) * throughput;
+				Energy += Inst->Settings.HdrEnvIntensity * SampleHDREnvironment(Ray.Dir) * Throughput;
 				break;
 			}
 
-			Material hitMaterial = inst->BVHMaterials[hit.instanceIdx];
+			Material HitMat = Inst->BVHMaterials[Hit.InstanceIdx];
 
 			// Render visualizations that are depending on valid geometry data
-			if (inst->settings.renderVisualization != RenderVisualization_None)
+			if (Inst->Settings.RenderVisualization != RenderVisualization_None)
 			{
-				bool stopTracingPath = false;
+				b8 StopTrace = false;
 
-				switch (inst->settings.renderVisualization)
+				switch (Inst->Settings.RenderVisualization)
 				{
-				case RenderVisualization_HitAlbedo:		  energy = hitMaterial.albedo; stopTracingPath = true; break;
-				case RenderVisualization_HitNormal:		  energy = glm::abs(hit.normal); stopTracingPath = true; break;
-				case RenderVisualization_HitBarycentrics: energy = hit.bary; stopTracingPath = true; break;
-				case RenderVisualization_HitSpecRefract:  energy = glm::vec3(hitMaterial.specular, hitMaterial.refractivity, 0.0f); stopTracingPath = true; break;
-				case RenderVisualization_HitAbsorption:	  energy = glm::vec3(hitMaterial.absorption); stopTracingPath = true; break;
-				case RenderVisualization_HitEmissive:	  energy = glm::vec3(hitMaterial.emissive * hitMaterial.intensity * static_cast<float>(hitMaterial.isEmissive)); stopTracingPath = true; break;
-				case RenderVisualization_Depth:			  energy = glm::vec3(hit.t * 0.01f); stopTracingPath = true; break;
+				case RenderVisualization_HitAlbedo:		  Energy = HitMat.Albedo; StopTrace = true; break;
+				case RenderVisualization_HitNormal:		  Energy = glm::abs(Hit.Normal); StopTrace = true; break;
+				case RenderVisualization_HitBarycentrics: Energy = Hit.Bary; StopTrace = true; break;
+				case RenderVisualization_HitSpecRefract:  Energy = glm::vec3(HitMat.Specular, HitMat.Refractivity, 0.0f); StopTrace = true; break;
+				case RenderVisualization_HitAbsorption:	  Energy = glm::vec3(HitMat.Absorption); StopTrace = true; break;
+				case RenderVisualization_HitEmissive:	  Energy = glm::vec3(HitMat.Emissive * HitMat.Intensity * static_cast<f32>(HitMat.bEmissive)); StopTrace = true; break;
+				case RenderVisualization_Depth:			  Energy = glm::vec3(Hit.t * 0.01f); StopTrace = true; break;
 				}
 
-				if (stopTracingPath)
+				if (StopTrace)
 					break;
 			}
 
-			// If the surface is emissive, we simply add its color to the energy output and stop tracing
-			if (hitMaterial.isEmissive)
+			// If the surface is Emissive, we simply add its color to the Energy output and stop tracing
+			if (HitMat.bEmissive)
 			{
-				energy += hitMaterial.emissive * hitMaterial.intensity * throughput;
+				Energy += HitMat.Emissive * HitMat.Intensity * Throughput;
 				break;
 			}
 
-			// Russian roulette - Stop tracing the path with a probability that is based on the material albedo
-			// Since the throughput is gonna be dependent on the albedo, dark albedos carry less energy to the eye,
+			// Russian roulette - Stop tracing the path with a probability that is based on the material Albedo
+			// Since the Throughput is gonna be dependent on the Albedo, dark albedos carry less Energy to the eye,
 			// so we can eliminate those paths with a higher probability and safe ourselves the time continuing tracing low impact paths.
-			// Need to adjust the throughput if the path survives since that path should carry a higher weight based on its survival probability.
-			if (inst->settings.russianRoulette)
+			// Need to adjust the Throughput if the path survives since that path should carry a higher weight based on its survival probability.
+			if (Inst->Settings.bRussianRoulette)
 			{
-				float survivalProbability = RTUtil::SurvivalProbabilityRR(hitMaterial.albedo);
-				if (survivalProbability < Random::Float())
+				f32 RRSurvivalProbability = RTUtil::SurvivalProbabilityRR(HitMat.Albedo);
+				if (RRSurvivalProbability < Random::Float())
 				{
-					survivedRR = false;
+					bSurvivedRR = false;
 					break;
 				}
 				else
 				{
-					throughput *= 1.0f / survivalProbability;
+					Throughput *= 1.0f / RRSurvivalProbability;
 				}
 			}
 
-			// Get a random 0..1 range float to determine which path to take
-			float r = Random::Float();
+			// Get a random 0..1 range Float to determine which path to take
+			f32 r = Random::Float();
 
 			// Specular path
-			if (r < hitMaterial.specular)
+			if (r < HitMat.Specular)
 			{
-				glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hit.normal);
-				ray = Ray(hit.pos + specularDir * RAY_NUDGE_MODIFIER, specularDir);
+				glm::vec3 SpecularDir = RTUtil::Reflect(Ray.Dir, Hit.Normal);
+				Ray = MakeRay(Hit.Pos + SpecularDir * RAY_NUDGE_MODIFIER, SpecularDir);
 
-				throughput *= hitMaterial.albedo;
-				isSpecularRay = true;
+				Throughput *= HitMat.Albedo;
+				bSpecularRay = true;
 			}
 			// Refraction path
-			else if (r < hitMaterial.specular + hitMaterial.refractivity)
+			else if (r < HitMat.Specular + HitMat.Refractivity)
 			{
-				glm::vec3 N = hit.normal;
+				glm::vec3 N = Hit.Normal;
 
-				float cosi = glm::clamp(glm::dot(N, ray.dir), -1.0f, 1.0f);
-				float etai = 1.0f, etat = hitMaterial.ior;
+				f32 cosi = glm::clamp(glm::dot(N, Ray.Dir), -1.0f, 1.0f);
+				f32 etai = 1.0f, etat = HitMat.Ior;
 
-				float Fr = 1.0f;
-				bool inside = true;
+				f32 Fr = 1.0f;
+				b8 bInside = true;
 
-				// Figure out if we are inside or outside of the object we've hit
+				// Figure out if we are bInside or outside of the object we've Hit
 				if (cosi < 0.0f)
 				{
 					cosi = -cosi;
-					inside = false;
+					bInside = false;
 				}
 				else
 				{
@@ -255,111 +266,139 @@ namespace CPUPathtracer
 					N = -N;
 				}
 
-				float eta = etai / etat;
-				float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
+				f32 eta = etai / etat;
+				f32 k = 1.0f - eta * eta * (1.0f - cosi * cosi);
 
-				// Follow refraction or specular path
+				// Follow refraction or Specular path
 				if (k >= 0.0f)
 				{
-					glm::vec3 refractDir = RTUtil::Refract(ray.dir, N, eta, cosi, k);
+					glm::vec3 RefractDir = RTUtil::Refract(Ray.Dir, N, eta, cosi, k);
 
-					float cosIn = glm::dot(ray.dir, hit.normal);
-					float cosOut = glm::dot(refractDir, hit.normal);
+					f32 cosIn = glm::dot(Ray.Dir, Hit.Normal);
+					f32 cosOut = glm::dot(RefractDir, Hit.Normal);
 
 					Fr = RTUtil::Fresnel(cosIn, cosOut, etai, etat);
 
 					if (Random::Float() > Fr)
 					{
-						throughput *= hitMaterial.albedo;
+						Throughput *= HitMat.Albedo;
 
-						if (inside)
+						if (bInside)
 						{
 							glm::vec3 absorption = glm::vec3(
-								glm::exp(-hitMaterial.absorption.x * ray.t),
-								glm::exp(-hitMaterial.absorption.y * ray.t),
-								glm::exp(-hitMaterial.absorption.z * ray.t)
+								glm::exp(-HitMat.Absorption.x * Ray.t),
+								glm::exp(-HitMat.Absorption.y * Ray.t),
+								glm::exp(-HitMat.Absorption.z * Ray.t)
 							);
-							throughput *= absorption;
+							Throughput *= absorption;
 						}
 
-						ray = Ray(hit.pos + refractDir * RAY_NUDGE_MODIFIER, refractDir);
-						isSpecularRay = true;
+						Ray = MakeRay(Hit.Pos + RefractDir * RAY_NUDGE_MODIFIER, RefractDir);
+						bSpecularRay = true;
 					}
 					else
 					{
-						glm::vec3 specularDir = RTUtil::Reflect(ray.dir, hit.normal);
-						ray = Ray(hit.pos + specularDir * RAY_NUDGE_MODIFIER, specularDir);
+						glm::vec3 specularDir = RTUtil::Reflect(Ray.Dir, Hit.Normal);
+						Ray = MakeRay(Hit.Pos + specularDir * RAY_NUDGE_MODIFIER, specularDir);
 
-						throughput *= hitMaterial.albedo;
-						isSpecularRay = true;
+						Throughput *= HitMat.Albedo;
+						bSpecularRay = true;
 					}
 				}
 			}
 			// Diffuse path
 			else
 			{
-				glm::vec3 diffuseBRDF = hitMaterial.albedo * INV_PI;
-				glm::vec3 diffuseDir(0.0f);
+				glm::vec3 DiffuseBrdf = HitMat.Albedo * INV_PI;
+				glm::vec3 DiffuseDir(0.0f);
 
-				float NdotR = 0.0f;
-				float hemispherePDF = 0.0f;
+				f32 NdotR = 0.0f;
+				f32 HemispherePDF = 0.0f;
 
 				// Cosine-weighted diffuse reflection
-				if (inst->settings.cosineWeightedDiffuseReflection)
+				if (Inst->Settings.bCosineWeightedDiffuseReflection)
 				{
-					diffuseDir = RTUtil::CosineWeightedHemisphereSample(hit.normal);
-					NdotR = glm::dot(diffuseDir, hit.normal);
-					hemispherePDF = NdotR * INV_PI;
+					DiffuseDir = RTUtil::CosineWeightedHemisphereSample(Hit.Normal);
+					NdotR = glm::dot(DiffuseDir, Hit.Normal);
+					HemispherePDF = NdotR * INV_PI;
 				}
 				// Uniform hemisphere diffuse reflection
 				else
 				{
-					diffuseDir = RTUtil::UniformHemisphereSample(hit.normal);
-					NdotR = glm::dot(diffuseDir, hit.normal);
-					hemispherePDF = INV_TWO_PI;
+					DiffuseDir = RTUtil::UniformHemisphereSample(Hit.Normal);
+					NdotR = glm::dot(DiffuseDir, Hit.Normal);
+					HemispherePDF = INV_TWO_PI;
 				}
 
-				ray = Ray(hit.pos + diffuseDir * RAY_NUDGE_MODIFIER, diffuseDir);
-				throughput *= (NdotR * diffuseBRDF) / hemispherePDF;
-				isSpecularRay = false;
+				Ray = MakeRay(Hit.Pos + DiffuseDir * RAY_NUDGE_MODIFIER, DiffuseDir);
+				Throughput *= (NdotR * DiffuseBrdf) / HemispherePDF;
+				bSpecularRay = false;
 			}
 
-			currRayDepth++;
+			RayDepth++;
 		}
 
 		// Handle any render data visualization that needs to trace the full path first
-		if (inst->settings.renderVisualization != RenderVisualization_None)
+		if (Inst->Settings.RenderVisualization != RenderVisualization_None)
 		{
-			switch (inst->settings.renderVisualization)
+			switch (Inst->Settings.RenderVisualization)
 			{
 			case RenderVisualization_RayRecursionDepth:
 			{
-				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), currRayDepth / static_cast<float>(inst->settings.rayMaxRecursionDepth));
+				Energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), RayDepth / static_cast<f32>(Inst->Settings.RayMaxRecursionDepth));
 			} break;
 			case RenderVisualization_RussianRouletteKillDepth:
 			{
-				float weight = glm::clamp((currRayDepth / static_cast<float>(inst->settings.rayMaxRecursionDepth)) - static_cast<float>(survivedRR), 0.0f, 1.0f);
-				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), weight);
+				f32 Weight = glm::clamp((RayDepth / static_cast<f32>(Inst->Settings.RayMaxRecursionDepth)) - static_cast<f32>(bSurvivedRR), 0.0f, 1.0f);
+				Energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), Weight);
 			} break;
 			}
 		}
 
-		return glm::vec4(energy, 1.0f);
+		return glm::vec4(Energy, 1.0f);
 	}
 
-	void Init(uint32_t renderWidth, uint32_t renderHeight)
+	void Init(MemoryArena* Arena, u32 RenderWidth, u32 RenderHeight)
 	{
 		LOG_INFO("CPUPathtracer", "Init");
+		
+		// We first allocate the instance on the passed Arena, then we allocate from the instance arena
+		Inst = ARENA_ALLOC_STRUCT_ZERO(Arena, Instance);
+		Inst->Arena = Arena;
 
-		inst = new Instance();
+		Inst->RenderWidth = RenderWidth;
+		Inst->RenderHeight = RenderHeight;
+		Inst->InvRenderWidth = 1.0f / static_cast<f32>(Inst->RenderWidth);
+		Inst->InvRenderHeight = 1.0f / static_cast<f32>(Inst->RenderHeight);
 
-		inst->renderWidth = renderWidth;
-		inst->renderHeight = renderHeight;
-		inst->invRenderWidth = 1.0f / static_cast<float>(inst->renderWidth);
-		inst->invRenderHeight = 1.0f / static_cast<float>(inst->renderHeight);
+		Inst->PixelBuffer = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, u32, Inst->RenderWidth * Inst->RenderHeight);
+		Inst->PixelAccumulator = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, glm::vec4, Inst->RenderWidth * Inst->RenderHeight);
 
-		inst->pixelBuffer.resize(inst->renderWidth * inst->renderHeight);
-		inst->pixelAccumulator.resize(inst->renderWidth * inst->renderHeight);
+		Inst->TextureSlotmap.Init(Inst->Arena);
+		Inst->BvhSlotmap.Init(Inst->Arena);
+
+		Inst->BVHInstanceCount = 100;
+		Inst->BVHInstanceAt = 0;
+		Inst->BVHInstances = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, BVHInstance, Inst->BVHInstanceCount);
+		Inst->BVHMaterials = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, Material, Inst->BVHInstanceCount);
+
+		Inst->RenderThreadpool.Init(Inst->Arena);
+
+		// Default render settings
+		Inst->Settings.RenderVisualization = RenderVisualization_None;
+		Inst->Settings.RayMaxRecursionDepth = 8;
+
+		Inst->Settings.bCosineWeightedDiffuseReflection = true;
+		Inst->Settings.bRussianRoulette = true;
+
+		Inst->Settings.HdrEnvIntensity = 1.0f;
+
+		Inst->Settings.Postfx.MaxWhite = 10.0f;
+		Inst->Settings.Postfx.Exposure = 1.0f;
+		Inst->Settings.Postfx.Contrast = 1.0f;
+		Inst->Settings.Postfx.Brightness = 0.0f;
+		Inst->Settings.Postfx.Saturation = 1.0f;
+		Inst->Settings.Postfx.bLinearToSRGB = true;
 
 		DX12Backend::Init();
 	}
@@ -370,111 +409,114 @@ namespace CPUPathtracer
 		
 		DX12Backend::Exit();
 
-		delete inst;
+		Inst->TextureSlotmap.Destroy();
+		Inst->BvhSlotmap.Destroy();
+		Inst->RenderThreadpool.Destroy();
 	}
 
 	void BeginFrame()
 	{
 		DX12Backend::BeginFrame();
 
-		if (inst->settings.renderVisualization != RenderVisualization_None)
+		if (Inst->Settings.RenderVisualization != RenderVisualization_None)
 			ResetAccumulation();
+
+		Inst->ArenaMarkerFrame = Inst->Arena->PtrAt;
 	}
 
 	void EndFrame()
 	{
 		DX12Backend::EndFrame();
-		DX12Backend::CopyToBackBuffer(reinterpret_cast<char*>(inst->pixelBuffer.data()));
+		DX12Backend::CopyToBackBuffer(reinterpret_cast<char*>(Inst->PixelBuffer));
 		DX12Backend::Present();
 
-		inst->frameIndex++;
+		Inst->FrameIndex++;
+
+		ARENA_FREE(Inst->Arena, Inst->ArenaMarkerFrame);
 	}
 
-	void BeginScene(const Camera& sceneCamera, RenderTextureHandle hdrEnvHandle)
+	void BeginScene(const Camera& SceneCamera, RenderTextureHandle REnvTextureHandle)
 	{
-		if (inst->sceneCamera.viewMatrix != sceneCamera.viewMatrix)
+		if (Inst->SceneCamera.ViewMatrix != SceneCamera.ViewMatrix)
 			ResetAccumulation();
 
-		inst->sceneCamera = sceneCamera;
-		inst->sceneHDREnvTexture = inst->textureMap.Find(hdrEnvHandle);
-		ASSERT(inst->sceneHDREnvTexture);
+		Inst->SceneCamera = SceneCamera;
+		Inst->SceneHdrEnv = Inst->TextureSlotmap.Find(REnvTextureHandle);
+		ASSERT(Inst->SceneHdrEnv);
 	}
 
 	void Render()
 	{
-		PROFILE_SCOPE(GlobalProfilingScope_RenderTime);
-		inst->numAccumulatedFrames++;
+		Inst->AccumulatedFrameCount++;
 
 		// Build the current scene's TLAS
-		inst->sceneTLAS = TLAS();
-		inst->sceneTLAS.Build(inst->BVHInstances);
+		Inst->SceneTLAS.Build(Inst->Arena, Inst->BVHInstances, Inst->BVHInstanceAt);
 
-		float aspectRatio = inst->renderWidth / static_cast<float>(inst->renderHeight);
-		float tanFOV = glm::tan(glm::radians(inst->sceneCamera.vfov) / 2.0f);
+		f32 AspectRatio = Inst->RenderWidth / static_cast<f32>(Inst->RenderHeight);
+		f32 TanFOV = glm::tan(glm::radians(Inst->SceneCamera.VFovDeg) / 2.0f);
 		
-		uint32_t numPixels = inst->renderWidth * inst->renderHeight;
-		double invNumPixels = 1.0f / static_cast<float>(numPixels);
+		u32 PixelCount = Inst->RenderWidth * Inst->RenderHeight;
+		f64 InvPixelCount = 1.0f / static_cast<f32>(PixelCount);
 
-		glm::uvec2 dispatchDim = { 16, 16 };
-		ASSERT(inst->renderWidth % dispatchDim.x == 0);
-		ASSERT(inst->renderHeight % dispatchDim.y == 0);
+		glm::uvec2 DispatchDim = { 16, 16 };
+		ASSERT(Inst->RenderWidth % DispatchDim.x == 0);
+		ASSERT(Inst->RenderHeight % DispatchDim.y == 0);
 
-		auto tracePathThroughPixelJob = [&dispatchDim, &aspectRatio, &tanFOV, &invNumPixels](Threadpool::JobDispatchArgs dispatchArgs) {
-			const uint32_t dispatchX = (dispatchArgs.jobIndex * dispatchDim.x) % inst->renderWidth;
-			const uint32_t dispatchY = ((dispatchArgs.jobIndex * dispatchDim.x) / inst->renderWidth) * dispatchDim.y;
+		auto TracePathThroughPixelJob = [&DispatchDim, &AspectRatio, &TanFOV, &InvPixelCount](Threadpool::JobDispatchArgs dispatchArgs) {
+			const u32 DispatchX = (dispatchArgs.JobIndex * DispatchDim.x) % Inst->RenderWidth;
+			const u32 DispatchY = ((dispatchArgs.JobIndex * DispatchDim.x) / Inst->RenderWidth) * DispatchDim.y;
 
-			for (uint32_t y = dispatchY; y < dispatchY + dispatchDim.y; ++y)
+			for (u32 y = DispatchY; y < DispatchY + DispatchDim.y; ++y)
 			{
-				for (uint32_t x = dispatchX; x < dispatchX + dispatchDim.x; ++x)
+				for (u32 x = DispatchX; x < DispatchX + DispatchDim.x; ++x)
 				{
 					// Construct primary ray from camera through the current pixel
-					Ray ray = RTUtil::ConstructCameraRay(inst->sceneCamera, x, y, tanFOV,
-						aspectRatio, inst->invRenderWidth, inst->invRenderHeight);
+					Ray Ray = RTUtil::ConstructCameraRay(Inst->SceneCamera, x, y, TanFOV,
+						AspectRatio, Inst->InvRenderWidth, Inst->InvRenderHeight);
 
 					// Start tracing path through pixel
-					glm::vec4 tracedColor = TracePath(ray);
+					glm::vec4 PathColor = TracePath(Ray);
 
 					// Update accumulator
-					uint32_t pixelPos = y * inst->renderWidth + x;
-					inst->pixelAccumulator[pixelPos] += tracedColor;
-					inst->energyAccumulator += static_cast<double>(tracedColor.x + tracedColor.y + tracedColor.z) * invNumPixels;
+					u32 PixelPos = y * Inst->RenderWidth + x;
+					Inst->PixelAccumulator[PixelPos] += PathColor;
+					Inst->AvgEnergyAccumulator += static_cast<f64>(PathColor.x + PathColor.y + PathColor.z) * InvPixelCount;
 
 					// Determine final color for pixel
-					glm::vec4 finalColor = inst->pixelAccumulator[pixelPos] /
-						static_cast<float>(inst->numAccumulatedFrames);
+					glm::vec4 FinalColor = Inst->PixelAccumulator[PixelPos] /
+						static_cast<f32>(Inst->AccumulatedFrameCount);
 
 					// Apply post-processing stack to final color
-					finalColor.xyz = ApplyPostProcessing(finalColor.xyz);
+					FinalColor.xyz = ApplyPostProcessing(FinalColor.xyz);
 
 					// Write final color
-					inst->pixelBuffer[pixelPos] = RTUtil::Vec4ToUint32(finalColor);
+					Inst->PixelBuffer[PixelPos] = RTUtil::Vec4ToUint32(FinalColor);
 				}
 			}
 		};
 
-		uint32_t numJobs = numPixels / (dispatchDim.x * dispatchDim.y);
+		u32 JobCount = PixelCount / (DispatchDim.x * DispatchDim.y);
 
-		inst->renderThreadpool.Dispatch(numJobs, 16, tracePathThroughPixelJob);
-		inst->renderThreadpool.WaitAll();
+		Inst->RenderThreadpool.Dispatch(JobCount, 16, TracePathThroughPixelJob);
+		Inst->RenderThreadpool.WaitAll();
 	}
 
 	void EndScene()
 	{
-		inst->BVHInstances.clear();
-		inst->BVHMaterials.clear();
+		Inst->BVHInstanceAt = 0;
 	}
 
 	void RenderUI()
 	{
 		if (ImGui::Begin("Renderer"))
 		{
-			bool resetAccumulator = false;
+			b8 bResetAccumulator = false;
 
-			ImGui::Text("Render time: %.3f ms", Profiler::GetTimerResult(GlobalProfilingScope_RenderTime).lastElapsed * 1000.0f);
+			//ImGui::Text("Render time: %.3f ms", Profiler::GetTimerResult(GlobalProfilingScope_RenderTime).lastElapsed * 1000.0f);
 
-			ImGui::Text("Resolution: %ux%u", inst->renderWidth, inst->renderHeight);
-			ImGui::Text("Accumulated frames: %u", inst->numAccumulatedFrames);
-			ImGui::Text("Total energy received: %.3f", inst->energyAccumulator / static_cast<double>(inst->numAccumulatedFrames) * 1000.0f);
+			ImGui::Text("Resolution: %ux%u", Inst->RenderWidth, Inst->RenderHeight);
+			ImGui::Text("Accumulated frames: %u", Inst->AccumulatedFrameCount);
+			ImGui::Text("Total Energy received: %.3f", Inst->AvgEnergyAccumulator / static_cast<f64>(Inst->AccumulatedFrameCount) * 1000.0f);
 
 			// Debug category
 			if (ImGui::CollapsingHeader("Debug"))
@@ -483,19 +525,19 @@ namespace CPUPathtracer
 
 				// Render data visualization
 				ImGui::Text("Render data visualization mode");
-				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[inst->settings.renderVisualization].c_str(), ImGuiComboFlags_None))
+				if (ImGui::BeginCombo("##Render data visualization mode", RenderDataVisualizationLabels[Inst->Settings.RenderVisualization], ImGuiComboFlags_None))
 				{
-					for (uint32_t i = 0; i < RenderVisualization_Count; ++i)
+					for (u32 i = 0; i < RenderVisualization_Count; ++i)
 					{
-						bool is_selected = i == inst->settings.renderVisualization;
+						b8 bSelected = i == Inst->Settings.RenderVisualization;
 
-						if (ImGui::Selectable(RenderDataVisualizationLabels[i].c_str(), is_selected))
+						if (ImGui::Selectable(RenderDataVisualizationLabels[i], bSelected))
 						{
-							inst->settings.renderVisualization = (RenderVisualization)i;
-							resetAccumulator = true;
+							Inst->Settings.RenderVisualization = (RenderVisualization)i;
+							bResetAccumulator = true;
 						}
 
-						if (is_selected)
+						if (bSelected)
 							ImGui::SetItemDefaultFocus();
 					}
 					ImGui::EndCombo();
@@ -504,32 +546,32 @@ namespace CPUPathtracer
 				ImGui::Unindent(10.0f);
 			}
 
-			// Render settings
+			// Render Settings
 			if (ImGui::CollapsingHeader("Settings"))
 			{
 				ImGui::Indent(10.0f);
 
-				if (ImGui::SliderInt("Max Ray Recursion Depth: %u", reinterpret_cast<int32_t*>(&inst->settings.rayMaxRecursionDepth), 0, 8)) resetAccumulator = true;
+				if (ImGui::SliderInt("Max Ray Recursion Depth: %u", reinterpret_cast<i32*>(&Inst->Settings.RayMaxRecursionDepth), 0, 8)) bResetAccumulator = true;
 
 				// Enable/disable cosine weighted diffuse reflections, russian roulette
-				if (ImGui::Checkbox("Cosine weighted diffuse", &inst->settings.cosineWeightedDiffuseReflection)) resetAccumulator = true;
-				if (ImGui::Checkbox("Russian roulette", &inst->settings.russianRoulette)) resetAccumulator = true;
+				if (ImGui::Checkbox("Cosine weighted diffuse", &Inst->Settings.bCosineWeightedDiffuseReflection)) bResetAccumulator = true;
+				if (ImGui::Checkbox("Russian roulette", &Inst->Settings.bRussianRoulette)) bResetAccumulator = true;
 
-				// HDR environment intensity
-				if (ImGui::DragFloat("HDR env intensity", &inst->settings.hdrEnvIntensity, 0.001f)) resetAccumulator = true;
+				// HDR environment Intensity
+				if (ImGui::DragFloat("HDR env Intensity", &Inst->Settings.HdrEnvIntensity, 0.001f)) bResetAccumulator = true;
 
-				// Post-process settings, constract, brightness, saturation, sRGB
+				// Post-process Settings, constract, brightness, saturation, sRGB
 				ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 				if (ImGui::CollapsingHeader("Post-processing"))
 				{
 					ImGui::Indent(10.0f);
 
-					if (ImGui::SliderFloat("Max white", &inst->settings.postfx.maxWhite, 0.0f, 100.0f)) resetAccumulator = true;
-					if (ImGui::SliderFloat("Exposure", &inst->settings.postfx.exposure, 0.0f, 100.0f)) resetAccumulator = true;
-					if (ImGui::SliderFloat("Contrast", &inst->settings.postfx.contrast, 0.0f, 3.0f)) resetAccumulator = true;
-					if (ImGui::SliderFloat("Brightness", &inst->settings.postfx.brightness, -1.0f, 1.0f)) resetAccumulator = true;
-					if (ImGui::SliderFloat("Saturation", &inst->settings.postfx.saturation, 0.0f, 10.0f)) resetAccumulator = true;
-					if (ImGui::Checkbox("Linear to SRGB", &inst->settings.postfx.linearToSRGB)) resetAccumulator = true;
+					if (ImGui::SliderFloat("Max white", &Inst->Settings.Postfx.MaxWhite, 0.0f, 100.0f)) bResetAccumulator = true;
+					if (ImGui::SliderFloat("Exposure", &Inst->Settings.Postfx.Exposure, 0.0f, 100.0f)) bResetAccumulator = true;
+					if (ImGui::SliderFloat("Contrast", &Inst->Settings.Postfx.Contrast, 0.0f, 3.0f)) bResetAccumulator = true;
+					if (ImGui::SliderFloat("Brightness", &Inst->Settings.Postfx.Brightness, -1.0f, 1.0f)) bResetAccumulator = true;
+					if (ImGui::SliderFloat("Saturation", &Inst->Settings.Postfx.Saturation, 0.0f, 10.0f)) bResetAccumulator = true;
+					if (ImGui::Checkbox("Linear to SRGB", &Inst->Settings.Postfx.bLinearToSRGB)) bResetAccumulator = true;
 
 					ImGui::Unindent(10.0f);
 				}
@@ -537,45 +579,51 @@ namespace CPUPathtracer
 				ImGui::Unindent(10.0f);
 			}
 
-			if (resetAccumulator)
+			if (bResetAccumulator)
 				ResetAccumulation();
 		}
 		ImGui::End();
 	}
 
-	RenderTextureHandle CreateTexture(uint32_t textureWidth, uint32_t textureHeight, const std::vector<glm::vec4>& pixelData)
+	RenderTextureHandle CreateTexture(u32 Width, u32 Height, f32* PtrPixelData)
 	{
-		Texture texture = {};
-		texture.width = textureWidth;
-		texture.height = textureHeight;
-		texture.pixelData = pixelData;
+		Texture Texture = {};
+		Texture.Width = Width;
+		Texture.Height = Height;
+		Texture.PtrPixelData = PtrPixelData;// ARENA_ALLOC_ARRAY(Inst->Arena, f32, Width * Height * 4);
+		//memcpy(Texture.PtrPixelData, PtrPixelData, Width * Height * sizeof(float) * 4);
 
-		RenderTextureHandle textureHandle = inst->textureMap.Add(std::move(texture));
+		RenderTextureHandle textureHandle = Inst->TextureSlotmap.Add(std::move(Texture));
 		return textureHandle;
 	}
 
-	RenderMeshHandle CreateMesh(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices)
+	RenderMeshHandle CreateMesh(Vertex* Vertices, u32 VertexCount, u32* Indices, u32 IndexCount)
 	{
 		BVH::BuildOptions buildOptions = {};
 
 		BVH meshBVH = {};
-		meshBVH.Build(vertices, indices, buildOptions);
+		meshBVH.Build(Inst->Arena, Vertices, VertexCount, Indices, IndexCount, buildOptions);
 
-		RenderMeshHandle meshHandle = inst->BVHMap.Add(std::move(meshBVH));
+		RenderMeshHandle meshHandle = Inst->BvhSlotmap.Add(std::move(meshBVH));
 		return meshHandle;
 	}
 
-	void SubmitMesh(RenderMeshHandle renderMeshHandle, const glm::mat4& transform, const Material& material)
+	void SubmitMesh(RenderMeshHandle RMeshHandle, const glm::mat4& Transform, const Material& Mat)
 	{
-		const BVH* bvh = inst->BVHMap.Find(renderMeshHandle);
-		if (!bvh)
+		const BVH* BVH = Inst->BvhSlotmap.Find(RMeshHandle);
+		if (!BVH)
 			return;
 
-		BVHInstance instance(bvh);
-		instance.SetTransform(transform);
+		ASSERT(Inst->BVHInstanceAt < Inst->BVHInstanceCount);
 
-		inst->BVHInstances.push_back(std::move(instance));
-		inst->BVHMaterials.push_back(std::move(material));
+		BVHInstance* Instance = &Inst->BVHInstances[Inst->BVHInstanceAt];
+		Instance->SetBVH(BVH);
+		Instance->SetTransform(Transform);
+
+		Material* Material = &Inst->BVHMaterials[Inst->BVHInstanceAt];
+		*Material = Mat;
+
+		Inst->BVHInstanceAt++;
 	}
 
 }

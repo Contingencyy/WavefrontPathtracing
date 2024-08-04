@@ -6,123 +6,125 @@ template<typename THandle, typename TResource>
 class ResourceSlotmap
 {
 public:
-	static constexpr size_t DEFAULT_CAPACITY = 1000;
+	static constexpr u32 DEFAULT_CAPACITY = 1000;
 
 private:
-	static constexpr size_t INVALID_SLOT_INDEX = ~0u;
+	static constexpr u32 INVALID_SLOT_INDEX = ~0u;
 
 public:
-	ResourceSlotmap(size_t capacity = DEFAULT_CAPACITY)
+	void Init(MemoryArena* Arena, u32 Capacity = DEFAULT_CAPACITY)
 	{
-		m_Slots.resize(capacity);
+		m_SlotCount = Capacity;
+		m_Slots = ARENA_ALLOC_ARRAY_ZERO(Arena, Slot, m_SlotCount);
 
-		for (size_t i = 0; i < capacity - 1; ++i)
+		for (u32 i = 0; i < m_SlotCount - 1; ++i)
 		{
-			m_Slots[i].nextFree = static_cast<uint32_t>(i) + 1;
-			m_Slots[i].version = 0;
+			m_Slots[i].NextFree = i + 1;
+			m_Slots[i].Version = 0;
 		}
 	}
 
-	~ResourceSlotmap()
+	void Destroy()
 	{
 	}
 
-	ResourceSlotmap(const ResourceSlotmap& other) = delete;
-	ResourceSlotmap(ResourceSlotmap&& other) = delete;
-	const ResourceSlotmap& operator=(const ResourceSlotmap& other) = delete;
-	ResourceSlotmap&& operator=(ResourceSlotmap&& other) = delete;
+	ResourceSlotmap(const ResourceSlotmap& Other) = delete;
+	ResourceSlotmap(ResourceSlotmap&& Other) = delete;
+	const ResourceSlotmap& operator=(const ResourceSlotmap& Other) = delete;
+	ResourceSlotmap&& operator=(ResourceSlotmap&& Other) = delete;
 
-	THandle Add(const TResource& resource)
+	THandle Add(const TResource& Resource)
 	{
-		THandle handle = AllocateSlot();
-		m_Slots[handle.index].resource = resource;
+		THandle Handle = AllocateSlot();
+		ASSERT(Handle.IsValid());
 
-		return handle;
+		m_Slots[Handle.Index].Resource = Resource;
+		return Handle;
 	}
 
-	THandle Add(TResource&& resource)
+	THandle Add(TResource&& Resource)
 	{
-		THandle handle = AllocateSlot();
-		m_Slots[handle.index].resource = std::move(resource);
+		THandle Handle = AllocateSlot();
+		ASSERT(Handle.IsValid());
 
-		return handle;
+		m_Slots[Handle.Index].Resource = std::move(Resource);
+		return Handle;
 	}
 
-	void Remove(THandle handle)
+	void Remove(THandle Handle)
 	{
-		if (handle.IsValid())
+		Slot* Sentinel = &m_Slots[0];
+
+		if (Handle.IsValid())
 		{
-			Slot& slot = m_Slots[handle.index];
+			Slot* Slot = &m_Slots[Handle.Index];
 
-			// If the handle and slot version are not the same, the handle is stale and no longer valid
-			if (slot.version == handle.version)
+			// If the Handle and slot Version are not the same, the Handle is stale and no longer valid
+			if (Slot.Version == Handle.Version)
 			{
-				slot.version++;
+				Slot.Version++;
 
-				slot.nextFree = m_NextFreeIndex;
-				m_NextFreeIndex = handle.index;
+				Slot.NextFree = Sentinel->NextFree;
+				Sentinel->NextFree = Handle.Index;
 
-				// If the resource is not trivially destructible, we need to call its destructor
+				// If the Resource is not trivially destructible, we need to call its destructor
 				if constexpr (!std::is_trivially_destructible_v<TResource>)
 				{
-					slot.resource.~T();
+					Slot.Resource.~T();
 				}
 			}
 		}
-		// TODO: If the handle is invalid, maybe log a warning message here
+		// TODO: If the Handle is invalid, maybe log a warning message here
 	}
 
-	TResource* Find(THandle handle)
+	TResource* Find(THandle Handle)
 	{
-		TResource* resource = nullptr;
+		TResource* Resource = nullptr;
 
-		if (handle.IsValid())
+		if (Handle.IsValid())
 		{
-			Slot& slot = m_Slots[handle.index];
-
-			if (slot.version == handle.version)
+			Slot* Slot = &m_Slots[Handle.Index];
+			if (Slot->Version == Handle.Version)
 			{
-				resource = &slot.resource;
+				Resource = &Slot->Resource;
 			}
 		}
 
-		return resource;
+		return Resource;
 	}
 
 private:
 	THandle AllocateSlot()
 	{
-		if (m_NextFreeIndex == INVALID_SLOT_INDEX)
+		THandle Handle = {};
+		Slot* Sentinel = &m_Slots[0];
+
+		if (Sentinel->NextFree != INVALID_SLOT_INDEX)
 		{
-			// TODO: Resize instead of crashing when slotmap runs full
-			FATAL_ERROR("ResourceSlotmap::AllocateSlot", "Resource slotmap has reached its maximum capacity");
+			u32 Index = Sentinel->NextFree;
+			Slot* Slot = &m_Slots[Index];
+
+			Sentinel->NextFree = Slot->NextFree;
+			Slot->NextFree = INVALID_SLOT_INDEX;
+
+			Handle.Index = Index;
+			Handle.Version = Slot->Version;
 		}
 
-		ASSERT(m_NextFreeIndex < m_Slots.size());
-
-		THandle handle;
-		Slot& slot = m_Slots[m_NextFreeIndex];
-
-		handle.index = m_NextFreeIndex;
-		handle.version = slot.version;
-
-		m_NextFreeIndex = slot.nextFree;
-		slot.nextFree = INVALID_SLOT_INDEX;
-
-		return handle;
+		return Handle;
 	}
 
 private:
 	struct Slot
 	{
-		uint32_t nextFree = INVALID_SLOT_INDEX;
-		uint32_t version = 0;
+		u32 NextFree = INVALID_SLOT_INDEX;
+		u32 Version = 0;
 
-		TResource resource;
+		TResource Resource;
 	};
 
 private:
-	std::vector<Slot> m_Slots;
-	uint32_t m_NextFreeIndex = 0;
+	u32 m_SlotCount;
+	Slot* m_Slots;
 
 };

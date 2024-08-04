@@ -1,12 +1,23 @@
 #pragma once
-#include <stdint.h>
+#include "glm/glm.hpp"
+
+using b8 = bool;
+using i32 = int;
+using u8 = unsigned char;
+using u16 = unsigned short;
+using u32 = unsigned int;
+using u64 = unsigned long long;
+using f32 = float;
+using f64 = double;
 
 static constexpr glm::vec3 DEFAULT_RIGHT_VECTOR = glm::vec3(1.0f, 0.0f, 0.0f);
 static constexpr glm::vec3 DEFAULT_UP_VECTOR = glm::vec3(0.0f, 1.0f, 0.0f);
 static constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 
-template<typename T>
-inline intptr_t AlignUp(T x, uint32_t align)
-{
-	return ((intptr_t)(x)+((align)-1) & (-(intptr_t)(align)));
-}
+#define KB(x) ((x) << 10ull)
+#define MB(x) ((x) << 20ull)
+#define GB(x) ((x) << 30ull)
+
+#define ALIGN_UP_POW2(Value, Align) ((intptr_t)(Value)+((Align)-1) & (-(intptr_t)(Align)))
+#define ALIGN_DOWN_POW2(Value, Align) ((intptr_t)(Value) & (-(intptr_t)(Align)))
+#define ARRAY_SIZE(Arr) (sizeof(Arr) / sizeof((Arr)[0]))

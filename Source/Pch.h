@@ -1,13 +1,10 @@
 #pragma once
 
 /*
-	CPP STANDARD LIBRARY INCLUDES
+	STANDARD LIBRARY INCLUDES
 */
 
-#include <string>
-#include <array>
-#include <vector>
-#include <span>
+// ...
 
 /*
 	EXTERNAL INCLUDES
@@ -23,4 +20,6 @@
 	INCLUDES
 */
 
+#include "Core/Common.h"
 #include "Core/Assertion.h"
+#include "Core/Memory/MemoryArena.h"

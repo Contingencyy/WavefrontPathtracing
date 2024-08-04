@@ -11,63 +11,63 @@ namespace RTUtil
 	*/
 
 	// Möller-Trumbore
-	inline bool Intersect(const Triangle& tri, Ray& ray, float& outT, glm::vec3& outBary)
+	inline b8 Intersect(const Triangle& Tri, Ray& Ray, f32& OutT, glm::vec3& OutBary)
 	{
-		// This algorithm is very sensitive to epsilon values, so we need a very small one, otherwise transforming/scaling the ray breaks this
-		const float epsilon = 0.00000000001f;
+		// This algorithm is very sensitive to Epsilon values, so we need a very small one, otherwise transforming/scaling the Ray breaks this
+		const f32 Epsilon = 0.00000000001f;
 
-		// First check whether we hit the plane the triangle is on
-		glm::vec3 edge1 = tri.p1 - tri.p0;
-		glm::vec3 edge2 = tri.p2 - tri.p0;
+		// First check whether we hit the Plane the Tri is on
+		glm::vec3 Edge1 = Tri.p1 - Tri.p0;
+		glm::vec3 Edge2 = Tri.p2 - Tri.p0;
 
-		glm::vec3 H = glm::cross(ray.dir, edge2);
-		float a = glm::dot(edge1, H);
+		glm::vec3 h = glm::cross(Ray.Dir, Edge2);
+		f32 det = glm::dot(Edge1, h);
 
-		if (glm::abs(a) < epsilon)
+		if (glm::abs(det) < Epsilon)
 			return false;
 
-		// Then check whether the ray-plane intersection lies outside of the triangle using barycentric coordinates
-		float f = 1.0f / a;
-		glm::vec3 S = ray.origin - tri.p0;
-		float v = f * glm::dot(S, H);
+		// Then check whether the Ray-Plane intersection lies outside of the Tri using barycentric coordinates
+		f32 f = 1.0f / det;
+		glm::vec3 s = Ray.Origin - Tri.p0;
+		f32 v = f * glm::dot(s, h);
 
 		if (v < 0.0f || v > 1.0f)
 			return false;
 
-		glm::vec3 Q = glm::cross(S, edge1);
-		float w = f * glm::dot(ray.dir, Q);
+		glm::vec3 q = glm::cross(s, Edge1);
+		f32 w = f * glm::dot(Ray.Dir, q);
 
 		if (w < 0.0f || v + w > 1.0f)
 			return false;
 
-		// Ray-plane intersection is inside the triangle, so we can compute "t" now
-		float t = f * glm::dot(edge2, Q);
+		// Ray-Plane intersection is inside the Tri, so we can compute "t" now
+		f32 t = f * glm::dot(Edge2, q);
 
-		if (t < epsilon || t >= ray.t)
+		if (t < Epsilon || t >= Ray.t)
 			return false;
 
-		ray.t = t;
-		outT = t;
-		outBary = glm::vec3(1.0f - v - w, v, w);
+		Ray.t = t;
+		OutT = t;
+		OutBary = glm::vec3(1.0f - v - w, v, w);
 
 		return true;
 	}
 
-	inline bool Intersect(const Sphere& sphere, Ray& ray)
+	inline b8 Intersect(const Sphere& Sphere, Ray& Ray)
 	{
-		float t0 = 0.0f, t1 = 0.0f;
-		glm::vec3 L = sphere.center - ray.origin;
-		float tca = glm::dot(L, ray.dir);
+		f32 t0 = 0.0f, t1 = 0.0f;
+		glm::vec3 L = Sphere.Center - Ray.Origin;
+		f32 tca = glm::dot(L, Ray.Dir);
 
 		if (tca < 0.0f)
 			return false;
 
-		float d2 = glm::dot(L, L) - tca * tca;
+		f32 d2 = glm::dot(L, L) - tca * tca;
 
-		if (d2 > sphere.radiusSquared)
+		if (d2 > Sphere.RadiusSquared)
 			return false;
 
-		float thc = std::sqrtf(sphere.radiusSquared - d2);
+		f32 thc = std::sqrtf(Sphere.RadiusSquared - d2);
 		t0 = tca - thc;
 		t1 = tca + thc;
 
@@ -82,27 +82,27 @@ namespace RTUtil
 				return false;
 		}
 
-		if (t0 < ray.t)
+		if (t0 < Ray.t)
 		{
-			ray.t = t0;
+			Ray.t = t0;
 			return true;
 		}
 
 		return false;
 	}
 
-	inline bool Intersect(const Plane& plane, Ray& ray)
+	inline b8 Intersect(const Plane& Plane, Ray& Ray)
 	{
-		float denom = glm::dot(ray.dir, plane.normal);
+		f32 det = glm::dot(Ray.Dir, Plane.Normal);
 
-		if (std::fabs(denom) > 1e-6)
+		if (glm::abs(det) > 1e-6)
 		{
-			glm::vec3 p0 = plane.point - ray.origin;
-			float t = glm::dot(p0, plane.normal) / denom;
+			glm::vec3 p0 = Plane.Point - Ray.Origin;
+			f32 t = glm::dot(p0, Plane.Normal) / det;
 
-			if (t > 0.0f && t < ray.t)
+			if (t > 0.0f && t < Ray.t)
 			{
-				ray.t = t;
+				Ray.t = t;
 				return true;
 			}
 		}
@@ -110,36 +110,36 @@ namespace RTUtil
 		return false;
 	}
 
-	inline bool Intersect(const AABB& aabb, Ray& ray)
+	inline b8 Intersect(const AABB& Aabb, Ray& Ray)
 	{
-		float tx1 = (aabb.pmin.x - ray.origin.x) * ray.invDir.x, tx2 = (aabb.pmax.x - ray.origin.x) * ray.invDir.x;
-		float tmin = std::min(tx1, tx2), tmax = std::max(tx1, tx2);
-		float ty1 = (aabb.pmin.y - ray.origin.y) * ray.invDir.y, ty2 = (aabb.pmax.y - ray.origin.y) * ray.invDir.y;
+		f32 tx1 = (Aabb.PMin.x - Ray.Origin.x) * Ray.InvDir.x, tx2 = (Aabb.PMax.x - Ray.Origin.x) * Ray.InvDir.x;
+		f32 tmin = std::min(tx1, tx2), tmax = std::max(tx1, tx2);
+		f32 ty1 = (Aabb.PMin.y - Ray.Origin.y) * Ray.InvDir.y, ty2 = (Aabb.PMax.y - Ray.Origin.y) * Ray.InvDir.y;
 		tmin = std::max(tmin, std::min(ty1, ty2)), tmax = std::min(tmax, std::max(ty1, ty2));
-		float tz1 = (aabb.pmin.z - ray.origin.z) * ray.invDir.z, tz2 = (aabb.pmax.z - ray.origin.z) * ray.invDir.z;
+		f32 tz1 = (Aabb.PMin.z - Ray.Origin.z) * Ray.InvDir.z, tz2 = (Aabb.PMax.z - Ray.Origin.z) * Ray.InvDir.z;
 		tmin = std::max(tmin, std::min(tz1, tz2)), tmax = std::min(tmax, std::max(tz1, tz2));
 
-		if (tmax >= tmin && tmin < ray.t && tmax > 0.0f)
+		if (tmax >= tmin && tmin < Ray.t && tmax > 0.0f)
 		{
-			ray.t = tmin;
+			Ray.t = tmin;
 			return true;
 		}
 
 		return false;
 	}
 
-	inline float IntersectSSE(const __m128 aabbMin, const __m128 aabbMax, const Ray& ray)
+	inline f32 IntersectSSE(const __m128 AabbMin, const __m128 AabbMax, const Ray& Ray)
 	{
 		__m128 mask4 = _mm_cmpeq_ps(_mm_setzero_ps(), _mm_set_ps(1, 0, 0, 0));
 
-		__m128 t1 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(aabbMin, mask4), ray.origin4), ray.invDir4);
-		__m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(aabbMax, mask4), ray.origin4), ray.invDir4);
+		__m128 t1 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(AabbMin, mask4), Ray.Origin4), Ray.InvDir4);
+		__m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(AabbMax, mask4), Ray.Origin4), Ray.InvDir4);
 		__m128 vmax4 = _mm_max_ps(t1, t2), vmin4 = _mm_min_ps(t1, t2);
 
-		float tmax = std::min(vmax4.m128_f32[0], std::min(vmax4.m128_f32[1], vmax4.m128_f32[2]));
-		float tmin = std::max(vmin4.m128_f32[0], std::max(vmin4.m128_f32[1], vmin4.m128_f32[2]));
+		f32 tmax = std::min(vmax4.m128_f32[0], std::min(vmax4.m128_f32[1], vmax4.m128_f32[2]));
+		f32 tmin = std::max(vmin4.m128_f32[0], std::max(vmin4.m128_f32[1], vmin4.m128_f32[2]));
 
-		if (tmax >= tmin && tmin < ray.t && tmax > 0.0f)
+		if (tmax >= tmin && tmin < Ray.t && tmax > 0.0f)
 		{
 			return tmin;
 		}
@@ -151,26 +151,26 @@ namespace RTUtil
 		HIT SURFACE
 	*/
 
-	inline glm::vec3 GetHitNormal(const Triangle& tri, const glm::vec3& bary)
+	inline glm::vec3 GetHitNormal(const Triangle& Tri, const glm::vec3& Bary)
 	{
-		return glm::normalize(glm::vec3(bary.x * tri.n0 + bary.y * tri.n1 + bary.z * tri.n2));
+		return glm::normalize(glm::vec3(Bary.x * Tri.n0 + Bary.y * Tri.n1 + Bary.z * Tri.n2));
 	}
 
-	inline glm::vec3 GetHitNormal(const Sphere& sphere, const glm::vec3& hitPos)
+	inline glm::vec3 GetHitNormal(const Sphere& Sphere, const glm::vec3& HitPos)
 	{
-		return glm::normalize(hitPos - sphere.center);
+		return glm::normalize(HitPos - Sphere.Center);
 	}
 
 	inline glm::vec3 GetHitNormal(const Plane& plane)
 	{
-		return plane.normal;
+		return plane.Normal;
 	}
 
-	inline glm::vec3 GetHitNormal(const AABB& aabb, const glm::vec3& hitPos)
+	inline glm::vec3 GetHitNormal(const AABB& Aabb, const glm::vec3& HitPos)
 	{
-		const glm::vec3 center = (aabb.pmax + aabb.pmin) * 0.5f;
-		const glm::vec3 halfSize = (aabb.pmax - aabb.pmin) * 0.5f;
-		const glm::vec3 centerToHit = hitPos - center;
+		const glm::vec3 center = (Aabb.PMax + Aabb.PMin) * 0.5f;
+		const glm::vec3 halfSize = (Aabb.PMax - Aabb.PMin) * 0.5f;
+		const glm::vec3 centerToHit = HitPos - center;
 
 		return glm::normalize(glm::sign(centerToHit) * glm::step(-RAY_NUDGE_MODIFIER, glm::abs(centerToHit) - halfSize));
 	}
@@ -179,138 +179,138 @@ namespace RTUtil
 		PRIMITIVES
 	*/
 
-	inline glm::vec3 GetTriangleCentroid(const Triangle& triangle)
+	inline glm::vec3 GetTriangleCentroid(const Triangle& Tri)
 	{
-		return (triangle.p0 + triangle.p1 + triangle.p2) * 0.3333f;
+		return (Tri.p0 + Tri.p1 + Tri.p2) * 0.3333f;
 	}
 
-	inline void GetTriangleMinMax(const Triangle& triangle, glm::vec3& outMin, glm::vec3& outMax)
+	inline void GetTriangleMinMax(const Triangle& Tri, glm::vec3& OutMin, glm::vec3& OutMax)
 	{
-		outMin = glm::min(triangle.p0, triangle.p1);
-		outMax = glm::max(triangle.p0, triangle.p1);
+		OutMin = glm::min(Tri.p0, Tri.p1);
+		OutMax = glm::max(Tri.p0, Tri.p1);
 
-		outMin = glm::min(outMin, triangle.p2);
-		outMax = glm::max(outMax, triangle.p2);
+		OutMin = glm::min(OutMin, Tri.p2);
+		OutMax = glm::max(OutMax, Tri.p2);
 	}
 
-	inline float GetAABBVolume(const glm::vec3& aabbMin, const glm::vec3& aabbMax)
+	inline f32 GetAABBVolume(const glm::vec3& AabbMin, const glm::vec3& AabbMax)
 	{
-		const glm::vec3 extent = aabbMax - aabbMin;
-		return extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;
+		const glm::vec3 Extent = AabbMax - AabbMin;
+		return Extent.x * Extent.y + Extent.y * Extent.z + Extent.z * Extent.x;
 	}
 
-	inline void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& pos)
+	inline void GrowAABB(glm::vec3& AabbMin, glm::vec3& AabbMax, const glm::vec3& Pos)
 	{
-		aabbMin = glm::min(aabbMin, pos);
-		aabbMax = glm::max(aabbMax, pos);
+		AabbMin = glm::min(AabbMin, Pos);
+		AabbMax = glm::max(AabbMax, Pos);
 	}
 
-	inline void GrowAABB(glm::vec3& aabbMin, glm::vec3& aabbMax, const glm::vec3& otherMin, const glm::vec3& otherMax)
+	inline void GrowAABB(glm::vec3& AabbMin, glm::vec3& AabbMax, const glm::vec3& OtherMin, const glm::vec3& OtherMax)
 	{
-		aabbMin = glm::min(aabbMin, otherMin);
-		aabbMax = glm::max(aabbMax, otherMax);
+		AabbMin = glm::min(AabbMin, OtherMin);
+		AabbMax = glm::max(AabbMax, OtherMax);
 	}
 
 	/*
 		CAMERA
 	*/
 
-	inline Ray ConstructCameraRay(const Camera& camera, uint32_t pixelX, uint32_t pixelY, float tanFOV,
-		float aspectRatio, float invScreenWidth, float invScreenHeight)
+	inline Ray ConstructCameraRay(const Camera& Camera, u32 PixelX, u32 PixelY, f32 TanFOV,
+		f32 AspectRatio, f32 InvScreenWidth, f32 InvScreenHeight)
 	{
-		// Calculate UV of the pixel coordinate on the screen plane, 0..1 range,
-		// and apply a 0.5 offset so that we get the center of the pixel and not its top-left corner
-		// Note that unlike in rasterization, the NDC coordinates range from 0..1 instead of -1..1
-		float u = (pixelX + 0.5f) * invScreenWidth;
-		float v = (pixelY + 0.5f) * invScreenHeight;
+		// Calculate UV of the pixel coordinate on the screen Plane, 0..1 range,
+		// and apply a 0.5 offset so that we get the Center of the pixel and not its top-left corner
+		// Note that unlike In rasterization, the NDC coordinates range from 0..1 instead of -1..1
+		f32 u = (PixelX + 0.5f) * InvScreenWidth;
+		f32 v = (PixelY + 0.5f) * InvScreenHeight;
 
 		// Remap pixel positions from 0..1 to -1..1
 		glm::vec2 pixelViewPos = glm::vec2(2.0f * u - 1.0f, 1.0f - 2.0f * v);
-		// Apply aspect ratio by scaling the pixel X coordinate in NDC space and FOV
-		pixelViewPos.x *= aspectRatio;
-		pixelViewPos.x *= tanFOV;
-		pixelViewPos.y *= tanFOV;
+		// Apply aspect ratio by scaling the pixel X coordinate In NDC space and FOV
+		pixelViewPos.x *= AspectRatio;
+		pixelViewPos.x *= TanFOV;
+		pixelViewPos.y *= TanFOV;
 
-		// Transform pixel view-space position and direction to world-space
-		glm::vec3 cameraToPixelDirWorld = glm::vec3(camera.transformMatrix * glm::vec4(pixelViewPos.x, pixelViewPos.y, 1.0f, 0.0f));
-		glm::vec3 cameraOriginWorld = glm::vec3(camera.transformMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		// Transform pixel view-space Position and direction to world-space
+		glm::vec3 cameraToPixelDirWorld = glm::vec3(Camera.TransformMatrix * glm::vec4(pixelViewPos.x, pixelViewPos.y, 1.0f, 0.0f));
+		glm::vec3 cameraOriginWorld = glm::vec3(Camera.TransformMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 		cameraToPixelDirWorld = glm::normalize(cameraToPixelDirWorld);
 
-		return Ray(cameraOriginWorld, cameraToPixelDirWorld);
+		return MakeRay(cameraOriginWorld, cameraToPixelDirWorld);
 	}
 
 	/*
 		SAMPLING
 	*/
 
-	inline void CreateOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent)
+	inline void CreateOrthonormalBasis(const glm::vec3& Normal, glm::vec3& Tangent, glm::vec3& Bitangent)
 	{
-		if (glm::abs(normal.x) > glm::abs(normal.z))
-			tangent = glm::normalize(glm::vec3(-normal.y, normal.x, 0.0f));
+		if (glm::abs(Normal.x) > glm::abs(Normal.z))
+			Tangent = glm::normalize(glm::vec3(-Normal.y, Normal.x, 0.0f));
 		else
-			tangent = glm::normalize(glm::vec3(0.0f, -normal.z, normal.y));
+			Tangent = glm::normalize(glm::vec3(0.0f, -Normal.z, Normal.y));
 
-		bitangent = glm::cross(normal, tangent);
+		Bitangent = glm::cross(Normal, Tangent);
 	}
 
-	inline glm::vec3 DirectionToNormalSpace(const glm::vec3& normal, const glm::vec3& sampleDir)
+	inline glm::vec3 DirectionToNormalSpace(const glm::vec3& Normal, const glm::vec3& SampleDir)
 	{
 		glm::vec3 tangent, bitangent;
-		CreateOrthonormalBasis(normal, tangent, bitangent);
+		CreateOrthonormalBasis(Normal, tangent, bitangent);
 
-		return glm::vec3(sampleDir.x * tangent + sampleDir.y * normal + sampleDir.z * bitangent);
+		return glm::vec3(SampleDir.x * tangent + SampleDir.y * Normal + SampleDir.z * bitangent);
 	}
 
-	inline glm::vec3 UniformHemisphereSample(const glm::vec3& normal)
+	inline glm::vec3 UniformHemisphereSample(const glm::vec3& Normal)
 	{
-		float r1 = Random::Float();
-		float r2 = Random::Float();
+		f32 R1 = Random::Float();
+		f32 R2 = Random::Float();
 
-		float sinTheta = glm::sqrt(1.0f - r1 * r1);
-		float phi = 2.0f * PI * r2;
+		f32 SinTheta = glm::sqrt(1.0f - R1 * R1);
+		f32 Phi = 2.0f * PI * R2;
 
-		return DirectionToNormalSpace(normal, glm::vec3(sinTheta * glm::cos(phi), r1, sinTheta * glm::sin(phi)));
+		return DirectionToNormalSpace(Normal, glm::vec3(SinTheta * glm::cos(Phi), R1, SinTheta * glm::sin(Phi)));
 	}
 
-	inline glm::vec3 CosineWeightedHemisphereSample(const glm::vec3& normal)
+	inline glm::vec3 CosineWeightedHemisphereSample(const glm::vec3& Normal)
 	{
-		float r1 = Random::Float();
-		float r2 = Random::Float();
+		f32 R1 = Random::Float();
+		f32 R2 = Random::Float();
 
-		float cosTheta = glm::sqrt(r1);
-		float sinTheta = glm::sqrt(1.0f - cosTheta * cosTheta);
-		float phi = 2.0f * PI * r2;
+		f32 CosTheta = glm::sqrt(R1);
+		f32 SinTheta = glm::sqrt(1.0f - CosTheta * CosTheta);
+		f32 Phi = 2.0f * PI * R2;
 
-		return DirectionToNormalSpace(normal, glm::vec3(sinTheta * glm::cos(phi), cosTheta, sinTheta * glm::sin(phi)));
+		return DirectionToNormalSpace(Normal, glm::vec3(SinTheta * glm::cos(Phi), CosTheta, SinTheta * glm::sin(Phi)));
 	}
 
-	inline glm::vec3 Reflect(const glm::vec3& inDir, const glm::vec3& normal)
+	inline glm::vec3 Reflect(const glm::vec3& InDir, const glm::vec3& Normal)
 	{
-		return inDir - 2.0f * normal * glm::dot(inDir, normal);
+		return InDir - 2.0f * Normal * glm::dot(InDir, Normal);
 	}
 
-	inline glm::vec3 Refract(const glm::vec3& dir, const glm::vec3& normal, float eta, float cosi, float k)
+	inline glm::vec3 Refract(const glm::vec3& Dir, const glm::vec3& Normal, f32 eta, f32 cosi, f32 k)
 	{
-		return glm::normalize(dir * eta + ((eta * cosi - glm::sqrt(k)) * normal));
+		return glm::normalize(Dir * eta + ((eta * cosi - glm::sqrt(k)) * Normal));
 	}
 
-	inline float Fresnel(float in, float out, float iorOutside, float iorInside)
+	inline f32 Fresnel(f32 In, f32 Out, f32 IorOutside, f32 IorInside)
 	{
-		float sPolarized = (iorOutside * in - iorInside * out) /
-			(iorOutside * in + iorInside * out);
-		float pPolarized = (iorOutside * out - iorInside * in) /
-			(iorOutside * out + iorInside * in);
+		f32 sPolarized = (IorOutside * In - IorInside * Out) /
+			(IorOutside * In + IorInside * Out);
+		f32 pPolarized = (IorOutside * Out - IorInside * In) /
+			(IorOutside * Out + IorInside * In);
 		return 0.5f * ((sPolarized * sPolarized) + (pPolarized * pPolarized));
 	}
 
-	inline float SurvivalProbabilityRR(const glm::vec3& albedo)
+	inline f32 SurvivalProbabilityRR(const glm::vec3& Albedo)
 	{
-		return glm::clamp(glm::max(glm::max(albedo.x, albedo.y), albedo.z), 0.0f, 1.0f);
+		return glm::clamp(glm::max(glm::max(Albedo.x, Albedo.y), Albedo.z), 0.0f, 1.0f);
 	}
 
-	inline glm::vec2 DirectionToEquirectangularUV(const glm::vec3& dir)
+	inline glm::vec2 DirectionToEquirectangularUV(const glm::vec3& Dir)
 	{
-		glm::vec2 uv = glm::vec2(glm::atan(dir.z, dir.x), glm::asin(dir.y));
+		glm::vec2 uv = glm::vec2(glm::atan(Dir.z, Dir.x), glm::asin(Dir.y));
 		uv *= INV_ATAN;
 		uv += 0.5f;
 
@@ -321,62 +321,62 @@ namespace RTUtil
 		COLOR
 	*/
 
-	inline uint32_t Vec4ToUint32(const glm::vec4& rgba)
+	inline u32 Vec4ToUint32(const glm::vec4& Rgba)
 	{
-		uint8_t r = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.r));
-		uint8_t g = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.g));
-		uint8_t b = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.b));
-		uint8_t a = static_cast<uint8_t>(255.0f * std::min(1.0f, rgba.a));
+		u8 r = static_cast<u8>(255.0f * std::min(1.0f, Rgba.r));
+		u8 g = static_cast<u8>(255.0f * std::min(1.0f, Rgba.g));
+		u8 b = static_cast<u8>(255.0f * std::min(1.0f, Rgba.b));
+		u8 a = static_cast<u8>(255.0f * std::min(1.0f, Rgba.a));
 		return (a << 24) | (b << 16) | (g << 8) | r;
 	}
 
-	inline glm::vec3 LinearToSRGB(const glm::vec3& linear)
+	inline glm::vec3 LinearToSRGB(const glm::vec3& Linear)
 	{
-		glm::vec3 clamped = glm::clamp(linear, 0.0f, 1.0f);
+		glm::vec3 Clamped = glm::clamp(Linear, 0.0f, 1.0f);
 
-		glm::bvec3 cutoff = glm::lessThan(clamped, glm::vec3(0.0031308f));
-		glm::vec3 higher = glm::vec3(1.055f) * glm::pow(clamped, glm::vec3(1.0f / 2.4f)) - glm::vec3(0.055f);
-		glm::vec3 lower = clamped * glm::vec3(12.92f);
+		glm::bvec3 Cutoff = glm::lessThan(Clamped, glm::vec3(0.0031308f));
+		glm::vec3 Higher = glm::vec3(1.055f) * glm::pow(Clamped, glm::vec3(1.0f / 2.4f)) - glm::vec3(0.055f);
+		glm::vec3 Lower = Clamped * glm::vec3(12.92f);
 		
-		return glm::mix(higher, lower, cutoff);
+		return glm::mix(Higher, Lower, Cutoff);
 	}
 
 	inline glm::vec3 SRGBToLinear(const glm::vec3& srgb)
 	{
-		glm::vec3 clamped = glm::clamp(srgb, 0.0f, 1.0f);
+		glm::vec3 Clamped = glm::clamp(srgb, 0.0f, 1.0f);
 
-		glm::bvec3 cutoff = lessThan(clamped, glm::vec3(0.04045f));
-		glm::vec3 higher = glm::pow((clamped + glm::vec3(0.055f)) / glm::vec3(1.055f), glm::vec3(2.4f));
-		glm::vec3 lower = clamped / glm::vec3(12.92f);
+		glm::bvec3 Cutoff = lessThan(Clamped, glm::vec3(0.04045f));
+		glm::vec3 Higher = glm::pow((Clamped + glm::vec3(0.055f)) / glm::vec3(1.055f), glm::vec3(2.4f));
+		glm::vec3 Lower = Clamped / glm::vec3(12.92f);
 
-		return glm::mix(higher, lower, cutoff);
+		return glm::mix(Higher, Lower, Cutoff);
 	}
 
 	/*
 		POSTFX
 	*/
 
-	inline glm::vec3 TonemapReinhard(const glm::vec3& color)
+	inline glm::vec3 TonemapReinhard(const glm::vec3& Color)
 	{
-		return color / (1.0f + color);
+		return Color / (1.0f + Color);
 	}
 
-	inline glm::vec3 TonemapReinhardWhite(const glm::vec3& color, float maxWhite)
+	inline glm::vec3 TonemapReinhardWhite(const glm::vec3& Color, f32 MaxWhite)
 	{
-		float maxWhiteSquared = maxWhite * maxWhite;
-		glm::vec3 numerator = color * (1.0f + (color / glm::vec3(maxWhiteSquared)));
-		return numerator / (1.0f + color);
+		f32 maxWhiteSquared = MaxWhite * MaxWhite;
+		glm::vec3 numerator = Color * (1.0f + (Color / glm::vec3(maxWhiteSquared)));
+		return numerator / (1.0f + Color);
 	}
 
-	inline glm::vec3 AdjustContrastBrightness(const glm::vec3& color, float contrast, float brightness)
+	inline glm::vec3 AdjustContrastBrightness(const glm::vec3& Color, f32 Contrast, f32 Brightness)
 	{
-		return glm::clamp(contrast * (color - 0.5f) + 0.5f + brightness, 0.0f, 1.0f);
+		return glm::clamp(Contrast * (Color - 0.5f) + 0.5f + Brightness, 0.0f, 1.0f);
 	}
 
-	inline glm::vec3 Saturate(const glm::vec3& color, float saturation)
+	inline glm::vec3 Saturate(const glm::vec3& Color, f32 Saturation)
 	{
-		float grayscale = glm::dot(color, glm::vec3(0.299f, 0.587f, 0.114f));
-		return glm::clamp(glm::mix(glm::vec3(grayscale), color, saturation), 0.0f, 1.0f);
+		f32 grayscale = glm::dot(Color, glm::vec3(0.299f, 0.587f, 0.114f));
+		return glm::clamp(glm::mix(glm::vec3(grayscale), Color, Saturation), 0.0f, 1.0f);
 	}
 
 }

@@ -3,38 +3,41 @@
 #include "Renderer/RendererFwd.h"
 #include "Renderer/RaytracingUtils.h"
 
+struct TextureAsset;
+struct SceneAsset;
+
 struct SceneObject
 {
-	RenderMeshHandle renderMeshHandle;
-	glm::mat4 transform;
-	Material material;
-
-	SceneObject(RenderMeshHandle meshHandle, const Material& mat,
-		const glm::vec3& pos, const glm::vec3& rot, const glm::vec3& scale)
-	{
-		renderMeshHandle = meshHandle;
-
-		transform = glm::translate(glm::identity<glm::mat4>(), pos);
-		transform = transform * glm::mat4_cast(glm::quat(glm::radians(rot)));
-		transform = transform * glm::scale(glm::identity<glm::mat4>(), scale);
-
-		material = mat;
-	}
+	RenderMeshHandle RMeshHandle;
+	glm::mat4 Transform;
+	Material Mat;
 };
 
 class Scene
 {
 public:
-	Scene();
+	void Init();
+	void Destroy();
 
-	void Update(float dt);
+	void Update(f32 DeltaTime);
 	void Render();
 
 	void RenderUI();
 
 private:
+	void CreateSceneObject(RenderMeshHandle RMeshHandle, const Material& Mat,
+		const glm::vec3& Pos, const glm::vec3& Rot, const glm::vec3& Scale);
+
+private:
+	MemoryArena m_Arena;
+
 	CameraController m_CameraController;
 
-	std::vector<SceneObject> m_SceneObjects;
+	SceneObject* m_SceneObjects;
+	u32 m_SceneObjectCount;
+	u32 m_SceneObjectAt;
+
+	TextureAsset* m_HDREnvAsset;
+	SceneAsset* m_DragonAsset;
 
 };

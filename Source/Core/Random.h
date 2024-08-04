@@ -3,48 +3,49 @@
 namespace Random
 {
 
-	static uint32_t s_seed = 0xC977E154;
+	static u32 s_Seed = 0xC977E154;
 
-	inline uint32_t WangHash(uint32_t seed)
+	inline u32 WangHash(u32 Seed)
 	{
-		seed = (seed ^ 61) ^ (seed >> 16);
-		seed *= 9, seed = seed ^ (seed >> 4);
-		seed *= 0x27d4eb2d;
-		seed = seed ^ (seed >> 15);
-		return seed;
+		Seed = (Seed ^ 61) ^ (Seed >> 16);
+		Seed *= 9, Seed = Seed ^ (Seed >> 4);
+		Seed *= 0x27d4eb2d;
+		Seed = Seed ^ (Seed >> 15);
+		return Seed;
 	}
 
-	inline uint32_t UInt32()
+	inline u32 UInt32()
 	{
-		s_seed ^= s_seed << 13;
-		s_seed ^= s_seed >> 17;
-		s_seed ^= s_seed << 5;
-		return s_seed;
+		s_Seed ^= s_Seed << 13;
+		s_Seed ^= s_Seed >> 17;
+		s_Seed ^= s_Seed << 5;
+		return s_Seed;
 	}
 
-	inline uint32_t UInt32(uint32_t& customSeed)
+	inline u32 UInt32(u32& CustomSeed)
 	{
-		customSeed ^= customSeed << 13;
-		customSeed ^= customSeed >> 17;
-		customSeed ^= customSeed << 5;
-		return customSeed;
+		CustomSeed ^= CustomSeed << 13;
+		CustomSeed ^= CustomSeed >> 17;
+		CustomSeed ^= CustomSeed << 5;
+		return CustomSeed;
 	}
 
-	inline uint32_t UInt32Range(uint32_t min, uint32_t max)
+	inline u32 UInt32Range(u32 Min, u32 Max)
 	{
-		if (max - min == 0)
-			return min;
-		return min + (UInt32() % ((max + 1) - min));
+		if (Max - Min == 0)
+			return Min;
+		return Min + (UInt32() % ((Max + 1) - Min));
 	}
 
-	inline float Float()
+	// Range 0..1
+	inline f32 Float()
 	{
 		return UInt32() * 2.3283064365387e-10f;
 	}
 
-	inline float FloatRange(float min = 0.0f, float max = 1.0f)
+	inline f32 FloatRange(f32 Min = 0.0f, f32 Max = 1.0f)
 	{
-		return min + (Float() * (max - min));
+		return Min + (f32() * (Max - Min));
 	}
 
 }

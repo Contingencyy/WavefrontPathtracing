@@ -9,26 +9,28 @@
 
 #include <chrono>
 
-void GetWindowClientArea(int32_t& windowWidth, int32_t& windowHeight);
-void SetWindowCaptureMouse(bool capture);
-bool PollWindowEvents();
+void GetWindowClientArea(i32& WindowWidth, i32& WindowHeight);
+void SetWindowCaptureMouse(b8 bCapture);
+b8 PollWindowEvents();
 
 namespace Application
 {
 
-	static bool s_should_close = false;
+	static b8 s_ShouldClose = false;
 
 	struct Instance
 	{
-		Scene activeScene;
+		MemoryArena* Arena;
 
-		std::chrono::duration<float> deltaTime = std::chrono::duration<float>(0.0f);
-		bool is_running = false;
-	} static *inst;
+		Scene* ActiveScene;
+
+		std::chrono::duration<f32> DeltaTime = std::chrono::duration<f32>(0.0f);
+		b8 bRunning = false;
+	} static *Inst;
 
 	static void HandleEvents()
 	{
-		s_should_close = !PollWindowEvents();
+		s_ShouldClose = !PollWindowEvents();
 
 		if (!ImGui::GetIO().WantCaptureMouse)
 		{
@@ -48,44 +50,51 @@ namespace Application
 
 	static void Update()
 	{
-		inst->activeScene.Update(inst->deltaTime.count());
+		Inst->ActiveScene->Update(Inst->DeltaTime.count());
 	}
 
 	static void RenderUI()
 	{
 		ImGui::Begin("General");
 
-		uint32_t fps = 1.0f / inst->deltaTime.count();
-		float frametimeInMs = inst->deltaTime.count() * 1000.0f;
+		u32 FPS = 1.0f / Inst->DeltaTime.count();
+		f32 FrameTimeMS = Inst->DeltaTime.count() * 1000.0f;
 
-		ImGui::Text("FPS: %u", fps);
-		ImGui::Text("Frametime: %.3f ms", frametimeInMs);
+		ImGui::Text("FPS: %u", FPS);
+		ImGui::Text("Frametime: %.3f ms", FrameTimeMS);
 
 		ImGui::End();
 
-		inst->activeScene.RenderUI();
+		Inst->ActiveScene->RenderUI();
 		CPUPathtracer::RenderUI();
 	}
 
 	static void Render()
 	{
 		CPUPathtracer::BeginFrame();
-		inst->activeScene.Render();
+		Inst->ActiveScene->Render();
 		RenderUI();
 		CPUPathtracer::EndFrame();
 	}
 
-	void Init()
+	void Init(MemoryArena* Arena)
 	{
 		LOG_INFO("Application", "Init");
 
-		int32_t clientWidth = 0, clientHeight = 0;
-		GetWindowClientArea(clientWidth, clientHeight);
+		Inst = ARENA_ALLOC_STRUCT_ZERO(Arena, Instance);
+		Inst->Arena = Arena;
 
-		CPUPathtracer::Init(clientWidth, clientHeight);
+		i32 ClientWidth = 0, ClientHeight = 0;
+		GetWindowClientArea(ClientWidth, ClientHeight);
 
-		inst = new Instance();
-		inst->is_running = true;
+		// We could do one arena per system eventually, but for now everything that needs
+		// to live for as long as the application does will use the same arena
+		CPUPathtracer::Init(Inst->Arena, ClientWidth, ClientHeight);
+
+		Inst->ActiveScene = ARENA_ALLOC_STRUCT_ZERO(Arena, Scene);
+		Inst->ActiveScene->Init();
+
+		Inst->bRunning = true;
 	}
 
 	void Exit()
@@ -94,30 +103,31 @@ namespace Application
 
 		CPUPathtracer::Exit();
 
-		delete inst;
+		Inst->ActiveScene->Destroy();
+		ARENA_RELEASE(Inst->Arena);
 	}
 
 	void Run()
 	{
-		std::chrono::high_resolution_clock::time_point timeCurr = std::chrono::high_resolution_clock::now();
-		std::chrono::high_resolution_clock::time_point timePrev = std::chrono::high_resolution_clock::now();
+		std::chrono::high_resolution_clock::time_point TimeCurr = std::chrono::high_resolution_clock::now();
+		std::chrono::high_resolution_clock::time_point TimePrev = std::chrono::high_resolution_clock::now();
 
-		while (inst->is_running && !s_should_close)
+		while (Inst->bRunning && !s_ShouldClose)
 		{
-			timeCurr = std::chrono::high_resolution_clock::now();
-			inst->deltaTime = timeCurr - timePrev;
+			TimeCurr = std::chrono::high_resolution_clock::now();
+			Inst->DeltaTime = TimeCurr - TimePrev;
 
 			HandleEvents();
 			Update();
 			Render();
 
-			timePrev = timeCurr;
+			TimePrev = TimeCurr;
 		}
 	}
 
-	bool ShouldClose()
+	b8 ShouldClose()
 	{
-		return s_should_close;
+		return s_ShouldClose;
 	}
 
 }

@@ -7,20 +7,20 @@ struct Material;
 namespace CPUPathtracer
 {
 
-	void Init(uint32_t renderWidth, uint32_t renderHeight);
+	void Init(MemoryArena* Arena, u32 RenderWidth, u32 RenderHeight);
 	void Exit();
 
 	void BeginFrame();
 	void EndFrame();
 
-	void BeginScene(const Camera& sceneCamera, RenderTextureHandle hdrEnvHandle);
+	void BeginScene(const Camera& SceneCamera, RenderTextureHandle REnvTextureHandle);
 	void Render();
 	void EndScene();
 	
 	void RenderUI();
 
-	RenderTextureHandle CreateTexture(uint32_t textureWidth, uint32_t textureHeight, const std::vector<glm::vec4>& pixelData);
-	RenderMeshHandle CreateMesh(const std::span<Vertex>& vertices, const std::span<uint32_t>& indices);
-	void SubmitMesh(RenderMeshHandle renderMeshHandle, const glm::mat4& transform, const Material& material);
+	RenderTextureHandle CreateTexture(u32 Width, u32 Height, f32* PtrPixelData);
+	RenderMeshHandle CreateMesh(Vertex* Vertices, u32 VertexCount, u32* Indices, u32 IndexCount);
+	void SubmitMesh(RenderMeshHandle RMeshHandle, const glm::mat4& Transform, const Material& Mat);
 
 }

@@ -1,6 +1,4 @@
 #pragma once
-#include <format>
-#include <iostream>
 
 namespace Logger
 {
@@ -15,9 +13,9 @@ namespace Logger
 
 	static constexpr LogSeverity LOG_SEVERITY_MINIMUM_LEVEL = LogSeverity_Verbose;
 
-	static constexpr const char* LogSeverityToString(LogSeverity severity)
+	static constexpr const char* LogSeverityToString(LogSeverity Severity)
 	{
-		switch (severity)
+		switch (Severity)
 		{
 		case LogSeverity_Verbose: return "VERBOSE";
 		case LogSeverity_Info:    return "INFO";
@@ -28,15 +26,15 @@ namespace Logger
 	}
 
 	template<typename... TArgs>
-	void Log(LogSeverity severity, const std::string& sender, const std::string& logMessage, TArgs&&... args)
+	void Log(LogSeverity Severity, const std::string& Sender, const std::string& LogMessage, TArgs&&... Args)
 	{
-		if (severity < LOG_SEVERITY_MINIMUM_LEVEL)
+		/*if (Severity < LOG_SEVERITY_MINIMUM_LEVEL)
 			return;
 
-		std::string formattedLogMessage = std::format("[{}]\t[{}]\t", LogSeverityToString(severity), sender) +
-			std::vformat(logMessage, std::make_format_args(args...));
+		std::string FormattedLogMessage = std::format("[{}]\t[{}]\t", LogSeverityToString(Severity), Sender) +
+			std::vformat(LogMessage, std::make_format_args(Args...));
 
-		std::cout << formattedLogMessage << std::endl;
+		std::cout << FormattedLogMessage << std::endl;*/
 	}
 
 }

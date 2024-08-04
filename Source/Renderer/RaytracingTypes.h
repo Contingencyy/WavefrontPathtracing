@@ -1,100 +1,107 @@
 #pragma once
 
-static constexpr float PI = 3.14159265f;
-static constexpr float TWO_PI = 2.0f * PI;
-static constexpr float INV_PI = 1.0f / PI;
-static constexpr float INV_TWO_PI = 1.0f / TWO_PI;
+static constexpr f32 PI = 3.14159265f;
+static constexpr f32 TWO_PI = 2.0f * PI;
+static constexpr f32 INV_PI = 1.0f / PI;
+static constexpr f32 INV_TWO_PI = 1.0f / TWO_PI;
 static constexpr glm::vec2 INV_ATAN = glm::vec2(0.1591f, 0.3183f);
 
-static constexpr float RAY_MAX_T = FLT_MAX;
-static constexpr float RAY_NUDGE_MODIFIER = 0.001f;
+static constexpr f32 RAY_MAX_T = FLT_MAX;
+static constexpr f32 RAY_NUDGE_MODIFIER = 0.001f;
 
-static constexpr uint32_t INSTANCE_IDX_INVALID = ~0u;
-static constexpr uint32_t PRIM_IDX_INVALID = ~0u;
+static constexpr u32 INSTANCE_IDX_INVALID = ~0u;
+static constexpr u32 PRIM_IDX_INVALID = ~0u;
 
 struct HitResult
 {
-	glm::vec3 pos = glm::vec3(0.0f);
-	glm::vec3 normal = glm::vec3(0.0f);
-	glm::vec3 bary = glm::vec3(0.0f);
-	float t = FLT_MAX;
+	glm::vec3 Pos = glm::vec3(0.0f);
+	glm::vec3 Normal = glm::vec3(0.0f);
+	glm::vec3 Bary = glm::vec3(0.0f);
+	f32 t = FLT_MAX;
 
-	uint32_t instanceIdx = INSTANCE_IDX_INVALID;
-	uint32_t primIdx = PRIM_IDX_INVALID;
+	u32 InstanceIdx = INSTANCE_IDX_INVALID;
+	u32 PrimIdx = PRIM_IDX_INVALID;
 
-	bool HasHitGeometry() const
+	b8 HasHitGeometry() const
 	{
-		return (instanceIdx != INSTANCE_IDX_INVALID && primIdx != PRIM_IDX_INVALID);
+		return (InstanceIdx != INSTANCE_IDX_INVALID && PrimIdx != PRIM_IDX_INVALID);
 	}
 };
 
 struct Material
 {
-	glm::vec3 albedo = {};
-	float specular = 0.0f;
+	glm::vec3 Albedo = {};
+	f32 Specular = 0.0f;
 
-	float refractivity = 0.0f;
-	float ior = 1.0f;
-	glm::vec3 absorption = {};
+	f32 Refractivity = 0.0f;
+	f32 Ior = 1.0f;
+	glm::vec3 Absorption = {};
 
-	bool isEmissive = false;
-	glm::vec3 emissive = {};
-	float intensity = 0.0f;
+	b8 bEmissive = false;
+	glm::vec3 Emissive = {};
+	f32 Intensity = 0.0f;
 
-	static Material MakeDiffuse(const glm::vec3& albedo)
+	static Material MakeDiffuse(const glm::vec3& Albedo)
 	{
-		Material mat = {};
-		mat.albedo = albedo;
+		Material Mat = {};
+		Mat.Albedo = Albedo;
 
-		return mat;
+		return Mat;
 	}
 
-	static Material MakeSpecular(const glm::vec3& albedo, float spec)
+	static Material MakeSpecular(const glm::vec3& Albedo, f32 Spec)
 	{
-		Material mat = {};
-		mat.albedo = albedo;
-		mat.specular = spec;
+		Material Mat = {};
+		Mat.Albedo = Albedo;
+		Mat.Specular = Spec;
 
-		return mat;
+		return Mat;
 	}
 
-	static Material MakeRefractive(const glm::vec3& albedo, float spec, float refract, float ior, const glm::vec3& absorption)
+	static Material MakeRefractive(const glm::vec3& Albedo, f32 Spec, f32 Refract, f32 Ior, const glm::vec3& Absorption)
 	{
-		Material mat = {};
-		mat.albedo = albedo;
-		mat.specular = spec;
-		mat.refractivity = refract;
-		mat.ior = ior;
-		mat.absorption = absorption;
+		Material Mat = {};
+		Mat.Albedo = Albedo;
+		Mat.Specular = Spec;
+		Mat.Refractivity = Refract;
+		Mat.Ior = Ior;
+		Mat.Absorption = Absorption;
 
-		return mat;
+		return Mat;
 	}
 
-	static Material MakeEmissive(const glm::vec3& emissive, float intensity)
+	static Material MakeEmissive(const glm::vec3& Emissive, f32 Intensity)
 	{
-		Material mat = {};
-		mat.isEmissive = true;
-		mat.emissive = emissive;
-		mat.intensity = intensity;
+		Material Mat = {};
+		Mat.bEmissive = true;
+		Mat.Emissive = Emissive;
+		Mat.Intensity = Intensity;
 
-		return mat;
+		return Mat;
 	}
 };
 
 struct Ray
 {
-	union { struct { glm::vec3 origin; float dummy; }; __m128 origin4 = {}; };
-	union { struct { glm::vec3 dir; float dummy; }; __m128 dir4 = {}; };
-	union { struct { glm::vec3 invDir; float dummy; }; __m128 invDir4 = {}; };
-	float t = RAY_MAX_T;
-	uint32_t bvhDepth = 0;
+	union { struct { glm::vec3 Origin; f32 Dummy; }; __m128 Origin4 = {}; };
+	union { struct { glm::vec3 Dir; f32 Dummy; }; __m128 Dir4 = {}; };
+	union { struct { glm::vec3 InvDir; f32 Dummy; }; __m128 InvDir4 = {}; };
 
-	Ray(const glm::vec3& orig, const glm::vec3& dir)
-		: origin(orig), dir(dir)
-	{
-		invDir = 1.0f / dir;
-	}
+	f32 t = RAY_MAX_T;
+	u32 BvhDepth = 0;
+
+	Ray() = default;
 };
+
+inline Ray MakeRay(const glm::vec3& Origin, const glm::vec3& Dir)
+{
+	Ray Ray = {};
+	Ray.Origin = Origin;
+	Ray.Dir = Dir;
+	Ray.InvDir = 1.0f / Dir;
+
+	return Ray;
+}
 
 struct Triangle
 {
@@ -109,39 +116,18 @@ struct Triangle
 
 struct Sphere
 {
-	glm::vec3 center = {};
-	float radiusSquared = 1.0f;
+	glm::vec3 Center = {};
+	f32 RadiusSquared = 1.0f;
 };
 
 struct Plane
 {
-	glm::vec3 point = {};
-	glm::vec3 normal = {};
+	glm::vec3 Point = {};
+	glm::vec3 Normal = {};
 };
 
 struct AABB
 {
-	glm::vec3 pmin = {};
-	glm::vec3 pmax = {};
-};
-
-enum PrimitiveType
-{
-	PrimitiveType_Triangle,
-	PrimitiveType_Sphere,
-	PrimitiveType_Plane,
-	PrimitiveType_AABB
-};
-
-struct Primitive
-{
-	PrimitiveType type;
-
-	union
-	{
-		Triangle tri;
-		Sphere sphere;
-		Plane plane;
-		AABB aabb;
-	};
+	glm::vec3 PMin = {};
+	glm::vec3 PMax = {};
 };

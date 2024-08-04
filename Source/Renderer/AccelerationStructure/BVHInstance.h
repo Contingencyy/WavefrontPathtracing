@@ -6,12 +6,10 @@ class BVH;
 class BVHInstance
 {
 public:
-	BVHInstance() = default;
-	BVHInstance(const BVH* blas);
-
+	void SetBVH(const BVH* Bvh);
 	glm::mat4 GetWorldToLocalTransform() const;
-	void SetTransform(const glm::mat4& transform);
-	const Triangle* TraceRay(Ray& ray, HitResult& hitResult) const;
+	void SetTransform(const glm::mat4& Transform);
+	const Triangle* TraceRay(Ray& WorldRay, HitResult& HitResult) const;
 
 	AABB GetWorldSpaceAABB() const;
 

@@ -1,4 +1,6 @@
 #pragma once
+#include "Core/Common.h"
+
 #include <string>
 #include <format>
 
@@ -18,13 +20,14 @@
 
 #define FATAL_ERROR(sender, msg, ...) FatalError(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
 
-void FatalErrorImpl(int line, const std::string& file, const std::string& sender, const std::string& errorMsg);
+// Platform-specific implementation
+void FatalErrorImpl(i32 Line, const std::string& File, const std::string& Sender, const std::string& ErrorMessage);
 
 template<typename... TArgs>
-void FatalError(int line, const std::string& file, const std::string& sender, const std::string& msg, TArgs&&... args)
+void FatalError(i32 Line, const std::string& File, const std::string& Sender, const std::string& Message, TArgs&&... Args)
 {
-	std::string formattedMessage = std::vformat(msg, std::make_format_args(args...));
-	std::string errorMessage = std::format("Fatal Error Occured\n[{}] {}\nFile: {}\nLine: {}\n", sender, formattedMessage, file, line);
+	std::string FormattedMessage = std::vformat(Message, std::make_format_args(Args...));
+	std::string ErrorMessage = std::format("Fatal Error Occured\n[{}] {}\nFile: {}\nLine: {}\n", Sender, FormattedMessage, File, Line);
 
-	FatalErrorImpl(line, file, sender, formattedMessage);
+	FatalErrorImpl(Line, File, Sender, ErrorMessage);
 }

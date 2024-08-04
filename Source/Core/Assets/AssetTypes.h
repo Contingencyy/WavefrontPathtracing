@@ -3,10 +3,11 @@
 
 struct TextureAsset
 {
-	RenderTextureHandle renderTextureHandle;
+	RenderTextureHandle RTextureHandle;
 };
 
 struct SceneAsset
 {
-	std::vector<RenderMeshHandle> renderMeshHandles;
+	RenderMeshHandle* RMeshHandles;
+	u32 MeshHandleCount;
 };

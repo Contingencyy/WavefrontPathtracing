@@ -4,17 +4,21 @@ struct Camera
 {
 	Camera();
 	// Vertical FOV in degrees
-	Camera(const glm::vec3& eyePos, const glm::vec3& lookAt, float vfov);
+	Camera(const glm::vec3& EyePos, const glm::vec3& LookAtPos, f32 VFovDeg);
 
-	glm::mat4 transformMatrix = {};
-	glm::mat4 viewMatrix = {};
+	glm::mat4 TransformMatrix = {};
+	glm::mat4 ViewMatrix = {};
 	
-	float vfov = 60.0f;
-	float yaw = 0.0f;
-	float pitch = 0.0f;
+	f32 VFovDeg = 60.0f;
+	f32 Yaw = 0.0f;
+	f32 Pitch = 0.0f;
 
-	glm::vec3 screenPlaneCenter = {};
-	glm::vec3 screenPlaneTopLeft = {};
-	glm::vec3 screenPlaneTopRight = {};
-	glm::vec3 screenPlaneBottomLeft = {};
+	struct ScreenPlanes
+	{
+		glm::vec3 Center = {};
+		glm::vec3 TopLeft = {};
+		glm::vec3 TopRight = {};
+		glm::vec3 BottomLeft = {};
+	} ScreenPlanes;
+
 };

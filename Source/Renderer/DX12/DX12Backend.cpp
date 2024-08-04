@@ -37,18 +37,18 @@
 #include "imgui/imgui_impl_win32.h"
 #include "imgui/imgui_impl_dx12.h"
 
-static inline const char* GetHRMessage(HRESULT hr)
+static inline const char* GetHRMessage(HRESULT HR)
 {
-	char* msg = nullptr;
+	char* Message = nullptr;
 	FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, hr, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (char*)&msg, 0, NULL);
-	return msg;
+		NULL, HR, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (char*)&Message, 0, NULL);
+	return Message;
 }
 
-static inline void DxCheckHr(int line, const std::string& file, HRESULT hr)
+static inline void DxCheckHr(i32 Line, const char* File, HRESULT HR)
 {
-	if (FAILED(hr))
-		FatalError(line, file, "DX12Backend", GetHRMessage(hr));
+	if (FAILED(HR))
+		FatalError(Line, File, "DX12Backend", GetHRMessage(HR));
 }
 
 #define DX_CHECK_HR(hr) DxCheckHr(__LINE__, __FILE__, hr)
@@ -56,234 +56,234 @@ static inline void DxCheckHr(int line, const std::string& file, HRESULT hr)
 namespace DX12Backend
 {
 
-	static constexpr uint32_t SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
+	static constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
 
 	struct FrameContext
 	{
-		ID3D12CommandAllocator* d3d12CommandAllocator = nullptr;
-		ID3D12GraphicsCommandList6* d3d12CommandList = nullptr;
+		ID3D12CommandAllocator* D3D12CommandAllocator = nullptr;
+		ID3D12GraphicsCommandList6* D3D12CommandList = nullptr;
 
-		ID3D12Resource* backBuffer = nullptr;
-		ID3D12Resource* uploadBuffer = nullptr;
-		char* uploadBufferPtr = nullptr;
+		ID3D12Resource* BackBuffer = nullptr;
+		ID3D12Resource* UploadBuffer = nullptr;
+		char* PtrUploadBuffer = nullptr;
 
-		uint64_t fenceValue = 0ull;
+		u64 FenceValue = 0;
 	};
 
 	struct Instance
 	{
-		IDXGIAdapter4* dxgiAdapter = nullptr;
-		ID3D12Device8* d3d12Device = nullptr;
-		ID3D12CommandQueue* d3d12CommandQueueDirect = nullptr;
+		IDXGIAdapter4* DXGIAdapter = nullptr;
+		ID3D12Device8* D3D12Device = nullptr;
+		ID3D12CommandQueue* D3D12CommandQueueDirect = nullptr;
 
-		bool vsync = false;
+		b8 bVsync = false;
 
-		FrameContext frameContext[SWAP_CHAIN_BACK_BUFFER_COUNT];
+		FrameContext FrameCtx[SWAP_CHAIN_BACK_BUFFER_COUNT];
 
 		struct SwapChain
 		{
-			IDXGISwapChain4* dxgiSwapChain = nullptr;
-			uint32_t backBufferIndex = 0u;
-			bool supportsTearing = false;
+			IDXGISwapChain4* DXGISwapChain = nullptr;
+			u32 BackBufferIndex = 0u;
+			b8 bSupportsTearing = false;
 
-			uint32_t outputWidth = 0;
-			uint32_t outputHeight = 0;
-		} swapChain;
+			u32 OutputWidth = 0;
+			u32 OutputHeight = 0;
+		} SwapChain;
 
 		struct Sync
 		{
-			ID3D12Fence* d3d12Fence = nullptr;
-			uint64_t fenceValue = 0ull;
-		} sync;
+			ID3D12Fence* D3D12Fence = nullptr;
+			u64 FenceValue = 0ull;
+		} Sync;
 
 		struct DescriptorHeaps
 		{
-			ID3D12DescriptorHeap* rtv = nullptr;
-			ID3D12DescriptorHeap* cbvSrvUav = nullptr;
-		} descriptorHeaps;
-	} static *inst;
+			ID3D12DescriptorHeap* Rtv = nullptr;
+			ID3D12DescriptorHeap* CbvSrvUav = nullptr;
+		} DescriptorHeaps;
+	} static *Inst;
 
 	static inline FrameContext& GetFrameContext()
 	{
-		return inst->frameContext[inst->swapChain.backBufferIndex];
+		return Inst->FrameCtx[Inst->SwapChain.BackBufferIndex];
 	}
 	
-	static D3D12_RESOURCE_BARRIER TransitionBarrier(ID3D12Resource* resource, D3D12_RESOURCE_STATES state_before, D3D12_RESOURCE_STATES state_after)
+	static D3D12_RESOURCE_BARRIER TransitionBarrier(ID3D12Resource* Resource, D3D12_RESOURCE_STATES StateBefore, D3D12_RESOURCE_STATES StateAfter)
 	{
-		D3D12_RESOURCE_BARRIER barrier = {};
-		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barrier.Transition.pResource = resource;
-		barrier.Transition.Subresource = 0;
-		barrier.Transition.StateBefore = state_before;
-		barrier.Transition.StateAfter = state_after;
-		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		D3D12_RESOURCE_BARRIER Barrier = {};
+		Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		Barrier.Transition.pResource = Resource;
+		Barrier.Transition.Subresource = 0;
+		Barrier.Transition.StateBefore = StateBefore;
+		Barrier.Transition.StateAfter = StateAfter;
+		Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
-		return barrier;
+		return Barrier;
 	}
 
 	void Init()
 	{
 		LOG_INFO("DX12Backend", "Init");
 
-		inst = new Instance();
+		Inst = new Instance();
 
 		// Enable debug layer
 #ifdef _DEBUG
-		ID3D12Debug* debugInterface = nullptr;
-		DX_CHECK_HR(D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface)));
-		debugInterface->EnableDebugLayer();
+		ID3D12Debug* DebugInterface = nullptr;
+		DX_CHECK_HR(D3D12GetDebugInterface(IID_PPV_ARGS(&DebugInterface)));
+		DebugInterface->EnableDebugLayer();
 
 		// Enable GPU based validation
 #ifdef DX12_GPU_BASED_VALIDATION
-		ID3D12Debug1* debugInterface1 = nullptr;
-		DXCheckHR(debugInterface->QueryInterface(IID_PPV_ARGS(&debugInterface1)));
-		debugInterface1->SetEnableGPUBasedValidation(true);
+		ID3D12Debug1* DebugInterface1 = nullptr;
+		DXCheckHR(DebugInterface->QueryInterface(IID_PPV_ARGS(&DebugInterface1)));
+		DebugInterface1->SetEnableGPUBasedValidation(true);
 #endif
 #endif
 
-		uint32_t factoryCreateFlags = 0;
+		u32 FactoryCreateFlags = 0;
 #ifdef _DEBUG
-		factoryCreateFlags |= DXGI_CREATE_FACTORY_DEBUG;
+		FactoryCreateFlags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
 
 		// Create factory
-		IDXGIFactory7* dxgiFactory7 = nullptr;
-		DX_CHECK_HR(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&dxgiFactory7)));
+		IDXGIFactory7* DXGIFactory7 = nullptr;
+		DX_CHECK_HR(CreateDXGIFactory2(FactoryCreateFlags, IID_PPV_ARGS(&DXGIFactory7)));
 
 		// Select adapter
-		D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_12_1;
-		IDXGIAdapter1* dxgiAdapter1 = nullptr;
-		uint64_t maxDedicatedVideoMemory = 0;
+		D3D_FEATURE_LEVEL D3DMinFeatureLevel = D3D_FEATURE_LEVEL_12_1;
+		IDXGIAdapter1* DXGIAdapter1 = nullptr;
+		u64 MaxDedicatedVideoMemory = 0;
 
-		for (uint32_t adapterIndex = 0; dxgiFactory7->EnumAdapters1(adapterIndex, &dxgiAdapter1) != DXGI_ERROR_NOT_FOUND; ++adapterIndex)
+		for (u32 AdapterIdx = 0; DXGIFactory7->EnumAdapters1(AdapterIdx, &DXGIAdapter1) != DXGI_ERROR_NOT_FOUND; ++AdapterIdx)
 		{
-			DXGI_ADAPTER_DESC1 adapterDesc = {};
-			DX_CHECK_HR(dxgiAdapter1->GetDesc1(&adapterDesc));
+			DXGI_ADAPTER_DESC1 DXGIAdapterDesc = {};
+			DX_CHECK_HR(DXGIAdapter1->GetDesc1(&DXGIAdapterDesc));
 
-			if ((adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
-				SUCCEEDED(D3D12CreateDevice(dxgiAdapter1, minFeatureLevel, __uuidof(ID3D12Device), nullptr)) &&
-				adapterDesc.DedicatedVideoMemory > maxDedicatedVideoMemory)
+			if ((DXGIAdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
+				SUCCEEDED(D3D12CreateDevice(DXGIAdapter1, D3DMinFeatureLevel, __uuidof(ID3D12Device), nullptr)) &&
+				DXGIAdapterDesc.DedicatedVideoMemory > MaxDedicatedVideoMemory)
 			{
-				maxDedicatedVideoMemory = adapterDesc.DedicatedVideoMemory;
-				DX_CHECK_HR(dxgiAdapter1->QueryInterface(IID_PPV_ARGS(&inst->dxgiAdapter)));
+				MaxDedicatedVideoMemory = DXGIAdapterDesc.DedicatedVideoMemory;
+				DX_CHECK_HR(DXGIAdapter1->QueryInterface(IID_PPV_ARGS(&Inst->DXGIAdapter)));
 			}
 		}
 
 		// Create D3D12 device
-		DX_CHECK_HR(D3D12CreateDevice(inst->dxgiAdapter, minFeatureLevel, IID_PPV_ARGS(&inst->d3d12Device)));
+		DX_CHECK_HR(D3D12CreateDevice(Inst->DXGIAdapter, D3DMinFeatureLevel, IID_PPV_ARGS(&Inst->D3D12Device)));
 
 #ifdef _DEBUG
 		// Set info queue behavior and filters
-		ID3D12InfoQueue* d3d12InfoQueue = nullptr;
-		DX_CHECK_HR(inst->d3d12Device->QueryInterface(IID_PPV_ARGS(&d3d12InfoQueue)));
-		DX_CHECK_HR(d3d12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE));
-		DX_CHECK_HR(d3d12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE));
-		DX_CHECK_HR(d3d12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE));
+		ID3D12InfoQueue* D3D12InfoQueue = nullptr;
+		DX_CHECK_HR(Inst->D3D12Device->QueryInterface(IID_PPV_ARGS(&D3D12InfoQueue)));
+		DX_CHECK_HR(D3D12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE));
+		DX_CHECK_HR(D3D12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE));
+		DX_CHECK_HR(D3D12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE));
 #endif
 
 		// Check for tearing support
-		BOOL allowTearing = FALSE;
-		DX_CHECK_HR(dxgiFactory7->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(BOOL)));
-		inst->swapChain.supportsTearing = (allowTearing == TRUE);
+		BOOL bAllowTearing = FALSE;
+		DX_CHECK_HR(DXGIFactory7->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &bAllowTearing, sizeof(BOOL)));
+		Inst->SwapChain.bSupportsTearing = (bAllowTearing == TRUE);
 
 		// Create swap chain command queue
-		D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-		queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-		queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-		queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-		queueDesc.NodeMask = 0;
-		DX_CHECK_HR(inst->d3d12Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&inst->d3d12CommandQueueDirect)));
+		D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
+		QueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+		QueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+		QueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+		QueueDesc.NodeMask = 0;
+		DX_CHECK_HR(Inst->D3D12Device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&Inst->D3D12CommandQueueDirect)));
 
 		// Create swap chain
 		HWND hwnd = GetActiveWindow();
 
-		RECT windowRect = {};
-		GetClientRect(hwnd, &windowRect);
+		RECT WindowRect = {};
+		GetClientRect(hwnd, &WindowRect);
 
-		inst->swapChain.outputWidth = windowRect.right - windowRect.left;
-		inst->swapChain.outputHeight = windowRect.bottom - windowRect.top;
+		Inst->SwapChain.OutputWidth = WindowRect.right - WindowRect.left;
+		Inst->SwapChain.OutputHeight = WindowRect.bottom - WindowRect.top;
 
-		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-		swapChainDesc.Width = inst->swapChain.outputWidth;
-		swapChainDesc.Height = inst->swapChain.outputHeight;
-		swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		swapChainDesc.Stereo = FALSE;
-		swapChainDesc.SampleDesc = { 1, 0 };
-		swapChainDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
-		swapChainDesc.BufferCount = SWAP_CHAIN_BACK_BUFFER_COUNT;
-		swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-		swapChainDesc.Flags = inst->swapChain.supportsTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+		DXGI_SWAP_CHAIN_DESC1 SwapChainDesc = {};
+		SwapChainDesc.Width = Inst->SwapChain.OutputWidth;
+		SwapChainDesc.Height = Inst->SwapChain.OutputHeight;
+		SwapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		SwapChainDesc.Stereo = FALSE;
+		SwapChainDesc.SampleDesc = { 1, 0 };
+		SwapChainDesc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
+		SwapChainDesc.BufferCount = SWAP_CHAIN_BACK_BUFFER_COUNT;
+		SwapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+		SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		SwapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+		SwapChainDesc.Flags = Inst->SwapChain.bSupportsTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
-		IDXGISwapChain1* dxgiSwapChain1 = nullptr;
-		DX_CHECK_HR(dxgiFactory7->CreateSwapChainForHwnd(inst->d3d12CommandQueueDirect, hwnd, &swapChainDesc, nullptr, nullptr, &dxgiSwapChain1));
-		DX_CHECK_HR(dxgiSwapChain1->QueryInterface(&inst->swapChain.dxgiSwapChain));
-		DX_CHECK_HR(dxgiFactory7->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
-		inst->swapChain.backBufferIndex = inst->swapChain.dxgiSwapChain->GetCurrentBackBufferIndex();
+		IDXGISwapChain1* DXGISwapChain1 = nullptr;
+		DX_CHECK_HR(DXGIFactory7->CreateSwapChainForHwnd(Inst->D3D12CommandQueueDirect, hwnd, &SwapChainDesc, nullptr, nullptr, &DXGISwapChain1));
+		DX_CHECK_HR(DXGISwapChain1->QueryInterface(&Inst->SwapChain.DXGISwapChain));
+		DX_CHECK_HR(DXGIFactory7->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
+		Inst->SwapChain.BackBufferIndex = Inst->SwapChain.DXGISwapChain->GetCurrentBackBufferIndex();
 
 		// Create command allocators and command lists
-		for (uint32_t i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
+		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
 		{
-			DX_CHECK_HR(inst->d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&inst->frameContext[i].d3d12CommandAllocator)));
-			DX_CHECK_HR(inst->d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-				inst->frameContext[i].d3d12CommandAllocator, nullptr, IID_PPV_ARGS(&inst->frameContext[i].d3d12CommandList)));
+			DX_CHECK_HR(Inst->D3D12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&Inst->FrameCtx[i].D3D12CommandAllocator)));
+			DX_CHECK_HR(Inst->D3D12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+				Inst->FrameCtx[i].D3D12CommandAllocator, nullptr, IID_PPV_ARGS(&Inst->FrameCtx[i].D3D12CommandList)));
 		}
 
 		// Create fence and fence event
-		DX_CHECK_HR(inst->d3d12Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&inst->sync.d3d12Fence)));
+		DX_CHECK_HR(Inst->D3D12Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Inst->Sync.D3D12Fence)));
 
 		// Create upload buffer
-		D3D12_HEAP_PROPERTIES heapProps = {};
-		heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+		D3D12_HEAP_PROPERTIES HeapProperties = {};
+		HeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-		D3D12_RESOURCE_DESC resourceDesc = {};
-		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-		resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-		resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		D3D12_RESOURCE_DESC ResourceDesc = {};
+		ResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		ResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		ResourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+		ResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
 		// Need to make sure that the upload buffer matches the back buffer it will copy to
-		resourceDesc.Width = AlignUp(inst->swapChain.outputWidth * 4, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) * inst->swapChain.outputHeight;
-		resourceDesc.Height = 1;
-		resourceDesc.DepthOrArraySize = 1;
-		resourceDesc.MipLevels = 1;
-		resourceDesc.SampleDesc.Count = 1;
-		resourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		ResourceDesc.Width = ALIGN_UP_POW2(Inst->SwapChain.OutputWidth * 4, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) * Inst->SwapChain.OutputHeight;
+		ResourceDesc.Height = 1;
+		ResourceDesc.DepthOrArraySize = 1;
+		ResourceDesc.MipLevels = 1;
+		ResourceDesc.SampleDesc.Count = 1;
+		ResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-		for (uint32_t i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
+		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
 		{
-			DX_CHECK_HR(inst->d3d12Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE,
-				&resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&inst->frameContext[i].uploadBuffer)));
-			inst->frameContext[i].uploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&inst->frameContext[i].uploadBufferPtr));
+			DX_CHECK_HR(Inst->D3D12Device->CreateCommittedResource(&HeapProperties, D3D12_HEAP_FLAG_NONE,
+				&ResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&Inst->FrameCtx[i].UploadBuffer)));
+			Inst->FrameCtx[i].UploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&Inst->FrameCtx[i].PtrUploadBuffer));
 		}
 
 		// Create descriptor heaps
-		D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-		descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		descriptorHeapDesc.NumDescriptors = SWAP_CHAIN_BACK_BUFFER_COUNT;
-		descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		descriptorHeapDesc.NodeMask = 0;
-		DX_CHECK_HR(inst->d3d12Device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&inst->descriptorHeaps.rtv)));
+		D3D12_DESCRIPTOR_HEAP_DESC DescriptorHeapDesc = {};
+		DescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		DescriptorHeapDesc.NumDescriptors = SWAP_CHAIN_BACK_BUFFER_COUNT;
+		DescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		DescriptorHeapDesc.NodeMask = 0;
+		DX_CHECK_HR(Inst->D3D12Device->CreateDescriptorHeap(&DescriptorHeapDesc, IID_PPV_ARGS(&Inst->DescriptorHeaps.Rtv)));
 
-		descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		descriptorHeapDesc.NumDescriptors = 1;
-		descriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		DX_CHECK_HR(inst->d3d12Device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&inst->descriptorHeaps.cbvSrvUav)));
+		DescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		DescriptorHeapDesc.NumDescriptors = 1;
+		DescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		DX_CHECK_HR(Inst->D3D12Device->CreateDescriptorHeap(&DescriptorHeapDesc, IID_PPV_ARGS(&Inst->DescriptorHeaps.CbvSrvUav)));
 
 		// Create render target views for all back buffers
-		for (uint32_t i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
+		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
 		{
-			inst->swapChain.dxgiSwapChain->GetBuffer(i, IID_PPV_ARGS(&inst->frameContext[i].backBuffer));
+			Inst->SwapChain.DXGISwapChain->GetBuffer(i, IID_PPV_ARGS(&Inst->FrameCtx[i].BackBuffer));
 
-			D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-			rtvDesc.Format = swapChainDesc.Format;
-			rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-			rtvDesc.Texture2D.MipSlice = 0;
-			rtvDesc.Texture2D.PlaneSlice = 0;
+			D3D12_RENDER_TARGET_VIEW_DESC RtvDesc = {};
+			RtvDesc.Format = SwapChainDesc.Format;
+			RtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+			RtvDesc.Texture2D.MipSlice = 0;
+			RtvDesc.Texture2D.PlaneSlice = 0;
 
-			uint32_t rtvSize = inst->d3d12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-			inst->d3d12Device->CreateRenderTargetView(inst->frameContext[i].backBuffer, &rtvDesc,
-				{ inst->descriptorHeaps.rtv->GetCPUDescriptorHandleForHeapStart().ptr + i * rtvSize });
+			u32 RtvSize = Inst->D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			Inst->D3D12Device->CreateRenderTargetView(Inst->FrameCtx[i].BackBuffer, &RtvDesc,
+				{ Inst->DescriptorHeaps.Rtv->GetCPUDescriptorHandleForHeapStart().ptr + i * RtvSize });
 		}
 
 		// Initialize Dear ImGui
@@ -291,13 +291,13 @@ namespace DX12Backend
 		ImGui::CreateContext();
 		ImGui::StyleColorsDark();
 
-		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		ImGuiIO& IO = ImGui::GetIO();
+		IO.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 		ImGui_ImplWin32_Init(hwnd);
-		ImGui_ImplDX12_Init(inst->d3d12Device, SWAP_CHAIN_BACK_BUFFER_COUNT, swapChainDesc.Format, inst->descriptorHeaps.cbvSrvUav,
-			inst->descriptorHeaps.cbvSrvUav->GetCPUDescriptorHandleForHeapStart(), inst->descriptorHeaps.cbvSrvUav->GetGPUDescriptorHandleForHeapStart());
+		ImGui_ImplDX12_Init(Inst->D3D12Device, SWAP_CHAIN_BACK_BUFFER_COUNT, SwapChainDesc.Format, Inst->DescriptorHeaps.CbvSrvUav,
+			Inst->DescriptorHeaps.CbvSrvUav->GetCPUDescriptorHandleForHeapStart(), Inst->DescriptorHeaps.CbvSrvUav->GetGPUDescriptorHandleForHeapStart());
 	}
 
 	void Exit()
@@ -308,29 +308,29 @@ namespace DX12Backend
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
 
-		for (uint32_t i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
+		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
 		{
-			inst->frameContext[i].uploadBuffer->Unmap(0, nullptr);
+			Inst->FrameCtx[i].UploadBuffer->Unmap(0, nullptr);
 		}
 
-		delete inst;
+		delete Inst;
 	}
 
 	void BeginFrame()
 	{
-		FrameContext& frameContext = GetFrameContext();
+		FrameContext& FrameCtx = GetFrameContext();
 
 		// Wait for in-flight frame for the current back buffer
-		if (inst->sync.d3d12Fence->GetCompletedValue() < frameContext.fenceValue)
+		if (Inst->Sync.D3D12Fence->GetCompletedValue() < FrameCtx.FenceValue)
 		{
-			DX_CHECK_HR(inst->sync.d3d12Fence->SetEventOnCompletion(frameContext.fenceValue, NULL));
+			DX_CHECK_HR(Inst->Sync.D3D12Fence->SetEventOnCompletion(FrameCtx.FenceValue, NULL));
 		}
 
 		// Reset command allocator and command list for the next back buffer
-		if (frameContext.fenceValue > 0)
+		if (FrameCtx.FenceValue > 0)
 		{
-			DX_CHECK_HR(frameContext.d3d12CommandAllocator->Reset());
-			DX_CHECK_HR(frameContext.d3d12CommandList->Reset(frameContext.d3d12CommandAllocator, nullptr));
+			DX_CHECK_HR(FrameCtx.D3D12CommandAllocator->Reset());
+			DX_CHECK_HR(FrameCtx.D3D12CommandList->Reset(FrameCtx.D3D12CommandAllocator, nullptr));
 		}
 
 		ImGui_ImplWin32_NewFrame();
@@ -342,91 +342,91 @@ namespace DX12Backend
 	{
 	}
 
-	void CopyToBackBuffer(char* pixelData)
+	void CopyToBackBuffer(char* PtrPixelData)
 	{
-		FrameContext& frameContext = GetFrameContext();
+		FrameContext& FrameCtx = GetFrameContext();
 
-		D3D12_RESOURCE_BARRIER copyDstBarrier = TransitionBarrier(frameContext.backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
-		frameContext.d3d12CommandList->ResourceBarrier(1, &copyDstBarrier);
+		D3D12_RESOURCE_BARRIER CopyDstBarrier = TransitionBarrier(FrameCtx.BackBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
+		FrameCtx.D3D12CommandList->ResourceBarrier(1, &CopyDstBarrier);
 
-		uint32_t bpp = 4;
-		D3D12_RESOURCE_DESC dstDesc = frameContext.backBuffer->GetDesc();
+		u32 BytesPerPixel = 4;
+		D3D12_RESOURCE_DESC DstResourceDesc = FrameCtx.BackBuffer->GetDesc();
 
-		D3D12_SUBRESOURCE_FOOTPRINT dstFootprint = {};
-		dstFootprint.Format = dstDesc.Format;
-		dstFootprint.Width = dstDesc.Width;
-		dstFootprint.Height = dstDesc.Height;
-		dstFootprint.Depth = 1;
-		dstFootprint.RowPitch = AlignUp<uint32_t>(dstDesc.Width * bpp, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+		D3D12_SUBRESOURCE_FOOTPRINT DstFootprint = {};
+		DstFootprint.Format = DstResourceDesc.Format;
+		DstFootprint.Width = static_cast<UINT>(DstResourceDesc.Width);
+		DstFootprint.Height = DstResourceDesc.Height;
+		DstFootprint.Depth = 1;
+		DstFootprint.RowPitch = ALIGN_UP_POW2(static_cast<u32>(DstResourceDesc.Width * BytesPerPixel), D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT srcFootprint = {};
-		srcFootprint.Footprint = dstFootprint;
-		srcFootprint.Offset = 0;
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT SrcFootprint = {};
+		SrcFootprint.Footprint = DstFootprint;
+		SrcFootprint.Offset = 0;
 
-		char* srcPtr = pixelData;
-		uint32_t srcPitch = dstDesc.Width * bpp;
-		char* dstPtr = frameContext.uploadBufferPtr;
-		uint32_t dstPitch = dstFootprint.RowPitch;
+		char* PtrSrc = PtrPixelData;
+		u32 SrcPitch = DstResourceDesc.Width * BytesPerPixel;
+		char* PtrDst = FrameCtx.PtrUploadBuffer;
+		u32 DstPitch = DstFootprint.RowPitch;
 
-		for (uint32_t y = 0; y < dstDesc.Height; ++y)
+		for (u32 y = 0; y < DstResourceDesc.Height; ++y)
 		{
-			memcpy(dstPtr, srcPtr, srcPitch);
-			srcPtr += srcPitch;
-			dstPtr += dstPitch;
+			memcpy(PtrDst, PtrSrc, SrcPitch);
+			PtrSrc += SrcPitch;
+			PtrDst += DstPitch;
 		}
 
-		D3D12_TEXTURE_COPY_LOCATION srcCopyLocation = {};
-		srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-		srcCopyLocation.pResource = frameContext.uploadBuffer;
-		srcCopyLocation.PlacedFootprint = srcFootprint;
+		D3D12_TEXTURE_COPY_LOCATION SrcCopyLocation = {};
+		SrcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		SrcCopyLocation.pResource = FrameCtx.UploadBuffer;
+		SrcCopyLocation.PlacedFootprint = SrcFootprint;
 
-		D3D12_TEXTURE_COPY_LOCATION dstCopyLocation = {};
-		dstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		dstCopyLocation.pResource = frameContext.backBuffer;
-		dstCopyLocation.SubresourceIndex = 0;
+		D3D12_TEXTURE_COPY_LOCATION DstCopyLocation = {};
+		DstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		DstCopyLocation.pResource = FrameCtx.BackBuffer;
+		DstCopyLocation.SubresourceIndex = 0;
 
-		frameContext.d3d12CommandList->CopyTextureRegion(&dstCopyLocation, 0, 0, 0, &srcCopyLocation, nullptr);
+		FrameCtx.D3D12CommandList->CopyTextureRegion(&DstCopyLocation, 0, 0, 0, &SrcCopyLocation, nullptr);
 	}
 
 	void Present()
 	{
-		FrameContext& frameContext = GetFrameContext();
+		FrameContext& FrameCtx = GetFrameContext();
 
 		// Transition back buffer to render target state for Dear ImGui
-		D3D12_RESOURCE_BARRIER renderTargetBarrier = TransitionBarrier(frameContext.backBuffer,
+		D3D12_RESOURCE_BARRIER RtBarrier = TransitionBarrier(FrameCtx.BackBuffer,
 			D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		frameContext.d3d12CommandList->ResourceBarrier(1, &renderTargetBarrier);
+		FrameCtx.D3D12CommandList->ResourceBarrier(1, &RtBarrier);
 
 		// Render Dear ImGui
 		ImGui::Render();
 
-		uint32_t rtvSize = inst->d3d12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = { inst->descriptorHeaps.rtv->GetCPUDescriptorHandleForHeapStart().ptr +
-			inst->swapChain.backBufferIndex * rtvSize };
-		frameContext.d3d12CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-		frameContext.d3d12CommandList->SetDescriptorHeaps(1, &inst->descriptorHeaps.cbvSrvUav);
+		u32 RtvSize = Inst->D3D12Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		D3D12_CPU_DESCRIPTOR_HANDLE RtvHandle = { Inst->DescriptorHeaps.Rtv->GetCPUDescriptorHandleForHeapStart().ptr +
+			Inst->SwapChain.BackBufferIndex * RtvSize };
+		FrameCtx.D3D12CommandList->OMSetRenderTargets(1, &RtvHandle, FALSE, nullptr);
+		FrameCtx.D3D12CommandList->SetDescriptorHeaps(1, &Inst->DescriptorHeaps.CbvSrvUav);
 
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), frameContext.d3d12CommandList);
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), FrameCtx.D3D12CommandList);
 
 		// Transition back buffer to present state for presentation
-		D3D12_RESOURCE_BARRIER presentBarrier = TransitionBarrier(frameContext.backBuffer,
+		D3D12_RESOURCE_BARRIER PresentBarrier = TransitionBarrier(FrameCtx.BackBuffer,
 			D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-		frameContext.d3d12CommandList->ResourceBarrier(1, &presentBarrier);
+		FrameCtx.D3D12CommandList->ResourceBarrier(1, &PresentBarrier);
 
 		// Submit command list for current frame
-		frameContext.d3d12CommandList->Close();
-		ID3D12CommandList* const commandLists[] = { frameContext.d3d12CommandList };
-		inst->d3d12CommandQueueDirect->ExecuteCommandLists(1, commandLists);
+		FrameCtx.D3D12CommandList->Close();
+		ID3D12CommandList* const CommandLists[] = { FrameCtx.D3D12CommandList };
+		Inst->D3D12CommandQueueDirect->ExecuteCommandLists(1, CommandLists);
 
 		// Present
-		uint32_t syncInterval = inst->vsync ? 1 : 0;
-		uint32_t presentFlags = inst->swapChain.supportsTearing && !inst->vsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
-		DX_CHECK_HR(inst->swapChain.dxgiSwapChain->Present(syncInterval, presentFlags));
+		u32 SyncInterval = Inst->bVsync ? 1 : 0;
+		u32 PresentFlags = Inst->SwapChain.bSupportsTearing && !Inst->bVsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
+		DX_CHECK_HR(Inst->SwapChain.DXGISwapChain->Present(SyncInterval, PresentFlags));
 
-		// Signal fence with the value for the current frame, update next available back buffer index
-		frameContext.fenceValue = ++inst->sync.fenceValue;
-		DX_CHECK_HR(inst->d3d12CommandQueueDirect->Signal(inst->sync.d3d12Fence, frameContext.fenceValue));
-		inst->swapChain.backBufferIndex = inst->swapChain.dxgiSwapChain->GetCurrentBackBufferIndex();
+		// Signal fence with the value for the current frame, update next available back buffer Index
+		FrameCtx.FenceValue = ++Inst->Sync.FenceValue;
+		DX_CHECK_HR(Inst->D3D12CommandQueueDirect->Signal(Inst->Sync.D3D12Fence, FrameCtx.FenceValue));
+		Inst->SwapChain.BackBufferIndex = Inst->SwapChain.DXGISwapChain->GetCurrentBackBufferIndex();
 	}
 
 }

@@ -159,8 +159,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Source\Core\Assets\AssetLoader.cpp" />
-    <ClCompile Include="Source\Core\Profiling\CPUTimer.cpp" />
-    <ClCompile Include="Source\Core\Profiling\Profiler.cpp" />
+    <ClCompile Include="Source\Core\Memory\MemoryArena.cpp" />
     <ClCompile Include="Source\Core\Scene.cpp" />
     <ClCompile Include="Source\Core\Threadpool.cpp" />
     <ClCompile Include="Source\Core\Camera\CameraController.cpp" />
@@ -173,6 +172,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Source\Platform\Windows\VirtualMemory.cpp" />
     <ClCompile Include="Source\Renderer\AccelerationStructure\BVH.cpp" />
     <ClCompile Include="Source\Renderer\AccelerationStructure\BVHInstance.cpp" />
     <ClCompile Include="Source\Renderer\AccelerationStructure\TLAS.cpp" />
@@ -186,8 +186,8 @@
     <ClInclude Include="Extern\imgui\imgui_internal.h" />
     <ClInclude Include="Source\Core\Assets\AssetLoader.h" />
     <ClInclude Include="Source\Core\Assets\AssetTypes.h" />
-    <ClInclude Include="Source\Core\Profiling\CPUTimer.h" />
-    <ClInclude Include="Source\Core\Profiling\Profiler.h" />
+    <ClInclude Include="Source\Core\Memory\MemoryArena.h" />
+    <ClInclude Include="Source\Core\Memory\VirtualMemory.h" />
     <ClInclude Include="Source\Core\Random.h" />
     <ClInclude Include="Source\Core\Scene.h" />
     <ClInclude Include="Source\Core\Threadpool.h" />

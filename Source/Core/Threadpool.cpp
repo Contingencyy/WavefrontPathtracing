@@ -1,18 +1,18 @@
 #include "Pch.h"
 #include "Threadpool.h"
 
-Threadpool::Threadpool()
+void Threadpool::Init(MemoryArena* Arena)
 {
 	m_JobsCompleted.store(0);
 
-	uint32_t numCores = std::thread::hardware_concurrency();
-	uint32_t numThreads = std::max(1u, numCores);
+	u32 CoreCount = std::thread::hardware_concurrency();
 
-	m_Threads.reserve(numThreads);
+	m_ThreadCount = std::max(1u, CoreCount);
+	m_Threads = ARENA_ALLOC_ARRAY(Arena, std::thread, m_ThreadCount);
 
-	for (size_t i = 0; i < numThreads; ++i)
+	for (u32 i = 0; i < m_ThreadCount; ++i)
 	{
-		m_Threads.push_back(std::thread([&] {
+		m_Threads[i] = std::thread([&] {
 			std::function<void()> jobFunc;
 
 			while (!m_Exit)
@@ -28,65 +28,65 @@ Threadpool::Threadpool()
 					m_WakeCondition.wait(lock);
 				}
 			}
-			}));
+			});
 
 		m_Threads[i].detach();
 	}
 }
 
-Threadpool::~Threadpool()
+void Threadpool::Destroy()
 {
 	m_Exit = true;
 
-	for (auto& thread : m_Threads)
+	for (u32 i = 0; i < m_ThreadCount; ++i)
 	{
-		if (thread.joinable())
-			thread.join();
+		if (m_Threads[i].joinable())
+			m_Threads[i].join();
 	}
 }
 
-void Threadpool::QueueJob(const std::function<void()>& jobFunc)
+void Threadpool::QueueJob(const std::function<void()>& JobFunc)
 {
 	m_JobsQueued++;
 
-	while (!m_JobRingBuffer.PushBack(jobFunc))
+	while (!m_JobRingBuffer.PushBack(JobFunc))
 		Poll();
 
 	m_WakeCondition.notify_one();
 }
 
-void Threadpool::Dispatch(uint32_t numJobs, uint32_t groupSize, const std::function<void(JobDispatchArgs)>& jobFunc)
+void Threadpool::Dispatch(u32 JobCount, u32 GroupSize, const std::function<void(JobDispatchArgs)>& JobFunc)
 {
-	if (numJobs == 0 || groupSize == 0)
+	if (JobCount == 0 || GroupSize == 0)
 		return;
 
-	const uint32_t numGroups = (numJobs + groupSize - 1) / groupSize;
-	m_JobsQueued += numGroups;
+	const u32 GroupCount = (JobCount + GroupSize - 1) / GroupSize;
+	m_JobsQueued += GroupCount;
 
-	for (size_t groupIndex = 0; groupIndex < numGroups; ++groupIndex)
+	for (u32 GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
 	{
-		const auto& jobGroup = [numJobs, groupSize, jobFunc, groupIndex]() {
-			const uint32_t jobGroupOffset = groupIndex * groupSize;
-			const uint32_t jobGroupEnd = std::min(jobGroupOffset + groupSize, numJobs);
+		const auto& JobGroup = [JobCount, GroupSize, JobFunc, GroupIdx]() {
+			const u32 JobGroupOffset = GroupIdx * GroupSize;
+			const u32 JobGroupEnd = std::min(JobGroupOffset + GroupSize, JobCount);
 
 			JobDispatchArgs dispatchArgs = {};
-			dispatchArgs.groupIndex = groupIndex;
+			dispatchArgs.GroupIndex = GroupIdx;
 
-			for (size_t jobIndex = jobGroupOffset; jobIndex < jobGroupEnd; ++jobIndex)
+			for (u32 jobIndex = JobGroupOffset; jobIndex < JobGroupEnd; ++jobIndex)
 			{
-				dispatchArgs.jobIndex = jobIndex;
-				jobFunc(dispatchArgs);
+				dispatchArgs.JobIndex = jobIndex;
+				JobFunc(dispatchArgs);
 			}
 		};
 
-		while (!m_JobRingBuffer.PushBack(jobGroup))
+		while (!m_JobRingBuffer.PushBack(JobGroup))
 			Poll();
 
 		m_WakeCondition.notify_one();
 	}
 }
 
-bool Threadpool::IsBusy()
+b8 Threadpool::IsBusy()
 {
 	return m_JobsCompleted.load() < m_JobsQueued;
 }

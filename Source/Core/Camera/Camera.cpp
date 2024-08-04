@@ -3,13 +3,13 @@
 #include "Core/Common.h"
 
 Camera::Camera()
-	: Camera(glm::vec3(), glm::vec3(0.0f, 0.0f, 1.0f), vfov)
+	: Camera(glm::vec3(), glm::vec3(0.0f, 0.0f, 1.0f), 60.0f)
 {
 }
 
-Camera::Camera(const glm::vec3& eyePos, const glm::vec3& lookAt, float vfov)
-	: vfov(vfov)
+Camera::Camera(const glm::vec3& EyePos, const glm::vec3& LookAtPos, f32 VFovDeg)
+	: VFovDeg(VFovDeg)
 {
-	viewMatrix = glm::lookAtLH(eyePos, lookAt, DEFAULT_UP_VECTOR);
-	transformMatrix = glm::inverse(viewMatrix);
+	ViewMatrix = glm::lookAtLH(EyePos, LookAtPos, DEFAULT_UP_VECTOR);
+	TransformMatrix = glm::inverse(ViewMatrix);
 }

@@ -3,7 +3,7 @@
 namespace Renderer
 {
 
-	enum RenderVisualization : uint32_t
+	enum RenderVisualization : u32
 	{
 		RenderVisualization_None,
 		
@@ -23,40 +23,40 @@ namespace Renderer
 		RenderVisualization_Count
 	};
 
-	static const std::array<std::string, RenderVisualization_Count> RenderDataVisualizationLabels =
+	static const char* RenderDataVisualizationLabels[RenderVisualization_Count] =
 	{
 		"None",
-		"Hit albedo", "Hit normal", "Hit barycentrics", "Hit spec refract", "Hit absorption", "Hit emissive",
+		"Hit Albedo", "Hit Normal", "Hit barycentrics", "Hit spec refract", "Hit Absorption", "Hit Emissive",
 		"Depth",
 		"Ray recursion depth", "Russian roulette kill depth", "Acceleration structure depth"
 	};
 
 	struct RenderSettings
 	{
-		RenderVisualization renderVisualization = RenderVisualization_None;
-		uint32_t rayMaxRecursionDepth = 8;
+		RenderVisualization RenderVisualization;
+		u32 RayMaxRecursionDepth;
 		
-		bool cosineWeightedDiffuseReflection = true;
-		bool russianRoulette = true;
+		b8 bCosineWeightedDiffuseReflection;
+		b8 bRussianRoulette;
 
-		float hdrEnvIntensity = 1.0f;
+		f32 HdrEnvIntensity;
 
 		struct PostFX
 		{
-			float maxWhite = 10.0f;
-			float exposure = 1.0f;
-			float contrast = 1.0f;
-			float brightness = 0.0f;
-			float saturation = 1.0f;
-			bool linearToSRGB = true;
-		} postfx;
+			f32 MaxWhite;
+			f32 Exposure;
+			f32 Contrast;
+			f32 Brightness;
+			f32 Saturation;
+			b8 bLinearToSRGB;
+		} Postfx;
 	};
 
 	struct Texture
 	{
-		uint32_t width = 0;
-		uint32_t height = 0;
-		std::vector<glm::vec4> pixelData;
+		u32 Width;
+		u32 Height;
+		f32* PtrPixelData;
 	};
 
 }

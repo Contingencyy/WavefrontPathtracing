@@ -18,20 +18,20 @@ namespace Input
 		KeyCode_Invalid
 	};
 
-	void OnPlatformKeyButtonStateChanged(uint64_t platformCode, bool pressed);
-	void OnMouseWheelScrolled(float wheelDelta);
+	void OnPlatformKeyButtonStateChanged(u64 PlatformCode, b8 bPressed);
+	void OnMouseWheelScrolled(f32 WheelDelta);
 	void UpdateMousePos();
 
-	bool IsKeyPressed(KeyCode keyCode);
-	float GetAxis1D(KeyCode axisPos, KeyCode axisNeg);
+	b8 IsKeyPressed(KeyCode KeyCode);
+	f32 GetAxis1D(KeyCode AxisPos, KeyCode AxisNeg);
 
-	float GetMouseRelX();
-	float GetMouseRelY();
-	float GetMouseScrollRelY();
+	f32 GetMouseRelX();
+	f32 GetMouseRelY();
+	f32 GetMouseScrollRelY();
 
-	void SetMouseCapture(bool capture);
-	bool IsMouseCaptured();
-	void SetWindowFocus(bool focus);
+	void SetMouseCapture(b8 bCapture);
+	b8 IsMouseCaptured();
+	void SetWindowFocus(b8 bFocus);
 
 	void Reset();
 

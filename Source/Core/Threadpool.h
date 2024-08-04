@@ -10,46 +10,46 @@ template<typename T>
 class ThreadSafeRingBuffer
 {
 public:
-	static constexpr uint32_t THREAD_SAFE_RING_BUFFER_CAPACITY = 512;
+	static constexpr u32 THREAD_SAFE_RING_BUFFER_CAPACITY = 512;
 
 public:
-	bool PushBack(const T& job)
+	b8 PushBack(const T& Job)
 	{
-		bool result = false;
+		b8 bResult = false;
 		m_Lock.lock();
-		size_t next = (m_Head + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
+		u32 Next = (m_Head + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
 
-		if (next != m_Tail)
+		if (Next != m_Tail)
 		{
-			m_JobPool[m_Head] = job;
-			m_Head = next;
-			result = true;
+			m_JobPool[m_Head] = Job;
+			m_Head = Next;
+			bResult = true;
 		}
 
 		m_Lock.unlock();
-		return result;
+		return bResult;
 	}
 
-	bool PopFront(T& job)
+	b8 PopFront(T& Job)
 	{
-		bool result = false;
+		b8 bResult = false;
 		m_Lock.lock();
 
 		if (m_Tail != m_Head)
 		{
-			job = m_JobPool[m_Tail];
+			Job = m_JobPool[m_Tail];
 			m_Tail = (m_Tail + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
-			result = true;
+			bResult = true;
 		}
 
 		m_Lock.unlock();
-		return result;
+		return bResult;
 	}
 
 private:
-	std::array<T, THREAD_SAFE_RING_BUFFER_CAPACITY> m_JobPool;
-	size_t m_Head = 0;
-	size_t m_Tail = 0;
+	T m_JobPool[THREAD_SAFE_RING_BUFFER_CAPACITY];
+	u32 m_Head = 0;
+	u32 m_Tail = 0;
 	std::mutex m_Lock;
 
 };
@@ -59,18 +59,18 @@ class Threadpool
 public:
 	struct JobDispatchArgs
 	{
-		uint32_t jobIndex;
-		uint32_t groupIndex;
+		u32 JobIndex;
+		u32 GroupIndex;
 	};
 
 public:
-	Threadpool();
-	~Threadpool();
+	void Init(MemoryArena* Arena);
+	void Destroy();
 
-	void QueueJob(const std::function<void()>& jobFunc);
-	void Dispatch(uint32_t numJobs, uint32_t groupSize, const std::function<void(JobDispatchArgs)>& jobFunc);
+	void QueueJob(const std::function<void()>& JobFunc);
+	void Dispatch(u32 JobCount, u32 GroupSize, const std::function<void(JobDispatchArgs)>& JobFunc);
 
-	bool IsBusy();
+	b8 IsBusy();
 	void WaitAll();
 
 private:
@@ -79,13 +79,14 @@ private:
 private:
 	ThreadSafeRingBuffer<std::function<void()>> m_JobRingBuffer;
 
-	std::vector<std::thread> m_Threads;
+	std::thread* m_Threads;
+	u32 m_ThreadCount;
 	std::condition_variable m_WakeCondition;
 	std::mutex m_WakeMutex;
 
-	uint64_t m_JobsQueued = 0;
-	std::atomic<uint64_t> m_JobsCompleted;
+	u64 m_JobsQueued = 0;
+	std::atomic<u64> m_JobsCompleted;
 
-	bool m_Exit = false;
+	b8 m_Exit = false;
 
 };

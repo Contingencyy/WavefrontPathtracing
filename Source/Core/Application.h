@@ -1,12 +1,14 @@
 #pragma once
 
+struct MemoryArena;
+
 namespace Application
 {
 
-	void Init();
+	void Init(MemoryArena* Arena);
 	void Exit();
 	void Run();
 
-	bool ShouldClose();
+	b8 ShouldClose();
 
 }

@@ -11,114 +11,125 @@
 namespace AssetLoader
 {
 
-	TextureAsset LoadImageHDR(const std::filesystem::path& filepath)
+	TextureAsset* LoadImageHDR(MemoryArena* Arena, const char* Filepath)
 	{
-		int32_t imageWidth, imageHeight, numChannels;
-		float* imageData = stbi_loadf(filepath.string().c_str(), &imageWidth, &imageHeight, &numChannels, STBI_rgb_alpha);
+		i32 ImageWidth, ImageHeight, ChannelCount;
+		f32* PtrImageData = stbi_loadf(Filepath, &ImageWidth, &ImageHeight, &ChannelCount, STBI_rgb_alpha);
 
-		if (!imageData)
+		if (!PtrImageData)
 		{
-			FATAL_ERROR("AssetLoader::LoadImageHDR", "Failed to load HDR image: %s", filepath.string());
+			FATAL_ERROR("AssetLoader::LoadImageHDR", "Failed to load HDR image: %s", Filepath);
 		}
 
-		std::vector<glm::vec4> pixelData(imageWidth * imageHeight);
-		TextureAsset textureAsset = {};
+		TextureAsset* Asset = ARENA_ALLOC_STRUCT(Arena, TextureAsset);
+		Asset->RTextureHandle = CPUPathtracer::CreateTexture(ImageWidth, ImageHeight, PtrImageData);
 
-		memcpy(pixelData.data(), imageData, imageWidth * imageHeight * numChannels * sizeof(float));
-		textureAsset.renderTextureHandle = CPUPathtracer::CreateTexture(imageWidth, imageHeight, pixelData);
-
-		return textureAsset;
+		return Asset;
 	}
 
 	template<typename T>
-	static T* CGLTFGetDataPointer(const cgltf_accessor* accessor)
+	static T* CGLTFGetDataPointer(const cgltf_accessor* Accessor)
 	{
-		cgltf_buffer_view* buffer_view = accessor->buffer_view;
-		uint8_t* base_ptr = (uint8_t*)(buffer_view->buffer->data);
-		base_ptr += buffer_view->offset;
-		base_ptr += accessor->offset;
+		cgltf_buffer_view* BufferView = Accessor->buffer_view;
+		u8* PtrBase = (u8*)(BufferView->buffer->data);
+		PtrBase += BufferView->offset;
+		PtrBase += Accessor->offset;
 
-		return (T*)base_ptr;
+		return (T*)PtrBase;
 	}
 
-	SceneAsset LoadGLTF(const std::filesystem::path& filepath)
+	SceneAsset* LoadGLTF(MemoryArena* Arena, const char* Filepath)
 	{
-		SceneAsset sceneAsset = {};
-		size_t currentMeshIndex = 0;
-
 		// Parse the GLTF file
-		cgltf_options gltfOptions = {};
-		cgltf_data* gltfData = nullptr;
-		cgltf_result gltfResult = cgltf_parse_file(&gltfOptions, filepath.string().c_str(), &gltfData);
+		cgltf_options CGLTFOptions = {};
+		cgltf_data* PtrCGLTFData = nullptr;
+		cgltf_result CGLTFResult = cgltf_parse_file(&CGLTFOptions, Filepath, &PtrCGLTFData);
 
-		if (gltfResult != cgltf_result_success)
+		if (CGLTFResult != cgltf_result_success)
 		{
-			FATAL_ERROR("AssetLoader::LoadGLTF", "Failed to load GLTF: %s", filepath.string());
+			FATAL_ERROR("AssetLoader::LoadGLTF", "Failed to load GLTF: %s", Filepath);
 		}
 
-		cgltf_load_buffers(&gltfOptions, gltfData, filepath.string().c_str());
+		cgltf_load_buffers(&CGLTFOptions, PtrCGLTFData, Filepath);
 
-		for (size_t meshIndex = 0; meshIndex < gltfData->meshes_count; ++meshIndex)
+		u32 MeshCount = 0;
+		for (u32 MeshIdx = 0; MeshIdx < PtrCGLTFData->meshes_count; ++MeshIdx)
 		{
-			const cgltf_mesh& gltfMesh = gltfData->meshes[meshIndex];
+			const cgltf_mesh& CGLTFMesh = PtrCGLTFData->meshes[MeshIdx];
+			MeshCount += CGLTFMesh.primitives_count;
+		}
 
-			for (size_t primIndex = 0; primIndex < gltfMesh.primitives_count; ++primIndex)
+		SceneAsset* Asset = ARENA_ALLOC_STRUCT(Arena, SceneAsset);
+		Asset->RMeshHandles = ARENA_ALLOC_ARRAY_ZERO(Arena, RenderMeshHandle, MeshCount);
+
+		// Use a temporary memory scope here since CPUPathtracer::CreateMesh is blocking, so we can do the scope inside the loop
+		ARENA_MEMORY_SCOPE(Arena)
+		{
+			for (u32 MeshIdx = 0; MeshIdx < PtrCGLTFData->meshes_count; ++MeshIdx)
 			{
-				const cgltf_primitive& gltfPrim = gltfMesh.primitives[primIndex];
+				const cgltf_mesh& CGLTFMesh = PtrCGLTFData->meshes[MeshIdx];
 
-				std::vector<uint32_t> indices(gltfPrim.indices->count);
-				std::vector<Vertex> vertices(gltfPrim.attributes[0].data->count);
-
-				if (gltfPrim.indices->component_type == cgltf_component_type_r_32u)
+				for (u32 PrimIdx = 0; PrimIdx < CGLTFMesh.primitives_count; ++PrimIdx)
 				{
-					memcpy(indices.data(), CGLTFGetDataPointer<uint32_t>(gltfPrim.indices), sizeof(uint32_t) * gltfPrim.indices->count);
-				}
-				else if (gltfPrim.indices->component_type == cgltf_component_type_r_16u)
-				{
-					uint16_t* indices_ptr = CGLTFGetDataPointer<uint16_t>(gltfPrim.indices);
+					const cgltf_primitive& CGLTFPrim = CGLTFMesh.primitives[PrimIdx];
 
-					for (size_t i = 0; i < gltfPrim.indices->count; ++i)
+					u32 IndexCount = CGLTFPrim.indices->count;
+					u32 VertexCount = CGLTFPrim.attributes[0].data->count;
+
+					u32* Indices = ARENA_ALLOC_ARRAY(Arena, u32, IndexCount);
+					Vertex* Vertices = ARENA_ALLOC_ARRAY(Arena, Vertex, VertexCount);
+
+					if (CGLTFPrim.indices->component_type == cgltf_component_type_r_32u)
 					{
-						indices[i] = indices_ptr[i];
+						memcpy(Indices, CGLTFGetDataPointer<u32>(CGLTFPrim.indices), sizeof(u32) * CGLTFPrim.indices->count);
 					}
-				}
-
-				for (size_t attrIndex = 0; attrIndex < gltfPrim.attributes_count; ++attrIndex)
-				{
-					const cgltf_attribute& gltfAttr = gltfPrim.attributes[attrIndex];
-					ASSERT(gltfAttr.data->count == vertices.size());
-
-					switch (gltfAttr.type)
+					else if (CGLTFPrim.indices->component_type == cgltf_component_type_r_16u)
 					{
-					case cgltf_attribute_type_position:
-					{
-						glm::vec3* srcPtr = CGLTFGetDataPointer<glm::vec3>(gltfAttr.data);
-						
-						for (size_t vertIndex = 0; vertIndex < gltfAttr.data->count; ++vertIndex)
+						u16* PtrSrc = CGLTFGetDataPointer<u16>(CGLTFPrim.indices);
+
+						for (u32 Index = 0; Index < CGLTFPrim.indices->count; ++Index)
 						{
-							vertices[vertIndex].position = srcPtr[vertIndex];
+							Indices[Index] = PtrSrc[Index];
 						}
-					} break;
-					case cgltf_attribute_type_normal:
-					{
-						glm::vec3* srcPtr = CGLTFGetDataPointer<glm::vec3>(gltfAttr.data);
-
-						for (size_t vertIndex = 0; vertIndex < gltfAttr.data->count; ++vertIndex)
-						{
-							vertices[vertIndex].normal = srcPtr[vertIndex];
-						}
-					} break;
 					}
-				}
 
-				// Create render mesh
-				sceneAsset.renderMeshHandles.push_back(CPUPathtracer::CreateMesh(vertices, indices));
-				currentMeshIndex++;
+					for (u32 AttribIdx = 0; AttribIdx < CGLTFPrim.attributes_count; ++AttribIdx)
+					{
+						const cgltf_attribute& CGLTFAttrib = CGLTFPrim.attributes[AttribIdx];
+						ASSERT(CGLTFAttrib.data->count == VertexCount);
+
+						switch (CGLTFAttrib.type)
+						{
+						case cgltf_attribute_type_position:
+						{
+							glm::vec3* PtrSrc = CGLTFGetDataPointer<glm::vec3>(CGLTFAttrib.data);
+
+							for (u32 VertIdx = 0; VertIdx < CGLTFAttrib.data->count; ++VertIdx)
+							{
+								Vertices[VertIdx].Position = PtrSrc[VertIdx];
+							}
+						} break;
+						case cgltf_attribute_type_normal:
+						{
+							glm::vec3* PtrSrc = CGLTFGetDataPointer<glm::vec3>(CGLTFAttrib.data);
+
+							for (u32 VertIdx = 0; VertIdx < CGLTFAttrib.data->count; ++VertIdx)
+							{
+								Vertices[VertIdx].Normal = PtrSrc[VertIdx];
+							}
+						} break;
+						}
+					}
+
+					// Create render mesh
+					Asset->RMeshHandles[Asset->MeshHandleCount] = CPUPathtracer::CreateMesh(Vertices, VertexCount, Indices, IndexCount);
+					Asset->MeshHandleCount++;
+				}
 			}
 		}
 
-		cgltf_free(gltfData);
-		return sceneAsset;
+		cgltf_free(PtrCGLTFData);
+		return Asset;
 	}
 
 }

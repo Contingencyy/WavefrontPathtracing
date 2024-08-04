@@ -9,18 +9,18 @@ union RenderResourceHandle
 {
 	struct
 	{
-		uint32_t index;
-		uint32_t version;
+		u32 Index;
+		u32 Version;
 	};
 
-	uint64_t handle = ~0u;
+	uint64_t Handle = ~0u;
 
 	RenderResourceHandle() = default;
 		
-	bool IsValid() const { return handle != ~0u; }
+	b8 IsValid() const { return Handle != ~0u; }
 
-	inline bool operator==(const RenderResourceHandle& rhs) const { return handle == rhs.handle; }
-	inline bool operator!=(const RenderResourceHandle& rhs) const { return handle != rhs.handle; }
+	inline b8 operator==(const RenderResourceHandle& Rhs) const { return Handle == Rhs.Handle; }
+	inline b8 operator!=(const RenderResourceHandle& Lhs) const { return Handle != Lhs.Handle; }
 };
 
 using RenderTextureHandle = RenderResourceHandle<struct RenderTextureTag>;
@@ -32,6 +32,6 @@ using RenderMeshHandle = RenderResourceHandle<struct RenderMeshTag>;
 
 struct Vertex
 {
-	glm::vec3 position;
-	glm::vec3 normal;
+	glm::vec3 Position;
+	glm::vec3 Normal;
 };

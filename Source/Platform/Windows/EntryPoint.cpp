@@ -39,8 +39,8 @@ static HWND s_HWND;
 
 static inline void CreateConsole()
 {
-	BOOL result = AllocConsole();
-	if (!result)
+	b8 Result = AllocConsole();
+	if (!Result)
 		FATAL_ERROR("Console", "Failed to allocate console");
 
 	SetConsoleTitle("Wavefront Pathtracer Console");
@@ -55,18 +55,18 @@ static inline void DestroyConsole()
 	fclose(fileStdout);
 	fclose(fileStderr);*/
 
-	BOOL result = FreeConsole();
-	if (!result)
+	b8 Result = FreeConsole();
+	if (!Result)
 		FATAL_ERROR("Console", "Failed to free console");
 }
 
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT WINAPI WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT Message, WPARAM WParam, LPARAM LParam);
+LRESULT WINAPI WindowProc(HWND hwnd, UINT Message, WPARAM WParam, LPARAM LParam)
 {
-	if (ImGui_ImplWin32_WndProcHandler(hwnd, message, wparam, lparam))
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, Message, WParam, LParam))
 		return true;
 
-	switch (message)
+	switch (Message)
 	{
 	case WM_SIZE:
 	case WM_SIZING:
@@ -78,12 +78,12 @@ LRESULT WINAPI WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 	case WM_LBUTTONDOWN:
 	case WM_RBUTTONDOWN:
 	{
-		Input::OnPlatformKeyButtonStateChanged(wparam, true);
+		Input::OnPlatformKeyButtonStateChanged(WParam, true);
 	} break;
 	case WM_SYSKEYUP:
 	case WM_KEYUP:
 	{
-		Input::OnPlatformKeyButtonStateChanged(wparam, false);
+		Input::OnPlatformKeyButtonStateChanged(WParam, false);
 	} break;
 	case WM_LBUTTONUP:
 	{
@@ -95,7 +95,7 @@ LRESULT WINAPI WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 	} break;
 	case WM_MOUSEWHEEL:
 	{
-		float wheelDelta = GET_WHEEL_DELTA_WPARAM(wparam);
+		f32 wheelDelta = GET_WHEEL_DELTA_WPARAM(WParam);
 		Input::OnMouseWheelScrolled(wheelDelta);
 	} break;
 	case WM_SETFOCUS:
@@ -112,23 +112,23 @@ LRESULT WINAPI WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 	} break;
 	default:
 	{
-		return DefWindowProcW(hwnd, message, wparam, lparam);
+		return DefWindowProcW(hwnd, Message, WParam, LParam);
 	} break;
 	}
 
 	return 0;
 }
 
-void GetWindowClientArea(int32_t& windowWidth, int32_t& windowHeight)
+void GetWindowClientArea(i32& WindowWidth, i32& WindowHeight)
 {
 	RECT clientRect = {};
 	GetClientRect(s_HWND, &clientRect);
 
-	windowWidth = clientRect.right - clientRect.left;
-	windowHeight = clientRect.bottom - clientRect.top;
+	WindowWidth = clientRect.right - clientRect.left;
+	WindowHeight = clientRect.bottom - clientRect.top;
 }
 
-void GetWindowCenter(int32_t& windowCenterX, int32_t& windowCenterY)
+void GetWindowCenter(i32& windowCenterX, i32& windowCenterY)
 {
 	RECT windowRect = {};
 	GetWindowRect(s_HWND, &windowRect);
@@ -147,12 +147,12 @@ void GetWindowCenter(int32_t& windowCenterX, int32_t& windowCenterY)
 
 void ResetMousePositionToCenter()
 {
-	int32_t windowCenterX, windowCenterY;
+	i32 windowCenterX, windowCenterY;
 	GetWindowCenter(windowCenterX, windowCenterY);
 	SetCursorPos(windowCenterX, windowCenterY);
 }
 
-void SetWindowCaptureMouse(bool capture)
+void SetWindowCaptureMouse(b8 bCapture)
 {
 	RECT windowRect = {};
 	GetWindowRect(s_HWND, &windowRect);
@@ -165,14 +165,14 @@ void SetWindowCaptureMouse(bool capture)
 	clientRect.top = windowRect.top;
 	clientRect.bottom += windowRect.top;
 
-	ShowCursor(!capture);
-	ClipCursor(capture ? &clientRect : nullptr);
+	ShowCursor(!bCapture);
+	ClipCursor(bCapture ? &clientRect : nullptr);
 	ResetMousePositionToCenter();
 
-	Input::SetMouseCapture(capture);
+	Input::SetMouseCapture(bCapture);
 }
 
-bool PollWindowEvents()
+b8 PollWindowEvents()
 {
 	Input::Reset();
 	Input::UpdateMousePos();
@@ -190,10 +190,10 @@ bool PollWindowEvents()
 	return true;
 }
 
-static inline void CreateWindow(int32_t windowWidth, int32_t windowHeight)
+static inline void CreateWindow(i32 windowWidth, i32 windowHeight)
 {
-	int32_t screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
-	int32_t screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
+	i32 screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
+	i32 screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
 
 	if (windowWidth <= 0 || windowWidth > screenWidth)
 		windowWidth = 4 * screenWidth / 5;
@@ -235,17 +235,17 @@ static inline void CreateWindow(int32_t windowWidth, int32_t windowHeight)
 	ShowWindow(s_HWND, TRUE);
 }
 
-void FatalErrorImpl(int line, const std::string& file, const std::string& sender, const std::string& errorMsg)
+void FatalErrorImpl(i32 line, const std::string& file, const std::string& sender, const std::string& errorMsg)
 {
 	MessageBoxA(NULL, errorMsg.c_str(), "Fatal Error", MB_OK);
-	__debugbreak;
+	__debugbreak();
 	ExitProcess(1);
 }
 
 struct CommandLineArgs
 {
-	int32_t windowWidth = 0;
-	int32_t windowHeight = 0;
+	i32 WindowWidth = 0;
+	i32 WindowHeight = 0;
 };
 
 static std::string WStringToString(const std::wstring_view& wstring)
@@ -257,8 +257,8 @@ static std::string WStringToString(const std::wstring_view& wstring)
 	return result;
 }
 
-template<typename int32_t>
-void ParseCommandLineArg(const std::string_view& cmdLine, const std::string_view& argStr, int32_t& parsedValue)
+template<typename i32>
+void ParseCommandLineArg(const std::string_view& cmdLine, const std::string_view& argStr, i32& parsedValue)
 {
 	size_t argParamBegin = cmdLine.find(argStr, 0) + argStr.size() + 1;
 	size_t argParamEnd = std::min(cmdLine.find(" ", argParamBegin), cmdLine.size());
@@ -271,10 +271,10 @@ static CommandLineArgs ParseCommandLineArgs(const std::string_view& cmdLine)
 	CommandLineArgs cmdArgs = {};
 
 	const std::string widthStr = "--width";
-	ParseCommandLineArg(cmdLine, widthStr, cmdArgs.windowWidth);
+	ParseCommandLineArg(cmdLine, widthStr, cmdArgs.WindowWidth);
 
 	const std::string heightStr = "--height";
-	ParseCommandLineArg(cmdLine, heightStr, cmdArgs.windowHeight);
+	ParseCommandLineArg(cmdLine, heightStr, cmdArgs.WindowHeight);
 
 	return cmdArgs;
 }
@@ -283,24 +283,27 @@ int WINAPI wWinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPWSTR lpCmdLine,
-	_In_ int nShowCmd)
+	_In_ i32 nShowCmd)
 {
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 	CreateConsole();
 
-	std::string cmdLineStr = WStringToString(lpCmdLine);
+	/*std::string cmdLineStr = WStringToString(lpCmdLine);
 	CommandLineArgs cmdArgs = {};
 
 	if (!cmdLineStr.empty())
 		cmdArgs = ParseCommandLineArgs(cmdLineStr);
 
-	LOG_INFO("Application", "Started with arguments: {}", cmdLineStr);
+	LOG_INFO("Application", "Started with arguments: {}", cmdLineStr);*/
 	
-	CreateWindow(cmdArgs.windowWidth, cmdArgs.windowHeight);
+	//CreateWindow(cmdArgs.WindowWidth, cmdArgs.WindowHeight);
+	CreateWindow(640, 480);
+
+	MemoryArena AppArena = {};
 
 	while (!Application::ShouldClose())
 	{
-		Application::Init();
+		Application::Init(&AppArena);
 		Application::Run();
 		Application::Exit();
 	}
