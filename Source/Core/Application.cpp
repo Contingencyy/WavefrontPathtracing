@@ -20,7 +20,7 @@ namespace Application
 
 	struct Instance
 	{
-		MemoryArena* Arena;
+		MemoryArena Arena;
 
 		Scene* ActiveScene;
 
@@ -77,21 +77,20 @@ namespace Application
 		CPUPathtracer::EndFrame();
 	}
 
-	void Init(MemoryArena* Arena)
+	void Init()
 	{
 		LOG_INFO("Application", "Init");
 
-		Inst = ARENA_ALLOC_STRUCT_ZERO(Arena, Instance);
-		Inst->Arena = Arena;
+		Inst = ARENA_BOOTSTRAP(Instance, 0);
 
 		i32 ClientWidth = 0, ClientHeight = 0;
 		GetWindowClientArea(ClientWidth, ClientHeight);
 
 		// We could do one arena per system eventually, but for now everything that needs
 		// to live for as long as the application does will use the same arena
-		CPUPathtracer::Init(Inst->Arena, ClientWidth, ClientHeight);
+		CPUPathtracer::Init(ClientWidth, ClientHeight);
 
-		Inst->ActiveScene = ARENA_ALLOC_STRUCT_ZERO(Arena, Scene);
+		Inst->ActiveScene = ARENA_ALLOC_STRUCT_ZERO(&Inst->Arena, Scene);
 		Inst->ActiveScene->Init();
 
 		Inst->bRunning = true;
@@ -104,7 +103,7 @@ namespace Application
 		CPUPathtracer::Exit();
 
 		Inst->ActiveScene->Destroy();
-		ARENA_RELEASE(Inst->Arena);
+		ARENA_RELEASE(&Inst->Arena);
 	}
 
 	void Run()

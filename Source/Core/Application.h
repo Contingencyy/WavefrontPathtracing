@@ -5,7 +5,7 @@ struct MemoryArena;
 namespace Application
 {
 
-	void Init(MemoryArena* Arena);
+	void Init();
 	void Exit();
 	void Run();
 

@@ -94,8 +94,9 @@ void MemoryArena::Clear(MemoryArena* Arena)
 
 void MemoryArena::Release(MemoryArena* Arena)
 {
-	VirtualMemory::Release(Arena->PtrBase);
+	void* PtrArenaBase = Arena->PtrBase;
 	Arena->PtrBase = Arena->PtrAt = Arena->PtrEnd = Arena->PtrCommitted = nullptr;
+	VirtualMemory::Release(PtrArenaBase);
 }
 
 u64 MemoryArena::TotalReserved(MemoryArena* Arena)
@@ -116,4 +117,13 @@ u64 MemoryArena::TotalFree(MemoryArena* Arena)
 u64 MemoryArena::TotalCommitted(MemoryArena* Arena)
 {
 	return Arena->PtrCommitted - Arena->PtrBase;
+}
+
+void* MemoryArena::BootstrapArena(u64 Size, u64 Align, u64 ArenaOffset)
+{
+	MemoryArena Arena = {};
+	void* Result = ARENA_ALLOC_ZERO(&Arena, Size, Align);
+	memcpy((u8*)Result + ArenaOffset, &Arena, sizeof(MemoryArena));
+
+	return Result;
 }

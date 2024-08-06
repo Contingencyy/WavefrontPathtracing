@@ -28,6 +28,8 @@ struct MemoryArena
 	static u64 TotalFree(MemoryArena* Arena);
 	static u64 TotalCommitted(MemoryArena* Arena);
 
+	static void* BootstrapArena(u64 Size, u64 Align, u64 ArenaOffset);
+
 #define ARENA_ALLOC(Arena, Size, Align) MemoryArena::Alloc(Arena, Size, Align)
 #define ARENA_ALLOC_ZERO(Arena, Size, Align) MemoryArena::AllocZero(Arena, Size, Align)
 #define ARENA_ALLOC_ARRAY(Arena, Type, Count) (Type *)MemoryArena::Alloc((Arena), sizeof(Type) * (Count), alignof(Type))
@@ -38,6 +40,8 @@ struct MemoryArena
 #define ARENA_FREE(Arena, Ptr) MemoryArena::Free(Arena, Ptr)
 #define ARENA_CLEAR(Arena) MemoryArena::Clear(Arena)
 #define ARENA_RELEASE(Arena) MemoryArena::Release(Arena)
+
+#define ARENA_BOOTSTRAP(Type, ArenaOffset) (Type *)MemoryArena::BootstrapArena(sizeof(Type), alignof(Type), ArenaOffset)
 
 #define ARENA_MEMORY_SCOPE(Arena) \
 	for (u8* ArenaMarker = (Arena)->PtrAt; (Arena) && ArenaMarker; ARENA_FREE((Arena), ArenaMarker), ArenaMarker = nullptr)

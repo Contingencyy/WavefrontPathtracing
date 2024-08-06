@@ -16,6 +16,8 @@ struct SceneObject
 class Scene
 {
 public:
+	/*static void CreateAndInit();
+	static void DestroyAndDeinit();*/
 	void Init();
 	void Destroy();
 

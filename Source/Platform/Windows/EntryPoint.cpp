@@ -299,11 +299,9 @@ int WINAPI wWinMain(
 	//CreateWindow(cmdArgs.WindowWidth, cmdArgs.WindowHeight);
 	CreateWindow(640, 480);
 
-	MemoryArena AppArena = {};
-
 	while (!Application::ShouldClose())
 	{
-		Application::Init(&AppArena);
+		Application::Init();
 		Application::Run();
 		Application::Exit();
 	}

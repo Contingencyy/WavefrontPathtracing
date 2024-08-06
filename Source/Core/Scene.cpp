@@ -10,9 +10,9 @@
 void Scene::Init()
 {
 	// Scene objects
-	m_SceneObjects = ARENA_ALLOC_ARRAY_ZERO(&m_Arena, SceneObject, 100);
 	m_SceneObjectCount = 100;
 	m_SceneObjectAt = 0;
+	m_SceneObjects = ARENA_ALLOC_ARRAY_ZERO(&m_Arena, SceneObject, m_SceneObjectCount);
 
 	// Camera Controller
 	m_CameraController = CameraController(Camera(

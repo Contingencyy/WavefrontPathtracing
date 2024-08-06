@@ -21,7 +21,7 @@ namespace CPUPathtracer
 
 	struct Instance
 	{
-		MemoryArena* Arena;
+		MemoryArena Arena;
 		u8* ArenaMarkerFrame;
 
 		u32 RenderWidth;
@@ -358,31 +358,30 @@ namespace CPUPathtracer
 		return glm::vec4(Energy, 1.0f);
 	}
 
-	void Init(MemoryArena* Arena, u32 RenderWidth, u32 RenderHeight)
+	void Init(u32 RenderWidth, u32 RenderHeight)
 	{
 		LOG_INFO("CPUPathtracer", "Init");
 		
 		// We first allocate the instance on the passed Arena, then we allocate from the instance arena
-		Inst = ARENA_ALLOC_STRUCT_ZERO(Arena, Instance);
-		Inst->Arena = Arena;
+		Inst = ARENA_BOOTSTRAP(Instance, 0);
 
 		Inst->RenderWidth = RenderWidth;
 		Inst->RenderHeight = RenderHeight;
 		Inst->InvRenderWidth = 1.0f / static_cast<f32>(Inst->RenderWidth);
 		Inst->InvRenderHeight = 1.0f / static_cast<f32>(Inst->RenderHeight);
 
-		Inst->PixelBuffer = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, u32, Inst->RenderWidth * Inst->RenderHeight);
-		Inst->PixelAccumulator = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, glm::vec4, Inst->RenderWidth * Inst->RenderHeight);
+		Inst->PixelBuffer = ARENA_ALLOC_ARRAY_ZERO(&Inst->Arena, u32, Inst->RenderWidth * Inst->RenderHeight);
+		Inst->PixelAccumulator = ARENA_ALLOC_ARRAY_ZERO(&Inst->Arena, glm::vec4, Inst->RenderWidth * Inst->RenderHeight);
 
-		Inst->TextureSlotmap.Init(Inst->Arena);
-		Inst->BvhSlotmap.Init(Inst->Arena);
+		Inst->TextureSlotmap.Init(&Inst->Arena);
+		Inst->BvhSlotmap.Init(&Inst->Arena);
 
 		Inst->BVHInstanceCount = 100;
 		Inst->BVHInstanceAt = 0;
-		Inst->BVHInstances = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, BVHInstance, Inst->BVHInstanceCount);
-		Inst->BVHMaterials = ARENA_ALLOC_ARRAY_ZERO(Inst->Arena, Material, Inst->BVHInstanceCount);
+		Inst->BVHInstances = ARENA_ALLOC_ARRAY_ZERO(&Inst->Arena, BVHInstance, Inst->BVHInstanceCount);
+		Inst->BVHMaterials = ARENA_ALLOC_ARRAY_ZERO(&Inst->Arena, Material, Inst->BVHInstanceCount);
 
-		Inst->RenderThreadpool.Init(Inst->Arena);
+		Inst->RenderThreadpool.Init(&Inst->Arena);
 
 		// Default render settings
 		Inst->Settings.RenderVisualization = RenderVisualization_None;
@@ -421,7 +420,7 @@ namespace CPUPathtracer
 		if (Inst->Settings.RenderVisualization != RenderVisualization_None)
 			ResetAccumulation();
 
-		Inst->ArenaMarkerFrame = Inst->Arena->PtrAt;
+		Inst->ArenaMarkerFrame = Inst->Arena.PtrAt;
 	}
 
 	void EndFrame()
@@ -432,7 +431,7 @@ namespace CPUPathtracer
 
 		Inst->FrameIndex++;
 
-		ARENA_FREE(Inst->Arena, Inst->ArenaMarkerFrame);
+		ARENA_FREE(&Inst->Arena, Inst->ArenaMarkerFrame);
 	}
 
 	void BeginScene(const Camera& SceneCamera, RenderTextureHandle REnvTextureHandle)
@@ -450,7 +449,7 @@ namespace CPUPathtracer
 		Inst->AccumulatedFrameCount++;
 
 		// Build the current scene's TLAS
-		Inst->SceneTLAS.Build(Inst->Arena, Inst->BVHInstances, Inst->BVHInstanceAt);
+		Inst->SceneTLAS.Build(&Inst->Arena, Inst->BVHInstances, Inst->BVHInstanceAt);
 
 		f32 AspectRatio = Inst->RenderWidth / static_cast<f32>(Inst->RenderHeight);
 		f32 TanFOV = glm::tan(glm::radians(Inst->SceneCamera.VFovDeg) / 2.0f);
@@ -590,7 +589,7 @@ namespace CPUPathtracer
 		Texture Texture = {};
 		Texture.Width = Width;
 		Texture.Height = Height;
-		Texture.PtrPixelData = ARENA_ALLOC_ARRAY(Inst->Arena, f32, Width * Height * 4);
+		Texture.PtrPixelData = ARENA_ALLOC_ARRAY(&Inst->Arena, f32, Width * Height * 4);
 		memcpy(Texture.PtrPixelData, PtrPixelData, Width * Height * sizeof(float) * 4);
 
 		RenderTextureHandle textureHandle = Inst->TextureSlotmap.Add(std::move(Texture));
@@ -602,7 +601,7 @@ namespace CPUPathtracer
 		BVH::BuildOptions buildOptions = {};
 
 		BVH meshBVH = {};
-		meshBVH.Build(Inst->Arena, Vertices, VertexCount, Indices, IndexCount, buildOptions);
+		meshBVH.Build(&Inst->Arena, Vertices, VertexCount, Indices, IndexCount, buildOptions);
 
 		RenderMeshHandle meshHandle = Inst->BvhSlotmap.Add(std::move(meshBVH));
 		return meshHandle;

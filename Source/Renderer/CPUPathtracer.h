@@ -7,7 +7,7 @@ struct Material;
 namespace CPUPathtracer
 {
 
-	void Init(MemoryArena* Arena, u32 RenderWidth, u32 RenderHeight);
+	void Init(u32 RenderWidth, u32 RenderHeight);
 	void Exit();
 
 	void BeginFrame();
