@@ -1,8 +1,7 @@
 #pragma once
 #include "Core/Common.h"
 
-#include <string>
-#include <format>
+#include <stdarg.h>
 
 #define ASSERT_MSG(expr, msg, ...) ((expr) ? true : (FatalError(__LINE__, __FILE__, "Assertion", msg, ##__VA_ARGS__), false))
 #define ASSERT(expr) ASSERT_MSG(expr, "Assertion failed: " #expr)
@@ -21,13 +20,21 @@
 #define FATAL_ERROR(sender, msg, ...) FatalError(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
 
 // Platform-specific implementation
-void FatalErrorImpl(i32 Line, const std::string& File, const std::string& Sender, const std::string& ErrorMessage);
+void FatalErrorImpl(i32 Line, const char* ErrorMessage);
 
-template<typename... TArgs>
-void FatalError(i32 Line, const std::string& File, const std::string& Sender, const std::string& Message, TArgs&&... Args)
+static void FatalError(i32 Line, const char* File, const char* Sender, const char* Message, ...)
 {
-	std::string FormattedMessage = std::vformat(Message, std::make_format_args(Args...));
-	std::string ErrorMessage = std::format("Fatal Error Occured\n[{}] {}\nFile: {}\nLine: {}\n", Sender, FormattedMessage, File, Line);
+	va_list Args;
+	va_start(Args, Message);
 
-	FatalErrorImpl(Line, File, Sender, ErrorMessage);
+	// TODO: Implement custom counted string class
+	char FormattedMessage[1024];
+	vsnprintf_s(FormattedMessage, ARRAY_SIZE(FormattedMessage), Message, Args);
+
+	char FullErrorMessage[1024];
+	sprintf_s(FullErrorMessage, ARRAY_SIZE(FullErrorMessage), "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", Sender, FormattedMessage, File, Line);
+
+	FatalErrorImpl(Line, FullErrorMessage);
+
+	va_end(Args);
 }

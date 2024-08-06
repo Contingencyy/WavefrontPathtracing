@@ -235,9 +235,9 @@ static inline void CreateWindow(i32 windowWidth, i32 windowHeight)
 	ShowWindow(s_HWND, TRUE);
 }
 
-void FatalErrorImpl(i32 line, const std::string& file, const std::string& sender, const std::string& errorMsg)
+void FatalErrorImpl(i32 line, const char* ErrorMessage)
 {
-	MessageBoxA(NULL, errorMsg.c_str(), "Fatal Error", MB_OK);
+	MessageBoxA(NULL, ErrorMessage, "Fatal Error", MB_OK);
 	__debugbreak();
 	ExitProcess(1);
 }
@@ -248,35 +248,43 @@ struct CommandLineArgs
 	i32 WindowHeight = 0;
 };
 
-static std::string WStringToString(const std::wstring_view& wstring)
+static CommandLineArgs ParseCommandLineArgs(char* CmdLine)
 {
-	std::string result;
-	result.resize(wstring.size());
-	int conversionCode = WideCharToMultiByte(CP_UTF8, 0, wstring.data(), wstring.size(), result.data(), result.size(), NULL, nullptr);
+	CommandLineArgs CmdArgs = {};
+	char* ArgCurrent = CmdLine;
 
-	return result;
-}
+	while (true)
+	{
+		const char* ArgBegin = strchr(ArgCurrent, '-');
+		if (ArgBegin == NULL)
+			break;
 
-template<typename i32>
-void ParseCommandLineArg(const std::string_view& cmdLine, const std::string_view& argStr, i32& parsedValue)
-{
-	size_t argParamBegin = cmdLine.find(argStr, 0) + argStr.size() + 1;
-	size_t argParamEnd = std::min(cmdLine.find(" ", argParamBegin), cmdLine.size());
+		const char* ArgEnd = strchr(ArgBegin, ' ');
+		if (ArgEnd == NULL)
+			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", CmdLine);
 
-	parsedValue = std::stoi(std::string(cmdLine.substr(argParamBegin, argParamEnd - argParamBegin)));
-}
+		const char* ParamBegin = ArgEnd + 1;
+		if (ParamBegin == NULL)
+			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", CmdLine);
 
-static CommandLineArgs ParseCommandLineArgs(const std::string_view& cmdLine)
-{
-	CommandLineArgs cmdArgs = {};
+		const char* ParamEnd = strchr(ParamBegin, ' ');
+		if (ParamEnd == NULL)
+			ParamEnd = strchr(ParamBegin, '\0');
 
-	const std::string widthStr = "--width";
-	ParseCommandLineArg(cmdLine, widthStr, cmdArgs.WindowWidth);
+		char ArgStr[32];
+		strncpy_s(ArgStr, ArgBegin, ArgEnd - ArgBegin);
 
-	const std::string heightStr = "--height";
-	ParseCommandLineArg(cmdLine, heightStr, cmdArgs.WindowHeight);
+		if (strcmp(ArgStr, "--width") == 0)
+		{
+			CmdArgs.WindowWidth = strtol(ParamBegin, &ArgCurrent, 10);
+		}
+		else if (strcmp(ArgStr, "--height") == 0)
+		{
+			CmdArgs.WindowHeight = strtol(ParamBegin, &ArgCurrent, 10);
+		}
+	}
 
-	return cmdArgs;
+	return CmdArgs;
 }
 
 int WINAPI wWinMain(
@@ -288,16 +296,13 @@ int WINAPI wWinMain(
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 	CreateConsole();
 
-	/*std::string cmdLineStr = WStringToString(lpCmdLine);
-	CommandLineArgs cmdArgs = {};
+	char CmdLine[512];
+	wcstombs(CmdLine, lpCmdLine, ARRAY_SIZE(CmdLine));
+	CommandLineArgs CmdArgs = ParseCommandLineArgs(CmdLine);
 
-	if (!cmdLineStr.empty())
-		cmdArgs = ParseCommandLineArgs(cmdLineStr);
-
-	LOG_INFO("Application", "Started with arguments: {}", cmdLineStr);*/
+	LOG_INFO("Application", "Started with arguments: %s", CmdLine);
 	
-	//CreateWindow(cmdArgs.WindowWidth, cmdArgs.WindowHeight);
-	CreateWindow(640, 480);
+	CreateWindow(CmdArgs.WindowWidth, CmdArgs.WindowHeight);
 
 	while (!Application::ShouldClose())
 	{

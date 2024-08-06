@@ -1,4 +1,6 @@
 #pragma once
+#include <stdarg.h>
+#include <iostream>
 
 namespace Logger
 {
@@ -25,16 +27,24 @@ namespace Logger
 		}
 	}
 
-	template<typename... TArgs>
-	void Log(LogSeverity Severity, const std::string& Sender, const std::string& LogMessage, TArgs&&... Args)
+	static void Log(LogSeverity Severity, const char* Sender, const char* LogMessage, ...)
 	{
-		/*if (Severity < LOG_SEVERITY_MINIMUM_LEVEL)
+		if (Severity < LOG_SEVERITY_MINIMUM_LEVEL)
 			return;
 
-		std::string FormattedLogMessage = std::format("[{}]\t[{}]\t", LogSeverityToString(Severity), Sender) +
-			std::vformat(LogMessage, std::make_format_args(Args...));
+		va_list Args;
+		va_start(Args, LogMessage);
 
-		std::cout << FormattedLogMessage << std::endl;*/
+		// TODO: Implement custom counted string class
+		char LogMessageFormatted[512];
+		vsnprintf_s(LogMessageFormatted, ARRAY_SIZE(LogMessageFormatted), LogMessage, Args);
+
+		char FinalMessage[512];
+		sprintf_s(FinalMessage, ARRAY_SIZE(FinalMessage), "[%s] [%s]\t%s", LogSeverityToString(Severity), Sender, LogMessageFormatted);
+
+		va_end(Args);
+
+		std::cout << FinalMessage << std::endl;
 	}
 
 }
