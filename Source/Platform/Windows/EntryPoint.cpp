@@ -190,15 +190,15 @@ b8 PollWindowEvents()
 	return true;
 }
 
-static inline void CreateWindow(i32 windowWidth, i32 windowHeight)
+static inline void CreateWindow(i32 DesiredClientWidth, i32 DesiredClientHeight)
 {
 	i32 screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
 	i32 screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
 
-	if (windowWidth <= 0 || windowWidth > screenWidth)
-		windowWidth = 4 * screenWidth / 5;
-	if (windowHeight <= 0 || windowHeight > screenHeight)
-		windowHeight = 4 * screenHeight / 5;
+	if (DesiredClientWidth <= 0 || DesiredClientWidth > screenWidth)
+		DesiredClientWidth = 4 * screenWidth / 5;
+	if (DesiredClientHeight <= 0 || DesiredClientHeight > screenHeight)
+		DesiredClientHeight = 4 * screenHeight / 5;
 
 	WNDCLASSEXW windowClass =
 	{
@@ -217,22 +217,33 @@ static inline void CreateWindow(i32 windowWidth, i32 windowHeight)
 	{
 		.left = 0,
 		.top = 0,
-		.right = windowWidth,
-		.bottom = windowHeight
+		.right = DesiredClientWidth,
+		.bottom = DesiredClientHeight
 	};
+	AdjustWindowRectEx(&windowRect, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
-	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+	i32 WindowWidth = windowRect.right - windowRect.left;
+	i32 WindowHeight = windowRect.bottom - windowRect.top;
 
+	i32 WindowX = glm::max(0, (screenWidth - WindowWidth) / 2);
+	i32 WindowY = glm::max(0, (screenHeight - WindowHeight) / 2);
+	
 	s_HWND = CreateWindowExW(
 		0, L"WavefrontPathtracerWindowClass", L"Wavefront Pathtracer", WS_OVERLAPPEDWINDOW,
-		screenWidth - windowRect.right - 32, screenHeight - windowRect.bottom - 32, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
+		WindowX, WindowY, WindowWidth, WindowHeight,
 		NULL, NULL, NULL, NULL
 	);
-	
+
 	if (!s_HWND)
 		FATAL_ERROR("Window", "Failed to create window");
 
 	ShowWindow(s_HWND, TRUE);
+
+	RECT clientRect;
+	GetClientRect(s_HWND, &clientRect);
+
+	ASSERT(clientRect.right - clientRect.left == DesiredClientWidth);
+	ASSERT(clientRect.bottom - clientRect.top == DesiredClientHeight);
 }
 
 void FatalErrorImpl(i32 line, const char* ErrorMessage)

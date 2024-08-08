@@ -110,8 +110,8 @@ namespace CPUPathtracer
 
 	static glm::vec4 TracePath(Ray& Ray)
 	{
-		// TODO: MemoryArena/bump allocators
-		// TODO: Custom string class, counted strings
+		// TODO: Make memory arena statistics and visualizations using Dear ImPlot library
+		// TODO: Custom string class, counted strings, use in Assertion.h, Logger.h, EntryPoint.cpp for command line parsing
 		// TODO: SafeTruncate for int and uint types, asserting if the value of a u64 is larger than the one to truncate to
 		// TODO: Make any resolution work with the multi-threaded rendering dispatch
 		// TODO: Find a better epsilon for the Möller-Trumbore Triangle Intersection Algorithm
@@ -141,8 +141,8 @@ namespace CPUPathtracer
 			// FIX: Why does the amount of average Energy received change when we toggle Inst->Settings.linearToSRGB?
 		// TODO: Window resizing and resolution resizing
 		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
-		// TODO: Spawn new objects from ImGui
 		// TODO: Scene hierarchy
+			// TODO: Spawn new objects from ImGui
 		// TODO: ImGuizmo to transform objects
 		// TODO: Ray/path visualization mode
 		// TODO: Unit tests for RTUtil functions like UniformHemisphereSampling (testing the resulting Dir for length 1 for example)
