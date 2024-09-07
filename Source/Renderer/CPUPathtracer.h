@@ -1,26 +1,26 @@
 #pragma once
-#include "Renderer/RendererFwd.h"
+#include "renderer/renderer_fwd.h"
 
-struct Camera;
-struct Material;
+struct camera_t;
+struct material_t;
 
-namespace CPUPathtracer
+namespace cpupathtracer
 {
 
-	void Init(u32 RenderWidth, u32 RenderHeight);
-	void Exit();
+	void init(u32 render_width, u32 render_height);
+	void exit();
 
-	void BeginFrame();
-	void EndFrame();
+	void begin_frame();
+	void end_frame();
 
-	void BeginScene(const Camera& SceneCamera, RenderTextureHandle REnvTextureHandle);
-	void Render();
-	void EndScene();
+	void begin_scene(const camera_t& scene_camera, render_texture_handle_t env_render_texture_handle);
+	void render();
+	void end_scene();
 	
-	void RenderUI();
+	void render_ui();
 
-	RenderTextureHandle CreateTexture(u32 Width, u32 Height, f32* PtrPixelData);
-	RenderMeshHandle CreateMesh(Vertex* Vertices, u32 VertexCount, u32* Indices, u32 IndexCount);
-	void SubmitMesh(RenderMeshHandle RMeshHandle, const glm::mat4& Transform, const Material& Mat);
+	render_texture_handle_t create_texture(u32 width, u32 height, f32* ptr_pixel_data);
+	render_mesh_handle_t create_mesh(vertex_t* vertices, u32 vertex_count, u32* indices, u32 index_count);
+	void submit_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material);
 
 }

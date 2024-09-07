@@ -1,20 +1,20 @@
-#include "Pch.h"
-#include "Core/Input.h"
-#include "Core/Containers/Hashmap.h"
+#include "pch.h"
+#include "core/input.h"
+#include "core/containers/hashmap.h"
 
 #define WINDOWS_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
 
-void ResetMousePositionToCenter();
-void GetWindowCenter(i32& windowCenterX, i32& windowCenterY);
+void reset_mouse_position_to_center();
+void get_window_center(i32& out_centerX, i32& out_centerY);
 
-namespace Input
+namespace input
 {
 
-	static KeyCode WParamToKeyCode(WPARAM WParam)
+	static keycode_t wparam_to_keycode(WPARAM wparam)
 	{
-		switch (WParam)
+		switch (wparam)
 		{
 		case VK_LBUTTON: return KeyCode_LeftMouse;
 		case VK_RBUTTON: return KeyCode_RightMouse;
@@ -29,110 +29,110 @@ namespace Input
 		}
 	}
 
-	static b8 KeyStates[KeyCode_NumKeys];
-	static b8 bCapturingMouse = false;
-	static b8 bWindowFocus = true;
+	static b8 s_keystates[KeyCode_NumKeys];
+	static b8 s_capturing_mouse = false;
+	static b8 s_window_focused = true;
 
-	static i32 PrevMouseX = 0;
-	static i32 PrevMouseY = 0;
-	static i32 CurrMouseX = 0;
-	static i32 CurrMouseY = 0;
+	static i32 s_prev_mouseX = 0;
+	static i32 s_prev_mouseY = 0;
+	static i32 s_curr_mouseX = 0;
+	static i32 s_curr_mouseY = 0;
 
-	static f32 MouseWheelDelta = 0.0f;
+	static f32 s_mousewheel_delta = 0.0f;
 
-	void OnPlatformKeyButtonStateChanged(u64 PlatformCode, b8 bPressed)
+	void on_platform_key_button_state_changed(u64 platformcode, b8 pressed)
 	{
-		if (WParamToKeyCode(PlatformCode) != KeyCode_NumKeys)
-			KeyStates[WParamToKeyCode(PlatformCode)] = bPressed;
+		if (wparam_to_keycode(platformcode) != KeyCode_NumKeys)
+			s_keystates[wparam_to_keycode(platformcode)] = pressed;
 	}
 
-	void OnMouseWheelScrolled(f32 WheelDelta)
+	void on_mousewheel_scrolled(f32 wheel_delta)
 	{
-		MouseWheelDelta += WheelDelta;
+		s_mousewheel_delta += wheel_delta;
 	}
 
-	void UpdateMousePos()
+	void update_mouse_pos()
 	{
-		PrevMouseX = CurrMouseX;
-		PrevMouseY = CurrMouseY;
+		s_prev_mouseX = s_curr_mouseX;
+		s_prev_mouseY = s_curr_mouseY;
 
-		POINT mousePos = {};
-		GetCursorPos(&mousePos);
+		POINT mouse_pos = {};
+		GetCursorPos(&mouse_pos);
 
-		CurrMouseX = mousePos.x;
-		CurrMouseY = mousePos.y;
+		s_curr_mouseX = mouse_pos.x;
+		s_curr_mouseY = mouse_pos.y;
 
-		if (bCapturingMouse)
+		if (s_capturing_mouse)
 		{
-			// If we are capturing the mouse, we reset the mouse Position to the Center of the window
+			// If we are capturing the mouse, we reset the mouse position to the center of the window
 			// However, this would mess with our mouse movement, so we need to move the mouse over artificially while preserving the delta
 			i32 centerX, centerY;
-			GetWindowCenter(centerX, centerY);
+			get_window_center(centerX, centerY);
 
-			i32 deltaX = centerX - CurrMouseX;
-			i32 deltaY = centerY - CurrMouseY;
-			CurrMouseX += deltaX;
-			CurrMouseY += deltaY;
-			PrevMouseX += deltaX;
-			PrevMouseY += deltaY;
+			i32 deltaX = centerX - s_curr_mouseX;
+			i32 deltaY = centerY - s_curr_mouseY;
+			s_curr_mouseX += deltaX;
+			s_curr_mouseY += deltaY;
+			s_prev_mouseX += deltaX;
+			s_prev_mouseY += deltaY;
 
-			ResetMousePositionToCenter();
+			reset_mouse_position_to_center();
 		}
 	}
 
-	b8 IsKeyPressed(KeyCode KeyCode)
+	b8 is_key_pressed(keycode_t keycode)
 	{
-		return KeyStates[KeyCode];
+		return s_keystates[keycode];
 	}
 
-	f32 GetAxis1D(KeyCode AxisPos, KeyCode AxisNeg)
+	f32 get_axis_1D(keycode_t axis_pos, keycode_t axis_neg)
 	{
-		return static_cast<f32>(KeyStates[AxisPos]) + (-static_cast<f32>(KeyStates[AxisNeg]));
+		return static_cast<f32>(s_keystates[axis_pos]) + (-static_cast<f32>(s_keystates[axis_neg]));
 	}
 
-	f32 GetMouseRelX()
+	f32 get_mouse_relX()
 	{
-		return static_cast<f32>(CurrMouseX - PrevMouseX);
+		return static_cast<f32>(s_curr_mouseX - s_prev_mouseX);
 	}
 
-	f32 GetMouseRelY()
+	f32 get_mouse_relY()
 	{
-		return static_cast<f32>(CurrMouseY - PrevMouseY);
+		return static_cast<f32>(s_curr_mouseY - s_prev_mouseY);
 	}
 
-	f32 GetMouseScrollRelY()
+	f32 get_mouse_scroll_relY()
 	{
-		return MouseWheelDelta;
+		return s_mousewheel_delta;
 	}
 
-	void SetMouseCapture(b8 bCapture)
+	void set_mouse_capture(b8 bCapture)
 	{
-		bCapturingMouse = bCapture;
+		s_capturing_mouse = bCapture;
 
-		// Reset the mouse positions so there is no instant teleportation once mouse capture starts
-		if (bCapturingMouse)
+		// reset the mouse positions so there is no instant teleportation once mouse capture starts
+		if (s_capturing_mouse)
 		{
 			POINT mousePos = {};
 			GetCursorPos(&mousePos);
 
-			PrevMouseX = CurrMouseX = mousePos.x;
-			PrevMouseY = CurrMouseY = mousePos.y;
+			s_prev_mouseX = s_curr_mouseX = mousePos.x;
+			s_prev_mouseY = s_curr_mouseY = mousePos.y;
 		}
 	}
 
-	b8 IsMouseCaptured()
+	b8 is_mouse_captured()
 	{
-		return bCapturingMouse && bWindowFocus;
+		return s_capturing_mouse && s_window_focused;
 	}
 
-	void SetWindowFocus(b8 bFocus)
+	void set_window_focus(b8 bFocus)
 	{
-		bWindowFocus = bFocus;
+		s_window_focused = bFocus;
 	}
 
-	void Reset()
+	void reset()
 	{
-		MouseWheelDelta = 0.0f;
+		s_mousewheel_delta = 0.0f;
 	}
 
 }

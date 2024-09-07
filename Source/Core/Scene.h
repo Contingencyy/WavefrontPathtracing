@@ -1,46 +1,46 @@
 #pragma once
-#include "Core/Camera/CameraController.h"
-#include "Renderer/RendererFwd.h"
-#include "Renderer/RaytracingUtils.h"
+#include "core/camera/camera_controller.h"
+#include "renderer/renderer_fwd.h"
+#include "renderer/raytracing_utils.h"
 
-struct TextureAsset;
-struct SceneAsset;
+struct texture_asset_t;
+struct scene_asset_t;
 
-struct SceneObject
+struct scene_object_t
 {
-	RenderMeshHandle RMeshHandle;
-	glm::mat4 Transform;
-	Material Mat;
+	render_mesh_handle_t render_mesh_handle;
+	glm::mat4 transform_mat;
+	material_t material;
 };
 
-class Scene
+class scene_t
 {
 public:
 	/*static void CreateAndInit();
 	static void DestroyAndDeinit();*/
-	void Init();
-	void Destroy();
+	void init();
+	void destroy();
 
-	void Update(f32 DeltaTime);
-	void Render();
+	void update(f32 DeltaTime);
+	void render();
 
-	void RenderUI();
-
-private:
-	void CreateSceneObject(RenderMeshHandle RMeshHandle, const Material& Mat,
-		const glm::vec3& Pos, const glm::vec3& Rot, const glm::vec3& Scale);
+	void render_ui();
 
 private:
-	MemoryArena m_Arena;
+	void create_scene_object(render_mesh_handle_t render_mesh_handle, const material_t& material,
+		const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale);
 
-	CameraController m_CameraController;
+private:
+	memory_arena_t m_arena;
 
-	// TODO: Free-list for scene objects
-	u32 m_SceneObjectCount;
-	u32 m_SceneObjectAt;
-	SceneObject* m_SceneObjects;
+	camera_controller_t m_camera_controller;
 
-	TextureAsset* m_HDREnvAsset;
-	SceneAsset* m_DragonAsset;
+	// TODO: free-list for scene objects
+	u32 m_scene_object_count;
+	u32 m_scene_object_at;
+	scene_object_t* m_scene_objects;
+
+	texture_asset_t* m_hdr_env_texture_asset;
+	scene_asset_t* m_dragon_scene_asset;
 
 };

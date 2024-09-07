@@ -1,132 +1,132 @@
-#include "Pch.h"
-#include "Application.h"
-#include "Core/Logger.h"
-#include "Core/Scene.h"
-#include "Core/Input.h"
-#include "Renderer/CPUPathtracer.h"
+#include "pch.h"
+#include "application.h"
+#include "core/logger.h"
+#include "core/scene.h"
+#include "core/input.h"
+#include "renderer/cpupathtracer.h"
 
 #include "imgui/imgui.h"
 
 #include <chrono>
 
-void GetWindowClientArea(i32& WindowWidth, i32& WindowHeight);
-void SetWindowCaptureMouse(b8 bCapture);
-b8 PollWindowEvents();
+void get_window_client_area(i32& out_window_width, i32& out_window_height);
+void set_window_capture_mouse(b8 capture);
+b8 poll_window_events();
 
-namespace Application
+namespace application
 {
 
-	static b8 s_ShouldClose = false;
+	static b8 s_should_close = false;
 
-	struct Instance
+	struct instance_t
 	{
-		MemoryArena Arena;
+		memory_arena_t arena;
 
-		Scene* ActiveScene;
+		scene_t* active_scene;
 
-		std::chrono::duration<f32> DeltaTime = std::chrono::duration<f32>(0.0f);
-		b8 bRunning = false;
-	} static *Inst;
+		std::chrono::duration<f32> delta_time = std::chrono::duration<f32>(0.0f);
+		b8 running = false;
+	} static *inst;
 
-	static void HandleEvents()
+	static void handle_events()
 	{
-		s_ShouldClose = !PollWindowEvents();
+		s_should_close = !poll_window_events();
 
 		if (!ImGui::GetIO().WantCaptureMouse)
 		{
-			if (!Input::IsMouseCaptured() && Input::IsKeyPressed(Input::KeyCode_LeftMouse))
+			if (!input::is_mouse_captured() && input::is_key_pressed(input::KeyCode_LeftMouse))
 			{
-				SetWindowCaptureMouse(true);
+				set_window_capture_mouse(true);
 			}
 		}
-		if (Input::IsMouseCaptured())
+		if (input::is_mouse_captured())
 		{
-			if (Input::IsKeyPressed(Input::KeyCode_RightMouse))
+			if (input::is_key_pressed(input::KeyCode_RightMouse))
 			{
-				SetWindowCaptureMouse(false);
+				set_window_capture_mouse(false);
 			}
 		}
 	}
 
-	static void Update()
+	static void update()
 	{
-		Inst->ActiveScene->Update(Inst->DeltaTime.count());
+		inst->active_scene->update(inst->delta_time.count());
 	}
 
-	static void RenderUI()
+	static void render_ui()
 	{
 		ImGui::Begin("General");
 
-		u32 FPS = 1.0f / Inst->DeltaTime.count();
-		f32 FrameTimeMS = Inst->DeltaTime.count() * 1000.0f;
+		u32 fps = 1.0f / inst->delta_time.count();
+		f32 frametime_ms = inst->delta_time.count() * 1000.0f;
 
-		ImGui::Text("FPS: %u", FPS);
-		ImGui::Text("Frametime: %.3f ms", FrameTimeMS);
+		ImGui::Text("FPS: %u", fps);
+		ImGui::Text("Frametime: %.3f ms", frametime_ms);
 
 		ImGui::End();
 
-		Inst->ActiveScene->RenderUI();
-		CPUPathtracer::RenderUI();
+		inst->active_scene->render_ui();
+		cpupathtracer::render_ui();
 	}
 
-	static void Render()
+	static void render()
 	{
-		CPUPathtracer::BeginFrame();
-		Inst->ActiveScene->Render();
-		RenderUI();
-		CPUPathtracer::EndFrame();
+		cpupathtracer::begin_frame();
+		inst->active_scene->render();
+		render_ui();
+		cpupathtracer::end_frame();
 	}
 
-	void Init()
+	void init()
 	{
-		LOG_INFO("Application", "Init");
+		LOG_INFO("application", "init");
 
-		Inst = ARENA_BOOTSTRAP(Instance, 0);
+		inst = ARENA_BOOTSTRAP(instance_t, 0);
 
-		i32 ClientWidth = 0, ClientHeight = 0;
-		GetWindowClientArea(ClientWidth, ClientHeight);
+		i32 client_width = 0, client_height = 0;
+		get_window_client_area(client_width, client_height);
 
 		// We could do one arena per system eventually, but for now everything that needs
 		// to live for as long as the application does will use the same arena
-		CPUPathtracer::Init(ClientWidth, ClientHeight);
+		cpupathtracer::init(client_width, client_height);
 
-		Inst->ActiveScene = ARENA_ALLOC_STRUCT_ZERO(&Inst->Arena, Scene);
-		Inst->ActiveScene->Init();
+		inst->active_scene = ARENA_ALLOC_STRUCT_ZERO(&inst->arena, scene_t);
+		inst->active_scene->init();
 
-		Inst->bRunning = true;
+		inst->running = true;
 	}
 
-	void Exit()
+	void exit()
 	{
-		LOG_INFO("Application", "Exit");
+		LOG_INFO("application", "exit");
 
-		CPUPathtracer::Exit();
+		cpupathtracer::exit();
 
-		Inst->ActiveScene->Destroy();
-		ARENA_RELEASE(&Inst->Arena);
+		inst->active_scene->destroy();
+		ARENA_RELEASE(&inst->arena);
 	}
 
-	void Run()
+	void run()
 	{
-		std::chrono::high_resolution_clock::time_point TimeCurr = std::chrono::high_resolution_clock::now();
-		std::chrono::high_resolution_clock::time_point TimePrev = std::chrono::high_resolution_clock::now();
+		std::chrono::high_resolution_clock::time_point time_curr = std::chrono::high_resolution_clock::now();
+		std::chrono::high_resolution_clock::time_point time_prev = std::chrono::high_resolution_clock::now();
 
-		while (Inst->bRunning && !s_ShouldClose)
+		while (inst->running && !s_should_close)
 		{
-			TimeCurr = std::chrono::high_resolution_clock::now();
-			Inst->DeltaTime = TimeCurr - TimePrev;
+			time_curr = std::chrono::high_resolution_clock::now();
+			inst->delta_time = time_curr - time_prev;
 
-			HandleEvents();
-			Update();
-			Render();
+			handle_events();
+			update();
+			render();
 
-			TimePrev = TimeCurr;
+			time_prev = time_curr;
 		}
 	}
 
-	b8 ShouldClose()
+	b8 should_close()
 	{
-		return s_ShouldClose;
+		return s_should_close;
 	}
 
 }

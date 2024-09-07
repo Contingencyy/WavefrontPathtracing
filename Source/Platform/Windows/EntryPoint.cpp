@@ -1,14 +1,14 @@
-#include "Pch.h"
-#include "Core/Application.h"
-#include "Core/Logger.h"
-#include "Core/Input.h"
+#include "pch.h"
+#include "core/application.h"
+#include "core/logger.h"
+#include "core/input.h"
 
 #define WINDOWS_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
 
-#ifdef CreateWindow
-#undef CreateWindow
+#ifdef create_window
+#undef create_window
 #endif
 
 #ifdef near
@@ -35,12 +35,12 @@
 
 #include "imgui/imgui_impl_win32.h"
 
-static HWND s_HWND;
+static HWND s_hwnd;
 
-static inline void CreateConsole()
+static inline void create_console()
 {
-	b8 Result = AllocConsole();
-	if (!Result)
+	b8 result = AllocConsole();
+	if (!result)
 		FATAL_ERROR("Console", "Failed to allocate console");
 
 	SetConsoleTitle("Wavefront Pathtracer Console");
@@ -49,62 +49,62 @@ static inline void CreateConsole()
 	freopen("conout$", "w", stderr);
 }
 
-static inline void DestroyConsole()
+static inline void destroy_console()
 {
 	/*fclose(fileStdin);
 	fclose(fileStdout);
 	fclose(fileStderr);*/
 
-	b8 Result = FreeConsole();
-	if (!Result)
+	b8 result = FreeConsole();
+	if (!result)
 		FATAL_ERROR("Console", "Failed to free console");
 }
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT Message, WPARAM WParam, LPARAM LParam);
-LRESULT WINAPI WindowProc(HWND hwnd, UINT Message, WPARAM WParam, LPARAM LParam)
+LRESULT WINAPI window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-	if (ImGui_ImplWin32_WndProcHandler(hwnd, Message, WParam, LParam))
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam))
 		return true;
 
-	switch (Message)
+	switch (msg)
 	{
 	case WM_SIZE:
 	case WM_SIZING:
 	{
-		// TODO: Handle resizing swap chain and everything else that needs to happen when the window is resized
+		// TODO: handle resizing swap chain and everything else that needs to happen when the window is resized
 	} break;
 	case WM_SYSKEYDOWN:
 	case WM_KEYDOWN:
 	case WM_LBUTTONDOWN:
 	case WM_RBUTTONDOWN:
 	{
-		Input::OnPlatformKeyButtonStateChanged(WParam, true);
+		input::on_platform_key_button_state_changed(wparam, true);
 	} break;
 	case WM_SYSKEYUP:
 	case WM_KEYUP:
 	{
-		Input::OnPlatformKeyButtonStateChanged(WParam, false);
+		input::on_platform_key_button_state_changed(wparam, false);
 	} break;
 	case WM_LBUTTONUP:
 	{
-		Input::OnPlatformKeyButtonStateChanged(VK_LBUTTON, false);
+		input::on_platform_key_button_state_changed(VK_LBUTTON, false);
 	} break;
 	case WM_RBUTTONUP:
 	{
-		Input::OnPlatformKeyButtonStateChanged(VK_RBUTTON, false);
+		input::on_platform_key_button_state_changed(VK_RBUTTON, false);
 	} break;
 	case WM_MOUSEWHEEL:
 	{
-		f32 wheelDelta = GET_WHEEL_DELTA_WPARAM(WParam);
-		Input::OnMouseWheelScrolled(wheelDelta);
+		f32 wheel_delta = GET_WHEEL_DELTA_WPARAM(wparam);
+		input::on_mousewheel_scrolled(wheel_delta);
 	} break;
 	case WM_SETFOCUS:
 	{
-		Input::SetWindowFocus(true);
+		input::set_window_focus(true);
 	} break;
 	case WM_KILLFOCUS:
 	{
-		Input::SetWindowFocus(false);
+		input::set_window_focus(false);
 	} break;
 	case WM_DESTROY:
 	{
@@ -112,70 +112,71 @@ LRESULT WINAPI WindowProc(HWND hwnd, UINT Message, WPARAM WParam, LPARAM LParam)
 	} break;
 	default:
 	{
-		return DefWindowProcW(hwnd, Message, WParam, LParam);
+		return DefWindowProcW(hwnd, msg, wparam, lparam);
 	} break;
 	}
 
 	return 0;
 }
 
-void GetWindowClientArea(i32& WindowWidth, i32& WindowHeight)
+void get_window_client_area(i32& out_window_width, i32& out_window_height)
 {
-	RECT clientRect = {};
-	GetClientRect(s_HWND, &clientRect);
+	RECT client_rect = {};
+	GetClientRect(s_hwnd, &client_rect);
 
-	WindowWidth = clientRect.right - clientRect.left;
-	WindowHeight = clientRect.bottom - clientRect.top;
+	out_window_width = client_rect.right - client_rect.left;
+	out_window_height = client_rect.bottom - client_rect.top;
 }
 
-void GetWindowCenter(i32& windowCenterX, i32& windowCenterY)
+void get_window_center(i32& out_centerX, i32& out_centerY)
 {
-	RECT windowRect = {};
-	GetWindowRect(s_HWND, &windowRect);
+	RECT window_rect = {};
+	GetWindowRect(s_hwnd, &window_rect);
 
-	RECT clientRect = {};
-	GetClientRect(s_HWND, &clientRect);
+	RECT client_rect = {};
+	GetClientRect(s_hwnd, &client_rect);
 
-	clientRect.left = windowRect.left;
-	clientRect.right += windowRect.left;
-	clientRect.top = windowRect.top;
-	clientRect.bottom += windowRect.top;
+	client_rect.left = window_rect.left;
+	client_rect.right += window_rect.left;
+	client_rect.top = window_rect.top;
+	client_rect.bottom += window_rect.top;
 
-	windowCenterX = clientRect.left + (clientRect.right - clientRect.left) / 2;
-	windowCenterY = clientRect.top + (clientRect.bottom - clientRect.top) / 2;
+	out_centerX = client_rect.left + (client_rect.right - client_rect.left) / 2;
+	out_centerY = client_rect.top + (client_rect.bottom - client_rect.top) / 2;
 }
 
-void ResetMousePositionToCenter()
+void reset_mouse_position_to_center()
 {
-	i32 windowCenterX, windowCenterY;
-	GetWindowCenter(windowCenterX, windowCenterY);
-	SetCursorPos(windowCenterX, windowCenterY);
+	i32 window_centerX, window_centerY;
+	get_window_center(window_centerX, window_centerY);
+	SetCursorPos(window_centerX, window_centerY);
 }
 
-void SetWindowCaptureMouse(b8 bCapture)
+void set_window_capture_mouse(b8 capture)
 {
-	RECT windowRect = {};
-	GetWindowRect(s_HWND, &windowRect);
+	RECT window_rect = {};
+	GetWindowRect(s_hwnd, &window_rect);
 
-	RECT clientRect = {};
-	GetClientRect(s_HWND, &clientRect);
+	RECT client_rect = {};
+	GetClientRect(s_hwnd, &client_rect);
 
-	clientRect.left = windowRect.left;
-	clientRect.right += windowRect.left;
-	clientRect.top = windowRect.top;
-	clientRect.bottom += windowRect.top;
+	client_rect.left = window_rect.left;
+	client_rect.right += window_rect.left;
+	client_rect.top = window_rect.top;
+	client_rect.bottom += window_rect.top;
 
-	ShowCursor(!bCapture);
-	ClipCursor(bCapture ? &clientRect : nullptr);
-	ResetMousePositionToCenter();
+	ShowCursor(!capture);
+	ClipCursor(capture ? &client_rect : nullptr);
 
-	Input::SetMouseCapture(bCapture);
+	reset_mouse_position_to_center();
+
+	input::set_mouse_capture(capture);
 }
 
-b8 PollWindowEvents()
+b8 poll_window_events()
 {
-	Input::Reset();
-	Input::UpdateMousePos();
+	input::reset();
+	input::update_mouse_pos();
 
 	MSG msg = {};
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) != NULL)
@@ -190,112 +191,112 @@ b8 PollWindowEvents()
 	return true;
 }
 
-static inline void CreateWindow(i32 DesiredClientWidth, i32 DesiredClientHeight)
+static inline void create_window(i32 desired_client_width, i32 desired_client_height)
 {
-	i32 screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
-	i32 screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
+	i32 screen_width = GetSystemMetrics(SM_CXFULLSCREEN);
+	i32 screen_height = GetSystemMetrics(SM_CYFULLSCREEN);
 
-	if (DesiredClientWidth <= 0 || DesiredClientWidth > screenWidth)
-		DesiredClientWidth = 4 * screenWidth / 5;
-	if (DesiredClientHeight <= 0 || DesiredClientHeight > screenHeight)
-		DesiredClientHeight = 4 * screenHeight / 5;
+	if (desired_client_width <= 0 || desired_client_width > screen_width)
+		desired_client_width = 4 * screen_width / 5;
+	if (desired_client_height <= 0 || desired_client_height > screen_height)
+		desired_client_height = 4 * screen_height / 5;
 
-	WNDCLASSEXW windowClass =
+	WNDCLASSEXW window_class =
 	{
-		.cbSize = sizeof(windowClass),
+		.cbSize = sizeof(window_class),
 		.style = CS_HREDRAW | CS_VREDRAW,
-		.lpfnWndProc = &WindowProc,
+		.lpfnWndProc = &window_proc,
 		.hIcon = LoadIconW(NULL, L"APPICON"),
 		.hCursor = NULL,
 		.lpszClassName = L"WavefrontPathtracerWindowClass"
 	};
 
-	if (!RegisterClassExW(&windowClass))
+	if (!RegisterClassExW(&window_class))
 		FATAL_ERROR("Window", "Failed to register window class");
 
-	RECT windowRect =
+	RECT window_rect =
 	{
 		.left = 0,
 		.top = 0,
-		.right = DesiredClientWidth,
-		.bottom = DesiredClientHeight
+		.right = desired_client_width,
+		.bottom = desired_client_height
 	};
-	AdjustWindowRectEx(&windowRect, WS_OVERLAPPEDWINDOW, FALSE, 0);
+	AdjustWindowRectEx(&window_rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
-	i32 WindowWidth = windowRect.right - windowRect.left;
-	i32 WindowHeight = windowRect.bottom - windowRect.top;
+	i32 window_width = window_rect.right - window_rect.left;
+	i32 window_height = window_rect.bottom - window_rect.top;
 
-	i32 WindowX = glm::max(0, (screenWidth - WindowWidth) / 2);
-	i32 WindowY = glm::max(0, (screenHeight - WindowHeight) / 2);
+	i32 windowX = glm::max(0, (screen_width - window_width) / 2);
+	i32 windowY = glm::max(0, (screen_height - window_height) / 2);
 	
-	s_HWND = CreateWindowExW(
+	s_hwnd = CreateWindowExW(
 		0, L"WavefrontPathtracerWindowClass", L"Wavefront Pathtracer", WS_OVERLAPPEDWINDOW,
-		WindowX, WindowY, WindowWidth, WindowHeight,
+		windowX, windowY, window_width, window_height,
 		NULL, NULL, NULL, NULL
 	);
 
-	if (!s_HWND)
+	if (!s_hwnd)
 		FATAL_ERROR("Window", "Failed to create window");
 
-	ShowWindow(s_HWND, TRUE);
+	ShowWindow(s_hwnd, TRUE);
 
-	RECT clientRect;
-	GetClientRect(s_HWND, &clientRect);
+	RECT client_rect;
+	GetClientRect(s_hwnd, &client_rect);
 
-	ASSERT(clientRect.right - clientRect.left == DesiredClientWidth);
-	ASSERT(clientRect.bottom - clientRect.top == DesiredClientHeight);
+	ASSERT(client_rect.right - client_rect.left == desired_client_width);
+	ASSERT(client_rect.bottom - client_rect.top == desired_client_height);
 }
 
-void FatalErrorImpl(i32 line, const char* ErrorMessage)
+void fatal_error_impl(i32 line, const char* error_msg)
 {
-	MessageBoxA(NULL, ErrorMessage, "Fatal Error", MB_OK);
+	MessageBoxA(NULL, error_msg, "Fatal Error", MB_OK);
 	__debugbreak();
 	ExitProcess(1);
 }
 
-struct CommandLineArgs
+struct command_line_args_t
 {
-	i32 WindowWidth = 0;
-	i32 WindowHeight = 0;
+	i32 window_width = 0;
+	i32 window_height = 0;
 };
 
-static CommandLineArgs ParseCommandLineArgs(char* CmdLine)
+static command_line_args_t ParseCommandLineArgs(char* cmd_line)
 {
-	CommandLineArgs CmdArgs = {};
-	char* ArgCurrent = CmdLine;
+	command_line_args_t cmd_args = {};
+	char* arg_current = cmd_line;
 
 	while (true)
 	{
-		const char* ArgBegin = strchr(ArgCurrent, '-');
-		if (ArgBegin == NULL)
+		const char* arg_begin = strchr(arg_current, '-');
+		if (arg_begin == NULL)
 			break;
 
-		const char* ArgEnd = strchr(ArgBegin, ' ');
-		if (ArgEnd == NULL)
-			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", CmdLine);
+		const char* arg_end = strchr(arg_begin, ' ');
+		if (arg_end == NULL)
+			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line);
 
-		const char* ParamBegin = ArgEnd + 1;
-		if (ParamBegin == NULL)
-			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", CmdLine);
+		const char* param_begin = arg_end + 1;
+		if (param_begin == NULL)
+			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line);
 
-		const char* ParamEnd = strchr(ParamBegin, ' ');
-		if (ParamEnd == NULL)
-			ParamEnd = strchr(ParamBegin, '\0');
+		const char* param_end = strchr(param_begin, ' ');
+		if (param_end == NULL)
+			param_end = strchr(param_begin, '\0');
 
-		char ArgStr[32];
-		strncpy_s(ArgStr, ArgBegin, ArgEnd - ArgBegin);
+		char arg_str[32];
+		strncpy_s(arg_str, arg_begin, arg_end - arg_begin);
 
-		if (strcmp(ArgStr, "--width") == 0)
+		if (strcmp(arg_str, "--width") == 0)
 		{
-			CmdArgs.WindowWidth = strtol(ParamBegin, &ArgCurrent, 10);
+			cmd_args.window_width = strtol(param_begin, &arg_current, 10);
 		}
-		else if (strcmp(ArgStr, "--height") == 0)
+		else if (strcmp(arg_str, "--height") == 0)
 		{
-			CmdArgs.WindowHeight = strtol(ParamBegin, &ArgCurrent, 10);
+			cmd_args.window_height = strtol(param_begin, &arg_current, 10);
 		}
 	}
 
-	return CmdArgs;
+	return cmd_args;
 }
 
 int WINAPI wWinMain(
@@ -305,24 +306,24 @@ int WINAPI wWinMain(
 	_In_ i32 nShowCmd)
 {
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-	CreateConsole();
+	create_console();
 
-	char CmdLine[512];
-	wcstombs(CmdLine, lpCmdLine, ARRAY_SIZE(CmdLine));
-	CommandLineArgs CmdArgs = ParseCommandLineArgs(CmdLine);
+	char cmd_line[512];
+	wcstombs(cmd_line, lpCmdLine, ARRAY_SIZE(cmd_line));
+	command_line_args_t parsed_cmd_args = ParseCommandLineArgs(cmd_line);
 
-	LOG_INFO("Application", "Started with arguments: %s", CmdLine);
+	LOG_INFO("application", "Started with arguments: %s", cmd_line);
 	
-	CreateWindow(CmdArgs.WindowWidth, CmdArgs.WindowHeight);
+	create_window(parsed_cmd_args.window_width, parsed_cmd_args.window_height);
 
-	while (!Application::ShouldClose())
+	while (!application::should_close())
 	{
-		Application::Init();
-		Application::Run();
-		Application::Exit();
+		application::init();
+		application::run();
+		application::exit();
 	}
 
-	DestroyConsole();
+	destroy_console();
 
 	return 0;
 }

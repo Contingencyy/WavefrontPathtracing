@@ -1,24 +1,24 @@
 #pragma once
 
-struct Camera
+struct camera_t
 {
-	Camera();
+	camera_t();
 	// Vertical FOV in degrees
-	Camera(const glm::vec3& EyePos, const glm::vec3& LookAtPos, f32 VFovDeg);
+	camera_t(const glm::vec3& eye_pos, const glm::vec3& lookat_pos, f32 vfov_deg);
 
-	glm::mat4 TransformMatrix = {};
-	glm::mat4 ViewMatrix = {};
+	glm::mat4 transform_mat = {};
+	glm::mat4 view_mat = {};
 	
-	f32 VFovDeg = 60.0f;
-	f32 Yaw = 0.0f;
-	f32 Pitch = 0.0f;
+	f32 vfov_deg = 60.0f;
+	f32 yaw = 0.0f;
+	f32 pitch = 0.0f;
 
-	struct ScreenPlanes
+	struct screen_planes_t
 	{
-		glm::vec3 Center = {};
-		glm::vec3 TopLeft = {};
-		glm::vec3 TopRight = {};
-		glm::vec3 BottomLeft = {};
-	} ScreenPlanes;
+		glm::vec3 center = {};
+		glm::vec3 top_left = {};
+		glm::vec3 top_right = {};
+		glm::vec3 bottom_left = {};
+	} screen_planes;
 
 };

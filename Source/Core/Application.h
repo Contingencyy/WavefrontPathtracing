@@ -1,14 +1,14 @@
 #pragma once
 
-struct MemoryArena;
+struct memory_arena_t;
 
-namespace Application
+namespace application
 {
 
-	void Init();
-	void Exit();
-	void Run();
+	void init();
+	void exit();
+	void run();
 
-	b8 ShouldClose();
+	b8 should_close();
 
 }

@@ -96,7 +96,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source\;$(SolutionDir)Extern\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -123,7 +123,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source\;$(SolutionDir)Extern\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -134,83 +134,83 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Extern\imgui\imgui_impl_dx12.cpp">
+    <ClCompile Include="extern\imgui\imgui_impl_dx12.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_impl_win32.cpp">
+    <ClCompile Include="extern\imgui\imgui_impl_win32.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui.cpp">
+    <ClCompile Include="extern\imgui\imgui.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_draw.cpp">
+    <ClCompile Include="extern\imgui\imgui_draw.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_tables.cpp">
+    <ClCompile Include="extern\imgui\imgui_tables.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_widgets.cpp">
+    <ClCompile Include="extern\imgui\imgui_widgets.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Source\Core\Assets\AssetLoader.cpp" />
-    <ClCompile Include="Source\Core\Memory\MemoryArena.cpp" />
-    <ClCompile Include="Source\Core\Scene.cpp" />
-    <ClCompile Include="Source\Core\Threadpool.cpp" />
-    <ClCompile Include="Source\Core\Camera\CameraController.cpp" />
-    <ClCompile Include="Source\Core\Application.cpp" />
-    <ClCompile Include="Source\Platform\Windows\Input.cpp" />
-    <ClCompile Include="Source\Core\Camera\Camera.cpp" />
-    <ClCompile Include="Source\Platform\Windows\EntryPoint.cpp" />
-    <ClCompile Include="Source\Pch.cpp">
+    <ClCompile Include="source\core\assets\asset_loader.cpp" />
+    <ClCompile Include="source\core\memory\memory_arena.cpp" />
+    <ClCompile Include="source\core\scene.cpp" />
+    <ClCompile Include="source\core\threadpool.cpp" />
+    <ClCompile Include="source\core\camera\camera_controller.cpp" />
+    <ClCompile Include="source\core\application.cpp" />
+    <ClCompile Include="source\platform\windows\input.cpp" />
+    <ClCompile Include="source\core\camera\camera.cpp" />
+    <ClCompile Include="source\platform\windows\entrypoint.cpp" />
+    <ClCompile Include="source\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="Source\Platform\Windows\VirtualMemory.cpp" />
-    <ClCompile Include="Source\Renderer\AccelerationStructure\BVH.cpp" />
-    <ClCompile Include="Source\Renderer\AccelerationStructure\BVHInstance.cpp" />
-    <ClCompile Include="Source\Renderer\AccelerationStructure\TLAS.cpp" />
-    <ClCompile Include="Source\Renderer\CPUPathtracer.cpp" />
-    <ClCompile Include="Source\Renderer\DX12\DX12Backend.cpp" />
+    <ClCompile Include="source\platform\windows\virtual_memory.cpp" />
+    <ClCompile Include="source\renderer\acceleration_structure\bvh.cpp" />
+    <ClCompile Include="source\renderer\acceleration_structure\bvh_instance.cpp" />
+    <ClCompile Include="source\renderer\acceleration_structure\tlas.cpp" />
+    <ClCompile Include="source\renderer\cpupathtracer.cpp" />
+    <ClCompile Include="source\renderer\dx12\dx12_backend.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Extern\imgui\imgui_impl_dx12.h" />
-    <ClInclude Include="Extern\imgui\imgui_impl_win32.h" />
-    <ClInclude Include="Extern\imgui\imgui.h" />
-    <ClInclude Include="Extern\imgui\imgui_internal.h" />
-    <ClInclude Include="Source\Core\Assets\AssetLoader.h" />
-    <ClInclude Include="Source\Core\Assets\AssetTypes.h" />
-    <ClInclude Include="Source\Core\Containers\Hashmap.h" />
-    <ClInclude Include="Source\Core\Hash.h" />
-    <ClInclude Include="Source\Core\Memory\MemoryArena.h" />
-    <ClInclude Include="Source\Core\Memory\VirtualMemory.h" />
-    <ClInclude Include="Source\Core\Random.h" />
-    <ClInclude Include="Source\Core\Scene.h" />
-    <ClInclude Include="Source\Core\Threadpool.h" />
-    <ClInclude Include="Source\Core\Camera\CameraController.h" />
-    <ClInclude Include="Source\Core\Application.h" />
-    <ClInclude Include="Source\Core\Assertion.h" />
-    <ClInclude Include="Source\Core\Input.h" />
-    <ClInclude Include="Source\Core\Camera\Camera.h" />
-    <ClInclude Include="Source\Core\Common.h" />
-    <ClInclude Include="Source\Core\Logger.h" />
-    <ClInclude Include="Source\Pch.h" />
-    <ClInclude Include="Source\Renderer\AccelerationStructure\BVH.h" />
-    <ClInclude Include="Source\Renderer\AccelerationStructure\BVHInstance.h" />
-    <ClInclude Include="Source\Renderer\AccelerationStructure\TLAS.h" />
-    <ClInclude Include="Source\Renderer\CPUPathtracer.h" />
-    <ClInclude Include="Source\Renderer\DX12\DX12Backend.h" />
-    <ClInclude Include="Source\Renderer\RaytracingTypes.h" />
-    <ClInclude Include="Source\Renderer\RaytracingUtils.h" />
-    <ClInclude Include="Source\Renderer\RendererCommon.h" />
-    <ClInclude Include="Source\Renderer\RendererFwd.h" />
-    <ClInclude Include="Source\Renderer\ResourceSlotmap.h" />
+    <ClInclude Include="extern\imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="extern\imgui\imgui_impl_win32.h" />
+    <ClInclude Include="extern\imgui\imgui.h" />
+    <ClInclude Include="extern\imgui\imgui_internal.h" />
+    <ClInclude Include="source\core\assets\asset_loader.h" />
+    <ClInclude Include="source\core\assets\asset_types.h" />
+    <ClInclude Include="source\core\containers\hashmap.h" />
+    <ClInclude Include="source\core\hash.h" />
+    <ClInclude Include="source\core\memory\memory_arena.h" />
+    <ClInclude Include="source\core\memory\virtual_memory.h" />
+    <ClInclude Include="source\core\random.h" />
+    <ClInclude Include="source\core\scene.h" />
+    <ClInclude Include="source\core\threadpool.h" />
+    <ClInclude Include="source\core\camera\camera_controller.h" />
+    <ClInclude Include="source\core\application.h" />
+    <ClInclude Include="source\core\assertion.h" />
+    <ClInclude Include="source\core\input.h" />
+    <ClInclude Include="source\core\camera\camera.h" />
+    <ClInclude Include="source\core\common.h" />
+    <ClInclude Include="source\core\logger.h" />
+    <ClInclude Include="source\pch.h" />
+    <ClInclude Include="source\renderer\acceleration_structure\bvh.h" />
+    <ClInclude Include="source\renderer\acceleration_structure\bvh_instance.h" />
+    <ClInclude Include="source\renderer\acceleration_structure\tlas.h" />
+    <ClInclude Include="source\renderer\cpupathtracer.h" />
+    <ClInclude Include="source\renderer\dx12\dx12_backend.h" />
+    <ClInclude Include="source\renderer\raytracing_types.h" />
+    <ClInclude Include="source\renderer\raytracing_utils.h" />
+    <ClInclude Include="source\renderer\renderer_common.h" />
+    <ClInclude Include="source\renderer\renderer_fwd.h" />
+    <ClInclude Include="source\renderer\resource_slotmap.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,109 +1,109 @@
-#include "Pch.h"
-#include "Scene.h"
-#include "Renderer/CPUPathtracer.h"
+#include "pch.h"
+#include "scene.h"
+#include "renderer/cpupathtracer.h"
 
-// TODO: Remove and implement a proper asset manager
-#include "Core/Assets/AssetLoader.h"
+// TODO: remove and implement a proper asset manager
+#include "core/assets/asset_loader.h"
 
 #include "imgui/imgui.h"
 
-void Scene::Init()
+void scene_t::init()
 {
-	// Scene objects
-	m_SceneObjectCount = 100;
-	m_SceneObjectAt = 0;
-	m_SceneObjects = ARENA_ALLOC_ARRAY_ZERO(&m_Arena, SceneObject, m_SceneObjectCount);
+	// scene_t objects
+	m_scene_object_count = 100;
+	m_scene_object_at = 0;
+	m_scene_objects = ARENA_ALLOC_ARRAY_ZERO(&m_arena, scene_object_t, m_scene_object_count);
 
-	// Camera Controller
-	m_CameraController = CameraController(Camera(
-		glm::vec3(0.0f, 10.0f, 0.0f), // Eye Position
-		glm::vec3(0.0f, 10.0f, 1.0f), // Look at Position
+	// camera_t Controller
+	m_camera_controller = camera_controller_t(camera_t(
+		glm::vec3(0.0f, 10.0f, 0.0f), // Eye position
+		glm::vec3(0.0f, 10.0f, 1.0f), // Look at position
 		60.0f // Vertical FOV in degrees
 	));
 
-	// Plane
-	Vertex PlaneVertices[4] = {};
-	PlaneVertices[0].Position = glm::vec3(-1.0f, 0.0f, 1.0f);
-	PlaneVertices[1].Position = glm::vec3(1.0f, 0.0f, 1.0f);
-	PlaneVertices[2].Position = glm::vec3(1.0f, 0.0f, -1.0f);
-	PlaneVertices[3].Position = glm::vec3(-1.0f, 0.0f, -1.0f);
-	PlaneVertices[0].Normal = PlaneVertices[1].Normal = PlaneVertices[2].Normal = PlaneVertices[3].Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+	// plane_t
+	vertex_t plane_verts[4] = {};
+	plane_verts[0].position = glm::vec3(-1.0f, 0.0f, 1.0f);
+	plane_verts[1].position = glm::vec3(1.0f, 0.0f, 1.0f);
+	plane_verts[2].position = glm::vec3(1.0f, 0.0f, -1.0f);
+	plane_verts[3].position = glm::vec3(-1.0f, 0.0f, -1.0f);
+	plane_verts[0].normal = plane_verts[1].normal = plane_verts[2].normal = plane_verts[3].normal = glm::vec3(0.0f, 1.0f, 0.0f);
 
-	u32 PlaneIndices[6] = { 0, 1, 2, 2, 3, 0 };
-	RenderMeshHandle RMeshHandlePlane = CPUPathtracer::CreateMesh(PlaneVertices, ARRAY_SIZE(PlaneVertices), PlaneIndices, ARRAY_SIZE(PlaneIndices));
+	u32 plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
+	render_mesh_handle_t render_mesh_handle_plane = cpupathtracer::create_mesh(plane_verts, ARRAY_SIZE(plane_verts), plane_indices, ARRAY_SIZE(plane_indices));
 
-	Material PlaneMaterial = Material::MakeDiffuse(glm::vec3(1.0f));
-	CreateSceneObject(RMeshHandlePlane, PlaneMaterial, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));
+	material_t plane_material = material_t::make_diffuse(glm::vec3(1.0f));
+	create_scene_object(render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));
 
 	// HDR environment map
-	//m_HDREnvAsset = AssetLoader::LoadImageHDR(&m_Arena, "Assets/Textures/HDR_Env_Victorian_Hall.hdr");
-	//m_HDREnvAsset = AssetLoader::LoadImageHDR(&m_Arena, "Assets/Textures/HDR_Env_St_Peters_Square_Night.hdr");
-	m_HDREnvAsset = AssetLoader::LoadImageHDR(&m_Arena, "Assets/Textures/HDR_Env_Country_Club.hdr");
+	//m_hdr_env_texture_asset = asset_loader::load_image_hdr(&m_arena, "assets/textures/HDR_Env_Victorian_Hall.hdr");
+	//m_hdr_env_texture_asset = asset_loader::load_image_hdr(&m_arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr");
+	m_hdr_env_texture_asset = asset_loader::load_image_hdr(&m_arena, "assets/textures/HDR_Env_Country_Club.hdr");
 
 	// Dragon
-	m_DragonAsset = AssetLoader::LoadGLTF(&m_Arena, "Assets/GLTF/Dragon/DragonAttenuation.gltf");
+	m_dragon_scene_asset = asset_loader::load_gltf(&m_arena, "assets/gltf/dragon/DragonAttenuation.gltf");
 	// Dragon 1
-	//Material DragonMaterial = Material::MakeRefractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
-	Material DragonMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.1f, 0.05f));
-	CreateSceneObject(m_DragonAsset->RMeshHandles[1], DragonMaterial, glm::vec3(-15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(1.0f));
+	//material_t dragon_material = material_t::make_refractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
+	material_t dragon_material = material_t::make_diffuse(glm::vec3(0.9f, 0.1f, 0.05f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(-15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(1.0f));
 
 	// Dragon 2
-	DragonMaterial = Material::MakeDiffuse(glm::vec3(0.05f, 0.1f, 0.9f));
-	CreateSceneObject(m_DragonAsset->RMeshHandles[1], DragonMaterial, glm::vec3(15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.0f));
+	dragon_material = material_t::make_diffuse(glm::vec3(0.05f, 0.1f, 0.9f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.0f));
 
 	// Dragon 3
-	DragonMaterial = Material::MakeDiffuse(glm::vec3(0.1f, 0.9f, 0.1f));
-	CreateSceneObject(m_DragonAsset->RMeshHandles[1], DragonMaterial, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
+	dragon_material = material_t::make_diffuse(glm::vec3(0.1f, 0.9f, 0.1f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
 
 	// Dragon 4
-	DragonMaterial = Material::MakeDiffuse(glm::vec3(0.9f, 0.9f, 0.1f));
-	CreateSceneObject(m_DragonAsset->RMeshHandles[1], DragonMaterial, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
+	dragon_material = material_t::make_diffuse(glm::vec3(0.9f, 0.9f, 0.1f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
 
 	// Dragon 5
-	DragonMaterial = Material::MakeSpecular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
-	CreateSceneObject(m_DragonAsset->RMeshHandles[1], DragonMaterial, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(5.0f));
+	dragon_material = material_t::make_specular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(5.0f));
 }
 
-void Scene::Destroy()
+void scene_t::destroy()
 {
-	ARENA_RELEASE(&m_Arena);
+	ARENA_RELEASE(&m_arena);
 }
 
-void Scene::Update(f32 DeltaTime)
+void scene_t::update(f32 DeltaTime)
 {
-	m_CameraController.Update(DeltaTime);
+	m_camera_controller.update(DeltaTime);
 }
 
-void Scene::Render()
+void scene_t::render()
 {
-	CPUPathtracer::BeginScene(m_CameraController.GetCamera(), m_HDREnvAsset->RTextureHandle);
+	cpupathtracer::begin_scene(m_camera_controller.get_camera(), m_hdr_env_texture_asset->render_texture_handle);
 
 	// Submit every object that needs to be rendered
-	for (u32 i = 0; i < m_SceneObjectAt; ++i)
+	for (u32 i = 0; i < m_scene_object_at; ++i)
 	{
-		const SceneObject* object = &m_SceneObjects[i];
-		CPUPathtracer::SubmitMesh(object->RMeshHandle, object->Transform, object->Mat);
+		const scene_object_t* object = &m_scene_objects[i];
+		cpupathtracer::submit_mesh(object->render_mesh_handle, object->transform_mat, object->material);
 	}
 
-	CPUPathtracer::Render();
-	CPUPathtracer::EndScene();
+	cpupathtracer::render();
+	cpupathtracer::end_scene();
 }
 
-void Scene::RenderUI()
+void scene_t::render_ui()
 {
 }
 
-void Scene::CreateSceneObject(RenderMeshHandle RMeshHandle, const Material& Mat, const glm::vec3& Pos, const glm::vec3& Rot, const glm::vec3& Scale)
+void scene_t::create_scene_object(render_mesh_handle_t render_mesh_handle, const material_t& material, const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale)
 {
-	ASSERT(m_SceneObjectAt < m_SceneObjectCount);
-	SceneObject* Object = &m_SceneObjects[m_SceneObjectAt];
+	ASSERT(m_scene_object_at < m_scene_object_count);
+	scene_object_t* new_object = &m_scene_objects[m_scene_object_at];
 
-	Object->RMeshHandle = RMeshHandle;
-	Object->Mat = Mat;
+	new_object->render_mesh_handle = render_mesh_handle;
+	new_object->material = material;
 
-	Object->Transform = glm::translate(glm::identity<glm::mat4>(), Pos);
-	Object->Transform = Object->Transform * glm::mat4_cast(glm::quat(glm::radians(Rot)));
-	Object->Transform = Object->Transform * glm::scale(glm::identity<glm::mat4>(), Scale);
+	new_object->transform_mat = glm::translate(glm::identity<glm::mat4>(), position);
+	new_object->transform_mat = new_object->transform_mat * glm::mat4_cast(glm::quat(glm::radians(rotation)));
+	new_object->transform_mat = new_object->transform_mat * glm::scale(glm::identity<glm::mat4>(), scale);
 
-	m_SceneObjectAt++;
+	m_scene_object_at++;
 }

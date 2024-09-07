@@ -15,165 +15,165 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Core\Application.cpp">
+    <ClCompile Include="source\core\application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Platform\Windows\EntryPoint.cpp">
+    <ClCompile Include="source\platform\windows\entrypoint.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Pch.cpp">
+    <ClCompile Include="source\pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\DX12\DX12Backend.cpp">
+    <ClCompile Include="source\renderer\dx12\dx12_backend.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\CPUPathtracer.cpp">
+    <ClCompile Include="source\renderer\cpupathtracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui.cpp">
+    <ClCompile Include="extern\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_draw.cpp">
+    <ClCompile Include="extern\imgui\imgui_draw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_tables.cpp">
+    <ClCompile Include="extern\imgui\imgui_tables.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_widgets.cpp">
+    <ClCompile Include="extern\imgui\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_impl_dx12.cpp">
+    <ClCompile Include="extern\imgui\imgui_impl_dx12.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Extern\imgui\imgui_impl_win32.cpp">
+    <ClCompile Include="extern\imgui\imgui_impl_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Core\Camera\Camera.cpp">
+    <ClCompile Include="source\core\camera\camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Platform\Windows\Input.cpp">
+    <ClCompile Include="source\platform\windows\input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Core\Camera\CameraController.cpp">
+    <ClCompile Include="source\core\camera\camera_controller.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Core\Scene.cpp">
+    <ClCompile Include="source\core\scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Core\Threadpool.cpp">
+    <ClCompile Include="source\core\threadpool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\AccelerationStructure\BVH.cpp">
+    <ClCompile Include="source\renderer\acceleration_structure\bvh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Core\Assets\AssetLoader.cpp">
+    <ClCompile Include="source\core\assets\asset_loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\AccelerationStructure\TLAS.cpp">
+    <ClCompile Include="source\renderer\acceleration_structure\tlas.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Renderer\AccelerationStructure\BVHInstance.cpp">
+    <ClCompile Include="source\renderer\acceleration_structure\bvh_instance.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Platform\Windows\VirtualMemory.cpp">
+    <ClCompile Include="source\platform\windows\virtual_memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Core\Memory\MemoryArena.cpp">
+    <ClCompile Include="source\core\memory\memory_arena.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\Core\Application.h">
+    <ClInclude Include="source\core\application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Logger.h">
+    <ClInclude Include="source\core\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Pch.h">
+    <ClInclude Include="source\pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Assertion.h">
+    <ClInclude Include="source\core\assertion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\DX12\DX12Backend.h">
+    <ClInclude Include="source\renderer\dx12\dx12_backend.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\CPUPathtracer.h">
+    <ClInclude Include="source\renderer\cpupathtracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Common.h">
+    <ClInclude Include="source\core\common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Extern\imgui\imgui.h">
+    <ClInclude Include="extern\imgui\imgui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Extern\imgui\imgui_internal.h">
+    <ClInclude Include="extern\imgui\imgui_internal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Extern\imgui\imgui_impl_dx12.h">
+    <ClInclude Include="extern\imgui\imgui_impl_dx12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Extern\imgui\imgui_impl_win32.h">
+    <ClInclude Include="extern\imgui\imgui_impl_win32.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Camera\Camera.h">
+    <ClInclude Include="source\core\camera\camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\RaytracingUtils.h">
+    <ClInclude Include="source\renderer\raytracing_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\RaytracingTypes.h">
+    <ClInclude Include="source\renderer\raytracing_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Input.h">
+    <ClInclude Include="source\core\input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Camera\CameraController.h">
+    <ClInclude Include="source\core\camera\camera_controller.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Scene.h">
+    <ClInclude Include="source\core\scene.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Random.h">
+    <ClInclude Include="source\core\random.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Threadpool.h">
+    <ClInclude Include="source\core\threadpool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\RendererCommon.h">
+    <ClInclude Include="source\renderer\renderer_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\AccelerationStructure\BVH.h">
+    <ClInclude Include="source\renderer\acceleration_structure\bvh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Assets\AssetLoader.h">
+    <ClInclude Include="source\core\assets\asset_loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Assets\AssetTypes.h">
+    <ClInclude Include="source\core\assets\asset_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\AccelerationStructure\TLAS.h">
+    <ClInclude Include="source\renderer\acceleration_structure\tlas.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\AccelerationStructure\BVHInstance.h">
+    <ClInclude Include="source\renderer\acceleration_structure\bvh_instance.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\RendererFwd.h">
+    <ClInclude Include="source\renderer\renderer_fwd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Renderer\ResourceSlotmap.h">
+    <ClInclude Include="source\renderer\resource_slotmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Memory\MemoryArena.h">
+    <ClInclude Include="source\core\memory\memory_arena.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Memory\VirtualMemory.h">
+    <ClInclude Include="source\core\memory\virtual_memory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Containers\Hashmap.h">
+    <ClInclude Include="source\core\containers\hashmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Core\Hash.h">
+    <ClInclude Include="source\core\hash.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

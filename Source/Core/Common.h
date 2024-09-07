@@ -21,6 +21,6 @@ static constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 #define MB(x) ((x) << 20ull)
 #define GB(x) ((x) << 30ull)
 
-#define ALIGN_UP_POW2(Value, Align) ((intptr_t)(Value)+((Align)-1) & (-(intptr_t)(Align)))
-#define ALIGN_DOWN_POW2(Value, Align) ((intptr_t)(Value) & (-(intptr_t)(Align)))
-#define ARRAY_SIZE(Arr) (sizeof(Arr) / sizeof((Arr)[0]))
+#define ALIGN_UP_POW2(value, align) ((intptr_t)(value)+((align)-1) & (-(intptr_t)(align)))
+#define ALIGN_DOWN_POW2(value, align) ((intptr_t)(value) & (-(intptr_t)(align)))
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))

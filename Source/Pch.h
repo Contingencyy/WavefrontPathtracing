@@ -20,6 +20,6 @@
 	INCLUDES
 */
 
-#include "Core/Common.h"
-#include "Core/Assertion.h"
-#include "Core/Memory/MemoryArena.h"
+#include "core/common.h"
+#include "core/assertion.h"
+#include "core/memory/memory_arena.h"

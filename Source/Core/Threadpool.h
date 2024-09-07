@@ -7,86 +7,86 @@
 #include <atomic>
 
 template<typename T>
-class ThreadSafeRingBuffer
+class threadsafe_ring_buffer_t
 {
 public:
 	static constexpr u32 THREAD_SAFE_RING_BUFFER_CAPACITY = 512;
 
 public:
-	b8 PushBack(const T& Job)
+	b8 push_back(const T& job)
 	{
-		b8 bResult = false;
-		m_Lock.lock();
-		u32 Next = (m_Head + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
+		b8 result = false;
+		m_lock.lock();
+		u32 next = (m_head + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
 
-		if (Next != m_Tail)
+		if (next != m_tail)
 		{
-			m_JobPool[m_Head] = Job;
-			m_Head = Next;
-			bResult = true;
+			m_jobpool[m_head] = job;
+			m_head = next;
+			result = true;
 		}
 
-		m_Lock.unlock();
-		return bResult;
+		m_lock.unlock();
+		return result;
 	}
 
-	b8 PopFront(T& Job)
+	b8 pop_front(T& out_job)
 	{
-		b8 bResult = false;
-		m_Lock.lock();
+		b8 result = false;
+		m_lock.lock();
 
-		if (m_Tail != m_Head)
+		if (m_tail != m_head)
 		{
-			Job = m_JobPool[m_Tail];
-			m_Tail = (m_Tail + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
-			bResult = true;
+			out_job = m_jobpool[m_tail];
+			m_tail = (m_tail + 1) % THREAD_SAFE_RING_BUFFER_CAPACITY;
+			result = true;
 		}
 
-		m_Lock.unlock();
-		return bResult;
+		m_lock.unlock();
+		return result;
 	}
 
 private:
-	T m_JobPool[THREAD_SAFE_RING_BUFFER_CAPACITY];
-	u32 m_Head = 0;
-	u32 m_Tail = 0;
-	std::mutex m_Lock;
+	T m_jobpool[THREAD_SAFE_RING_BUFFER_CAPACITY];
+	u32 m_head = 0;
+	u32 m_tail = 0;
+	std::mutex m_lock;
 
 };
 
-class Threadpool
+class threadpool_t
 {
 public:
-	struct JobDispatchArgs
+	struct job_dispatch_args_t
 	{
-		u32 JobIndex;
-		u32 GroupIndex;
+		u32 job_index;
+		u32 group_index;
 	};
 
 public:
-	void Init(MemoryArena* Arena);
-	void Destroy();
+	void init(memory_arena_t* arena);
+	void destroy();
 
-	void QueueJob(const std::function<void()>& JobFunc);
-	void Dispatch(u32 JobCount, u32 GroupSize, const std::function<void(JobDispatchArgs)>& JobFunc);
+	void queue_job(const std::function<void()>& job_func);
+	void dispatch(u32 job_count, u32 group_size, const std::function<void(job_dispatch_args_t)>& job_func);
 
-	b8 IsBusy();
-	void WaitAll();
-
-private:
-	void Poll();
+	b8 is_busy();
+	void wait_all();
 
 private:
-	ThreadSafeRingBuffer<std::function<void()>> m_JobRingBuffer;
+	void poll();
 
-	std::thread* m_Threads;
-	u32 m_ThreadCount;
-	std::condition_variable m_WakeCondition;
-	std::mutex m_WakeMutex;
+private:
+	threadsafe_ring_buffer_t<std::function<void()>> m_job_ringbuffer;
 
-	u64 m_JobsQueued = 0;
-	std::atomic<u64> m_JobsCompleted;
+	u32 m_thread_count;
+	std::thread* m_threads;
+	std::condition_variable m_wake_cond;
+	std::mutex m_wake_mutex;
 
-	b8 m_Exit = false;
+	u64 m_jobs_queued = 0;
+	std::atomic<u64> m_jobs_completed;
+
+	b8 m_exit_requested = false;
 
 };

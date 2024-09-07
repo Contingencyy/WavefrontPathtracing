@@ -1,9 +1,9 @@
 #pragma once
-#include "Core/Common.h"
+#include "core/common.h"
 
 #include <stdarg.h>
 
-#define ASSERT_MSG(expr, msg, ...) ((expr) ? true : (FatalError(__LINE__, __FILE__, "Assertion", msg, ##__VA_ARGS__), false))
+#define ASSERT_MSG(expr, msg, ...) ((expr) ? true : (fatal_error(__LINE__, __FILE__, "Assertion", msg, ##__VA_ARGS__), false))
 #define ASSERT(expr) ASSERT_MSG(expr, "Assertion failed: " #expr)
 
 #ifdef _DEBUG
@@ -17,24 +17,24 @@
 #define ALWAYS(expr) ASSERT(expr)
 #define NEVER(expr) !ALWAYS(!(expr))
 
-#define FATAL_ERROR(sender, msg, ...) FatalError(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
+#define FATAL_ERROR(sender, msg, ...) fatal_error(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
 
 // Platform-specific implementation
-void FatalErrorImpl(i32 Line, const char* ErrorMessage);
+void fatal_error_impl(i32 line, const char* error_msg);
 
-static void FatalError(i32 Line, const char* File, const char* Sender, const char* Message, ...)
+static void fatal_error(i32 line, const char* file, const char* sender, const char* message, ...)
 {
-	va_list Args;
-	va_start(Args, Message);
+	va_list args;
+	va_start(args, message);
 
 	// TODO: Implement custom counted string class
-	char FormattedMessage[1024];
-	vsnprintf_s(FormattedMessage, ARRAY_SIZE(FormattedMessage), Message, Args);
+	char formatted_msg[1024];
+	vsnprintf_s(formatted_msg, ARRAY_SIZE(formatted_msg), message, args);
 
-	char FullErrorMessage[1024];
-	sprintf_s(FullErrorMessage, ARRAY_SIZE(FullErrorMessage), "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", Sender, FormattedMessage, File, Line);
+	char error_msg[1024];
+	sprintf_s(error_msg, ARRAY_SIZE(error_msg), "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", sender, formatted_msg, file, line);
 
-	FatalErrorImpl(Line, FullErrorMessage);
+	fatal_error_impl(line, error_msg);
 
-	va_end(Args);
+	va_end(args);
 }

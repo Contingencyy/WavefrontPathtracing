@@ -1,0 +1,129 @@
+#include "pch.h"
+#include "memory_arena.h"
+#include "virtual_memory.h"
+
+static constexpr u64 ARENA_RESERVE_CHUNK_SIZE = GB(4ull);
+static constexpr u64 ARENA_COMMIT_CHUNK_SIZE = KB(4ull);
+static constexpr u64 ARENA_DECOMMIT_KEEP_CHUNK_SIZE = KB(4ull);
+
+static b8 arena_can_fit(memory_arena_t* arena, u64 size, u64 align)
+{
+	u64 AlignedBytesLeft = ALIGN_DOWN_POW2(arena->ptr_end - arena->ptr_at, align);
+	return AlignedBytesLeft >= size;
+}
+
+void* memory_arena_t::alloc(memory_arena_t* arena, u64 size, u64 align)
+{
+	// The arena holds no memory yet, so we need to reserve some
+	if (!arena->ptr_base)
+	{
+		arena->ptr_base = (u8*)virtual_memory::reserve(ARENA_RESERVE_CHUNK_SIZE);
+		arena->ptr_at = arena->ptr_base;
+		arena->ptr_end = arena->ptr_base + ARENA_RESERVE_CHUNK_SIZE;
+		arena->ptr_committed = arena->ptr_base;
+	}
+
+	u8* result = nullptr;
+
+	// Can the arena fit the allocation
+	if (arena_can_fit(arena, size, align))
+	{
+		// align the allocation pointer to the alignment required
+		result = (u8*)ALIGN_UP_POW2(arena->ptr_at, align);
+
+		// If the arena does not have enough memory committed, make it commit memory that makes the allocation fit, aligned up to the default commit chunk size
+		if (arena->ptr_at + size > arena->ptr_committed)
+		{
+			u64 commit_chunk_size = ALIGN_UP_POW2(arena->ptr_at + size - arena->ptr_committed, ARENA_COMMIT_CHUNK_SIZE);
+			virtual_memory::commit(arena->ptr_committed, commit_chunk_size);
+			arena->ptr_committed += commit_chunk_size;
+		}
+
+		arena->ptr_at = result + size;
+		ASSERT(arena->ptr_at >= arena->ptr_base);
+		ASSERT(arena->ptr_at < arena->ptr_end);
+	}
+
+	return result;
+}
+
+void* memory_arena_t::alloc_zero(memory_arena_t* arena, u64 size, u64 align)
+{
+	void* result = alloc(arena, size, align);
+	memset(result, 0, size);
+	return result;
+}
+
+void memory_arena_t::decommit(memory_arena_t* arena, u8* ptr)
+{
+	ASSERT(ptr);
+
+	// decommit memory until ptr, except the first ARENA_DECOMMIT_KEEP_CHUNK_SIZE bytes after that pointer
+	u8* ptr_decommit = ptr + ARENA_DECOMMIT_KEEP_CHUNK_SIZE;
+	if (arena->ptr_committed > ptr_decommit)
+	{
+		u64 decommit_size = arena->ptr_committed - ptr_decommit;
+		virtual_memory::decommit(ptr_decommit, decommit_size);
+		arena->ptr_committed -= decommit_size;
+	}
+}
+
+void memory_arena_t::free(memory_arena_t* arena, u8* ptr)
+{
+	ASSERT(ptr);
+
+	// NOTE: Might leave small byte pieces if we reset the arena to a pointer
+	// that was aligned in some way because the allocation before left the ptr_at not at the required alignment
+	u64 bytes_to_free = arena->ptr_at - ptr;
+	u64 bytes_allocated = arena->ptr_at - arena->ptr_base;
+
+	if (bytes_allocated >= bytes_to_free)
+	{
+		// Move the current pointer back to free size memory
+		arena->ptr_at -= bytes_to_free;
+		memory_arena_t::decommit(arena, arena->ptr_at);
+	}
+}
+
+void memory_arena_t::clear(memory_arena_t* arena)
+{
+	// reset the arena current pointer to its base
+	arena->ptr_at = arena->ptr_base;
+	memory_arena_t::decommit(arena, arena->ptr_base);
+}
+
+void memory_arena_t::release(memory_arena_t* arena)
+{
+	void* ptr_arena_base = arena->ptr_base;
+	arena->ptr_base = arena->ptr_at = arena->ptr_end = arena->ptr_committed = nullptr;
+	virtual_memory::release(ptr_arena_base);
+}
+
+u64 memory_arena_t::total_reserved(memory_arena_t* arena)
+{
+	return arena->ptr_end - arena->ptr_base;
+}
+
+u64 memory_arena_t::total_allocated(memory_arena_t* arena)
+{
+	return arena->ptr_at - arena->ptr_base;
+}
+
+u64 memory_arena_t::total_free(memory_arena_t* arena)
+{
+	return arena->ptr_committed - arena->ptr_at;
+}
+
+u64 memory_arena_t::total_committed(memory_arena_t* arena)
+{
+	return arena->ptr_committed - arena->ptr_base;
+}
+
+void* memory_arena_t::bootstrap_arena(u64 size, u64 align, u64 arena_offset)
+{
+	memory_arena_t arena = {};
+	void* result = ARENA_ALLOC_ZERO(&arena, size, align);
+	memcpy((u8*)result + arena_offset, &arena, sizeof(memory_arena_t));
+
+	return result;
+}

@@ -1,104 +1,104 @@
-#include "Pch.h"
-#include "Threadpool.h"
+#include "pch.h"
+#include "threadpool.h"
 
-void Threadpool::Init(MemoryArena* Arena)
+void threadpool_t::init(memory_arena_t* arena)
 {
-	m_JobsCompleted.store(0);
+	m_jobs_completed.store(0);
 
-	u32 CoreCount = std::thread::hardware_concurrency();
+	u32 physical_core_count = std::thread::hardware_concurrency();
 
-	m_ThreadCount = std::max(1u, CoreCount);
-	m_Threads = ARENA_ALLOC_ARRAY(Arena, std::thread, m_ThreadCount);
+	m_thread_count = std::max(1u, physical_core_count);
+	m_threads = ARENA_ALLOC_ARRAY(arena, std::thread, m_thread_count);
 
-	for (u32 i = 0; i < m_ThreadCount; ++i)
+	for (u32 i = 0; i < m_thread_count; ++i)
 	{
-		m_Threads[i] = std::thread([&] {
-			std::function<void()> jobFunc;
+		m_threads[i] = std::thread([&] {
+			std::function<void()> job_func;
 
-			while (!m_Exit)
+			while (!m_exit_requested)
 			{
-				if (m_JobRingBuffer.PopFront(jobFunc))
+				if (m_job_ringbuffer.pop_front(job_func))
 				{
-					jobFunc();
-					m_JobsCompleted.fetch_add(1);
+					job_func();
+					m_jobs_completed.fetch_add(1);
 				}
 				else
 				{
-					std::unique_lock<std::mutex> lock(m_WakeMutex);
-					m_WakeCondition.wait(lock);
+					std::unique_lock<std::mutex> lock(m_wake_mutex);
+					m_wake_cond.wait(lock);
 				}
 			}
 			});
 
-		m_Threads[i].detach();
+		m_threads[i].detach();
 	}
 }
 
-void Threadpool::Destroy()
+void threadpool_t::destroy()
 {
-	m_Exit = true;
+	m_exit_requested = true;
 
-	for (u32 i = 0; i < m_ThreadCount; ++i)
+	for (u32 i = 0; i < m_thread_count; ++i)
 	{
-		if (m_Threads[i].joinable())
-			m_Threads[i].join();
+		if (m_threads[i].joinable())
+			m_threads[i].join();
 	}
 }
 
-void Threadpool::QueueJob(const std::function<void()>& JobFunc)
+void threadpool_t::queue_job(const std::function<void()>& job_func)
 {
-	m_JobsQueued++;
+	m_jobs_queued++;
 
-	while (!m_JobRingBuffer.PushBack(JobFunc))
-		Poll();
+	while (!m_job_ringbuffer.push_back(job_func))
+		poll();
 
-	m_WakeCondition.notify_one();
+	m_wake_cond.notify_one();
 }
 
-void Threadpool::Dispatch(u32 JobCount, u32 GroupSize, const std::function<void(JobDispatchArgs)>& JobFunc)
+void threadpool_t::dispatch(u32 job_count, u32 group_size, const std::function<void(job_dispatch_args_t)>& job_func)
 {
-	if (JobCount == 0 || GroupSize == 0)
+	if (job_count == 0 || group_size == 0)
 		return;
 
-	const u32 GroupCount = (JobCount + GroupSize - 1) / GroupSize;
-	m_JobsQueued += GroupCount;
+	const u32 group_count = (job_count + group_size - 1) / group_size;
+	m_jobs_queued += group_count;
 
-	for (u32 GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
+	for (u32 group_idx = 0; group_idx < group_count; ++group_idx)
 	{
-		const auto& JobGroup = [JobCount, GroupSize, JobFunc, GroupIdx]() {
-			const u32 JobGroupOffset = GroupIdx * GroupSize;
-			const u32 JobGroupEnd = std::min(JobGroupOffset + GroupSize, JobCount);
+		const auto& job_group = [job_count, group_size, job_func, group_idx]() {
+			const u32 job_group_offset = group_idx * group_size;
+			const u32 job_group_end = std::min(job_group_offset + group_size, job_count);
 
-			JobDispatchArgs dispatchArgs = {};
-			dispatchArgs.GroupIndex = GroupIdx;
+			job_dispatch_args_t dispatch_args = {};
+			dispatch_args.group_index = group_idx;
 
-			for (u32 jobIndex = JobGroupOffset; jobIndex < JobGroupEnd; ++jobIndex)
+			for (u32 job_idx = job_group_offset; job_idx < job_group_end; ++job_idx)
 			{
-				dispatchArgs.JobIndex = jobIndex;
-				JobFunc(dispatchArgs);
+				dispatch_args.job_index = job_idx;
+				job_func(dispatch_args);
 			}
 		};
 
-		while (!m_JobRingBuffer.PushBack(JobGroup))
-			Poll();
+		while (!m_job_ringbuffer.push_back(job_group))
+			poll();
 
-		m_WakeCondition.notify_one();
+		m_wake_cond.notify_one();
 	}
 }
 
-b8 Threadpool::IsBusy()
+b8 threadpool_t::is_busy()
 {
-	return m_JobsCompleted.load() < m_JobsQueued;
+	return m_jobs_completed.load() < m_jobs_queued;
 }
 
-void Threadpool::WaitAll()
+void threadpool_t::wait_all()
 {
-	while (IsBusy())
-		Poll();
+	while (is_busy())
+		poll();
 }
 
-void Threadpool::Poll()
+void threadpool_t::poll()
 {
-	m_WakeCondition.notify_one();
+	m_wake_cond.notify_one();
 	std::this_thread::yield();
 }

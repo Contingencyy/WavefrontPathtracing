@@ -1,143 +1,143 @@
 #pragma once
-#include "Core/Hash.h"
+#include "core/hash.h"
 
 template<typename TKey, typename TValue>
-class Hashmap
+class hashmap
 {
 public:
 	static constexpr u64 DEFAULT_CAPACITY = 1000;
 	static constexpr TKey NODE_UNUSED = 0;
 
 public:
-	void Init(MemoryArena* Arena, u64 Capacity = DEFAULT_CAPACITY)
+	void init(memory_arena_t* arena, u64 capacity = DEFAULT_CAPACITY)
 	{
-		m_Capacity = Capacity;
-		m_Nodes = ARENA_ALLOC_ARRAY_ZERO(Arena, Node, m_Capacity);
+		m_capacity = capacity;
+		m_nodes = ARENA_ALLOC_ARRAY_ZERO(arena, node_t, m_capacity);
 
-		for (u32 i = 0; i < m_Capacity; ++i)
+		for (u32 i = 0; i < m_capacity; ++i)
 		{
-			m_Nodes[i].Key = NODE_UNUSED;
+			m_nodes[i].key = NODE_UNUSED;
 		}
 	}
 
-	Hashmap(const Hashmap& other) = delete;
-	Hashmap(Hashmap&& other) = delete;
-	const Hashmap& operator=(const Hashmap& other) = delete;
-	Hashmap&& operator=(Hashmap&& other) = delete;
+	hashmap(const hashmap& other) = delete;
+	hashmap(hashmap&& other) = delete;
+	const hashmap& operator=(const hashmap& other) = delete;
+	hashmap&& operator=(hashmap&& other) = delete;
 
-	TValue* Insert(TKey Key, TValue Value)
+	TValue* insert(TKey key, TValue value)
 	{
-		ASSERT(m_Size < m_Capacity);
+		ASSERT(m_size < m_capacity);
 
 		// Create a temporary node with our new values
-		Node Temp = {};
-		Temp.Key = Key;
-		Temp.Value = Value;
+		node_t temp_node = {};
+		temp_node.key = key;
+		temp_node.value = value;
 
-		// Hash the key to find the corresponding index
-		u32 NodeIndex = HashNodeIndex(Key);
+		// hash the key to find the corresponding index
+		u32 node_index = hash_node_index(key);
 
 		// If the current node is already occupied, move on to the next one
 		// TODO: Implement buckets instead of moving on to the next slot
-		while (m_Nodes[NodeIndex].Key != Key &&
-			m_Nodes[NodeIndex].Key != NODE_UNUSED)
+		while (m_nodes[node_index].key != key &&
+			m_nodes[node_index].key != NODE_UNUSED)
 		{
-			NodeIndex++;
-			NodeIndex %= m_Capacity;
+			node_index++;
+			node_index %= m_capacity;
 		}
 
-		m_Nodes[NodeIndex] = Temp;
-		m_Size++;
+		m_nodes[node_index] = temp_node;
+		m_size++;
 
-		return &m_Nodes[NodeIndex].Value;
+		return &m_nodes[node_index].value;
 	}
 
-	void Remove(TKey Key)
+	void remove(TKey key)
 	{
-		u32 NodeIndex = HashNodeIndex(Key);
-		u32 Counter = 0;
+		u32 node_index = hash_node_index(key);
+		u32 counter = 0;
 
 		// We need to loop here, if the object's hashed index was already occupied it was put further back
-		while (m_Nodes[NodeIndex].Key != NODE_UNUSED || Counter <= m_Capacity)
+		while (m_nodes[node_index].key != NODE_UNUSED || counter <= m_capacity)
 		{
-			if (m_Nodes[NodeIndex].Key == Key)
+			if (m_nodes[node_index].key == key)
 			{
-				Node* Node = &m_Nodes[NodeIndex];
+				node_t* node = &m_nodes[node_index];
 
 				if constexpr (!std::is_trivially_destructible_v<TValue>)
 				{
-					Node->Value.~TValue();
+					node->value.~TValue();
 				}
 
-				Node->Key = NODE_UNUSED;
-				Node->Value = {};
+				node->key = NODE_UNUSED;
+				node->value = {};
 
-				m_Size--;
+				m_size--;
 				break;
 			}
 
-			Counter++;
-			NodeIndex++;
-			NodeIndex %= m_Capacity;
+			counter++;
+			node_index++;
+			node_index %= m_capacity;
 		}
 	}
 
-	TValue* Find(TKey Key)
+	TValue* find(TKey key)
 	{
-		TValue* Result = nullptr;
-		u32 NodeIndex = HashNodeIndex(Key);
-		u32 Counter = 0;
+		TValue* result = nullptr;
+		u32 node_index = hash_node_index(key);
+		u32 counter = 0;
 
-		while (m_Nodes[NodeIndex].Key != NODE_UNUSED || Counter <= m_Capacity)
+		while (m_nodes[node_index].key != NODE_UNUSED || counter <= m_capacity)
 		{
-			if (m_Nodes[NodeIndex].Key == Key)
+			if (m_nodes[node_index].key == key)
 			{
-				Result = &m_Nodes[NodeIndex].Value;
+				result = &m_nodes[node_index].value;
 				break;
 			}
 
-			Counter++;
-			NodeIndex++;
-			NodeIndex %= m_Capacity;
+			counter++;
+			node_index++;
+			node_index %= m_capacity;
 		}
 
-		return Result;
+		return result;
 	}
 
-	void Reset()
+	void reset()
 	{
-		for (u32 i = 0; i < m_Capacity; ++i)
+		for (u32 i = 0; i < m_capacity; ++i)
 		{
-			if (m_Nodes[i].Key != NODE_UNUSED)
+			if (m_nodes[i].key != NODE_UNUSED)
 			{
 				if constexpr (!std::is_trivially_destructible_v<TValue>)
 				{
-					m_Nodes[i].Value.~TValue();
+					m_nodes[i].value.~TValue();
 				}
 
-				m_Nodes[i].Key = NODE_UNUSED;
+				m_nodes[i].key = NODE_UNUSED;
 			}
 		}
 
-		m_Size = 0;
+		m_size = 0;
 	}
 
 private:
-	u32 HashNodeIndex(TKey Key)
+	u32 hash_node_index(TKey key)
 	{
-		return Hash::DJB2(&Key) % m_Capacity;
+		return hash::djb2(&key) % m_capacity;
 	}
 
 private:
-	struct Node
+	struct node_t
 	{
-		TKey Key;
-		TValue Value;
+		TKey key;
+		TValue value;
 	};
 
-	Node* m_Nodes;
+	node_t* m_nodes;
 
-	u64 m_Size;
-	u64 m_Capacity;
+	u64 m_size;
+	u64 m_capacity;
 
 };

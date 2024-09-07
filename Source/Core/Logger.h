@@ -2,10 +2,10 @@
 #include <stdarg.h>
 #include <iostream>
 
-namespace Logger
+namespace logger
 {
 
-	enum LogSeverity
+	enum log_severity_t
 	{
 		LogSeverity_Verbose,
 		LogSeverity_Info,
@@ -13,11 +13,11 @@ namespace Logger
 		LogSeverity_Error
 	};
 
-	static constexpr LogSeverity LOG_SEVERITY_MINIMUM_LEVEL = LogSeverity_Verbose;
+	static constexpr log_severity_t LOG_SEVERITY_MINIMUM_LEVEL = LogSeverity_Verbose;
 
-	static constexpr const char* LogSeverityToString(LogSeverity Severity)
+	static constexpr const char* log_severity_to_string(log_severity_t severity)
 	{
-		switch (Severity)
+		switch (severity)
 		{
 		case LogSeverity_Verbose: return "VERBOSE";
 		case LogSeverity_Info:    return "INFO";
@@ -27,29 +27,29 @@ namespace Logger
 		}
 	}
 
-	static void Log(LogSeverity Severity, const char* Sender, const char* LogMessage, ...)
+	static void log(log_severity_t severity, const char* sender, const char* log_message, ...)
 	{
-		if (Severity < LOG_SEVERITY_MINIMUM_LEVEL)
+		if (severity < LOG_SEVERITY_MINIMUM_LEVEL)
 			return;
 
-		va_list Args;
-		va_start(Args, LogMessage);
+		va_list args;
+		va_start(args, log_message);
 
 		// TODO: Implement custom counted string class
-		char LogMessageFormatted[512];
-		vsnprintf_s(LogMessageFormatted, ARRAY_SIZE(LogMessageFormatted), LogMessage, Args);
+		char log_message_formatted[512];
+		vsnprintf_s(log_message_formatted, ARRAY_SIZE(log_message_formatted), log_message, args);
 
-		char FinalMessage[512];
-		sprintf_s(FinalMessage, ARRAY_SIZE(FinalMessage), "[%s] [%s]\t%s", LogSeverityToString(Severity), Sender, LogMessageFormatted);
+		char full_log_message[512];
+		sprintf_s(full_log_message, ARRAY_SIZE(full_log_message), "[%s] [%s]\t%s", log_severity_to_string(severity), sender, log_message_formatted);
 
-		va_end(Args);
+		va_end(args);
 
-		std::cout << FinalMessage << std::endl;
+		std::cout << full_log_message << std::endl;
 	}
 
 }
 
-#define LOG_VERBOSE(...) Logger::Log(Logger::LogSeverity_Verbose, __VA_ARGS__)
-#define LOG_INFO(...)	 Logger::Log(Logger::LogSeverity_Info,    __VA_ARGS__)
-#define LOG_WARN(...)	 Logger::Log(Logger::LogSeverity_Warn,	  __VA_ARGS__)
-#define LOG_ERR(...)	 Logger::Log(Logger::LogSeverity_Error,	  __VA_ARGS__)
+#define LOG_VERBOSE(...) logger::log(logger::LogSeverity_Verbose, __VA_ARGS__)
+#define LOG_INFO(...)	 logger::log(logger::LogSeverity_Info,    __VA_ARGS__)
+#define LOG_WARN(...)	 logger::log(logger::LogSeverity_Warn,	  __VA_ARGS__)
+#define LOG_ERR(...)	 logger::log(logger::LogSeverity_Error,	  __VA_ARGS__)
