@@ -179,7 +179,7 @@ namespace dx12_backend
 #ifdef _DEBUG
 		// Set info queue behavior and filters
 		ID3D12InfoQueue* d3d12_info_queue = nullptr;
-		DX_CHECK_HR(Inst->D3D12Device->QueryInterface(IID_PPV_ARGS(&d3d12_info_queue)));
+		DX_CHECK_HR(inst->d3d12_device->QueryInterface(IID_PPV_ARGS(&d3d12_info_queue)));
 		DX_CHECK_HR(d3d12_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE));
 		DX_CHECK_HR(d3d12_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE));
 		DX_CHECK_HR(d3d12_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE));
