@@ -126,7 +126,7 @@ namespace dx12_backend
 
 	void init(memory_arena_t* arena)
 	{
-		LOG_INFO("dx12_backend", "init");
+		LOG_INFO("DX12 Backend", "Init");
 
 		inst = ARENA_ALLOC_STRUCT_ZERO(arena, instance_t);
 		inst->arena = arena;
@@ -306,7 +306,7 @@ namespace dx12_backend
 
 	void exit()
 	{
-		LOG_INFO("dx12_backend", "exit");
+		LOG_INFO("DX12 Backend", "Exit");
 
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();

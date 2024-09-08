@@ -1,29 +1,37 @@
 #pragma once
 
+#include "core/camera/camera.h"
+#include "acceleration_structure/tlas.h"
+#include "resource_slotmap.h"
+
+struct material_t;
+class bvh_t;
+class bvh_instance_t;
+
 namespace renderer
 {
 
-	enum render_visualization : u32
+	enum RenderViewMode : u32
 	{
-		RenderVisualization_None,
+		RenderViewMode_None,
 		
-		RenderVisualization_HitAlbedo,
-		RenderVisualization_HitNormal,
-		RenderVisualization_HitBarycentrics,
-		RenderVisualization_HitSpecRefract,
-		RenderVisualization_HitAbsorption,
-		RenderVisualization_HitEmissive,
+		RenderViewMode_HitAlbedo,
+		RenderViewMode_HitNormal,
+		RenderViewMode_HitBarycentrics,
+		RenderViewMode_HitSpecRefract,
+		RenderViewMode_HitAbsorption,
+		RenderViewMode_HitEmissive,
 
-		RenderVisualization_Depth,
+		RenderViewMode_Depth,
 
-		RenderVisualization_RayRecursionDepth,
-		RenderVisualization_RussianRouletteKillDepth,
-		RenderVisualization_AccelerationStructureDepth,
+		RenderViewMode_RayRecursionDepth,
+		RenderViewMode_RussianRouletteKillDepth,
+		RenderViewMode_AccelerationStructureDepth,
 
-		RenderVisualization_Count
+		RenderViewMode_Count
 	};
 
-	static const char* render_data_visualization_labels[RenderVisualization_Count] =
+	static const char* render_view_mode_labels[RenderViewMode_Count] =
 	{
 		"None",
 		"Hit albedo", "Hit normal", "Hit barycentrics", "Hit spec refract", "Hit absorption", "Hit emissive_color",
@@ -33,7 +41,7 @@ namespace renderer
 
 	struct render_settings_t
 	{
-		render_visualization render_visualization;
+		RenderViewMode render_view_mode;
 		u32 ray_max_recursion;
 		
 		b8 cosine_weighted_diffuse;
@@ -58,5 +66,32 @@ namespace renderer
 		u32 height;
 		f32* ptr_pixel_data;
 	};
+
+	struct renderer_inst_t
+	{
+		memory_arena_t arena;
+
+		u32 render_width;
+		u32 render_height;
+		f32 inv_render_width;
+		f32 inv_render_height;
+
+		resource_slotmap_t<render_texture_handle_t, texture_t> texture_slotmap;
+		resource_slotmap_t<render_mesh_handle_t, bvh_t> bvh_slotmap;
+
+		u32 bvh_instances_count;
+		u32 bvh_instances_at;
+		bvh_instance_t* bvh_instances;
+		material_t* bvh_instances_materials;
+
+		tlas_t scene_tlas;
+		camera_t scene_camera;
+		texture_t* scene_hdr_env_texture;
+
+		render_settings_t settings;
+		u64 frame_index;
+	};
+
+	extern renderer_inst_t* g_renderer;
 
 }

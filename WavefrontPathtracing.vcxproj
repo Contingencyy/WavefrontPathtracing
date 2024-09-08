@@ -178,6 +178,7 @@
     <ClCompile Include="source\renderer\acceleration_structure\tlas.cpp" />
     <ClCompile Include="source\renderer\cpupathtracer.cpp" />
     <ClCompile Include="source\renderer\dx12\dx12_backend.cpp" />
+    <ClCompile Include="source\renderer\renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="extern\imgui\imgui_impl_dx12.h" />
@@ -208,6 +209,7 @@
     <ClInclude Include="source\renderer\dx12\dx12_backend.h" />
     <ClInclude Include="source\renderer\raytracing_types.h" />
     <ClInclude Include="source\renderer\raytracing_utils.h" />
+    <ClInclude Include="source\renderer\renderer.h" />
     <ClInclude Include="source\renderer\renderer_common.h" />
     <ClInclude Include="source\renderer\renderer_fwd.h" />
     <ClInclude Include="source\renderer\resource_slotmap.h" />

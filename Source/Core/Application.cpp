@@ -1,9 +1,11 @@
 #include "pch.h"
 #include "application.h"
+
 #include "core/logger.h"
 #include "core/scene.h"
 #include "core/input.h"
-#include "renderer/cpupathtracer.h"
+
+#include "renderer/renderer.h"
 
 #include "imgui/imgui.h"
 
@@ -66,20 +68,20 @@ namespace application
 		ImGui::End();
 
 		inst->active_scene->render_ui();
-		cpupathtracer::render_ui();
+		renderer::render_ui();
 	}
 
 	static void render()
 	{
-		cpupathtracer::begin_frame();
+		renderer::begin_frame();
 		inst->active_scene->render();
 		render_ui();
-		cpupathtracer::end_frame();
+		renderer::end_frame();
 	}
 
 	void init()
 	{
-		LOG_INFO("application", "init");
+		LOG_INFO("Application", "Init");
 
 		inst = ARENA_BOOTSTRAP(instance_t, 0);
 
@@ -88,7 +90,7 @@ namespace application
 
 		// We could do one arena per system eventually, but for now everything that needs
 		// to live for as long as the application does will use the same arena
-		cpupathtracer::init(client_width, client_height);
+		renderer::init(client_width, client_height);
 
 		inst->active_scene = ARENA_ALLOC_STRUCT_ZERO(&inst->arena, scene_t);
 		inst->active_scene->init();
@@ -98,9 +100,9 @@ namespace application
 
 	void exit()
 	{
-		LOG_INFO("application", "exit");
+		LOG_INFO("Application", "Exit");
 
-		cpupathtracer::exit();
+		renderer::exit();
 
 		inst->active_scene->destroy();
 		ARENA_RELEASE(&inst->arena);

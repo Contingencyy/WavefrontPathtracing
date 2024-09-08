@@ -1,9 +1,10 @@
 #include "pch.h"
 #include "scene.h"
-#include "renderer/cpupathtracer.h"
 
 // TODO: remove and implement a proper asset manager
 #include "core/assets/asset_loader.h"
+
+#include "renderer/renderer.h"
 
 #include "imgui/imgui.h"
 
@@ -30,7 +31,7 @@ void scene_t::init()
 	plane_verts[0].normal = plane_verts[1].normal = plane_verts[2].normal = plane_verts[3].normal = glm::vec3(0.0f, 1.0f, 0.0f);
 
 	u32 plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
-	render_mesh_handle_t render_mesh_handle_plane = cpupathtracer::create_mesh(plane_verts, ARRAY_SIZE(plane_verts), plane_indices, ARRAY_SIZE(plane_indices));
+	render_mesh_handle_t render_mesh_handle_plane = renderer::create_render_mesh(plane_verts, ARRAY_SIZE(plane_verts), plane_indices, ARRAY_SIZE(plane_indices));
 
 	material_t plane_material = material_t::make_diffuse(glm::vec3(1.0f));
 	create_scene_object(render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));
@@ -76,17 +77,17 @@ void scene_t::update(f32 DeltaTime)
 
 void scene_t::render()
 {
-	cpupathtracer::begin_scene(m_camera_controller.get_camera(), m_hdr_env_texture_asset->render_texture_handle);
+	renderer::begin_scene(m_camera_controller.get_camera(), m_hdr_env_texture_asset->render_texture_handle);
 
 	// Submit every object that needs to be rendered
 	for (u32 i = 0; i < m_scene_object_at; ++i)
 	{
 		const scene_object_t* object = &m_scene_objects[i];
-		cpupathtracer::submit_mesh(object->render_mesh_handle, object->transform_mat, object->material);
+		renderer::submit_render_mesh(object->render_mesh_handle, object->transform_mat, object->material);
 	}
 
-	cpupathtracer::render();
-	cpupathtracer::end_scene();
+	renderer::render();
+	renderer::end_scene();
 }
 
 void scene_t::render_ui()

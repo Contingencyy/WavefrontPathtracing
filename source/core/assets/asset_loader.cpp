@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "asset_loader.h"
-#include "renderer/cpupathtracer.h"
+
+#include "renderer/renderer.h"
 
 namespace asset_loader
 {
@@ -50,7 +51,7 @@ namespace asset_loader
 				FATAL_ERROR("asset_loader::load_image_hdr", "Failed to load HDR image: %s", filepath);
 			}
 
-			asset->render_texture_handle = cpupathtracer::create_texture(image_width, image_height, ptr_image_data);
+			asset->render_texture_handle = renderer::create_render_texture(image_width, image_height, ptr_image_data);
 		}
 
 		return asset;
@@ -165,7 +166,7 @@ namespace asset_loader
 					}
 
 					// Create render mesh
-					asset->render_mesh_handles[asset->mesh_handle_count] = cpupathtracer::create_mesh(vertices, vertex_count, indices, index_count);
+					asset->render_mesh_handles[asset->mesh_handle_count] = renderer::create_render_mesh(vertices, vertex_count, indices, index_count);
 					asset->mesh_handle_count++;
 				}
 			}
