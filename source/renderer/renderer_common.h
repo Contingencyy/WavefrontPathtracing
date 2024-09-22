@@ -91,7 +91,6 @@ namespace renderer
 		render_settings_t settings;
 		u64 frame_index;
 	};
-
 	extern renderer_inst_t* g_renderer;
 
 }

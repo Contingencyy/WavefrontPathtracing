@@ -84,6 +84,12 @@
     <ClCompile Include="source\renderer\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\renderer\gpupathtracer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\dx12\dx12_descriptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\application.h">
@@ -182,5 +188,20 @@
     <ClInclude Include="source\renderer\renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="source\renderer\gpupathtracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\platform\windows\windows_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\dx12\dx12_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\dx12\dx12_descriptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="source\renderer\shaders\gpupathtracer.hlsl" />
   </ItemGroup>
 </Project>

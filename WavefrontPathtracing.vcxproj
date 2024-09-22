@@ -96,13 +96,24 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;$(SolutionDir)extern\d3d12_agility\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)extern\dxcompiler\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>xcopy /q /y /e "$(SolutionDir)assets\" "$(OutDir)assets\"
+xcopy /q /y /e "$(SolutionDir)source\renderer\shaders\" "$(OutDir)shaders\"
+xcopy /q /y /e "$(SolutionDir)extern\d3d12_agility\bin\x64\D3D12Core.dll" "$(OutDir)D3D12\"
+xcopy /q /y /e "$(SolutionDir)extern\d3d12_agility\bin\x64\d3d12SDKLayers.dll" "$(OutDir)D3D12\"
+xcopy /q /y /e "$(SolutionDir)extern\d3d12_agility\bin\x64\D3D12Core.pdb" "$(OutDir)D3D12\"
+xcopy /q /y /e "$(SolutionDir)extern\d3d12_agility\bin\x64\d3d12SDKLayers.pdb" "$(OutDir)D3D12\"
+xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxcompiler.dll" "$(OutDir)"
+xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -123,15 +134,24 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;$(SolutionDir)extern\d3d12_agility\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)extern\dxcompiler\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>xcopy /q /y /e "$(SolutionDir)assets\" "$(OutDir)assets\"
+xcopy /q /y /e "$(SolutionDir)source\renderer\shaders\" "$(OutDir)shaders\"
+xcopy /q /y /e "$(SolutionDir)extern\d3d12_agility\bin\x64\D3D12Core.dll" "$(OutDir)D3D12\"
+xcopy /q /y /e "$(SolutionDir)extern\d3d12_agility\bin\x64\d3d12SDKLayers.dll" "$(OutDir)D3D12\"
+xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxcompiler.dll" "$(OutDir)"
+xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="extern\imgui\imgui_impl_dx12.cpp">
@@ -177,7 +197,9 @@
     <ClCompile Include="source\renderer\acceleration_structure\bvh_instance.cpp" />
     <ClCompile Include="source\renderer\acceleration_structure\tlas.cpp" />
     <ClCompile Include="source\renderer\cpupathtracer.cpp" />
+    <ClCompile Include="source\renderer\dx12\dx12_descriptor.cpp" />
     <ClCompile Include="source\renderer\dx12\dx12_backend.cpp" />
+    <ClCompile Include="source\renderer\gpupathtracer.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -202,17 +224,27 @@
     <ClInclude Include="source\core\common.h" />
     <ClInclude Include="source\core\logger.h" />
     <ClInclude Include="source\pch.h" />
+    <ClInclude Include="source\platform\windows\windows_common.h" />
     <ClInclude Include="source\renderer\acceleration_structure\bvh.h" />
     <ClInclude Include="source\renderer\acceleration_structure\bvh_instance.h" />
     <ClInclude Include="source\renderer\acceleration_structure\tlas.h" />
     <ClInclude Include="source\renderer\cpupathtracer.h" />
+    <ClInclude Include="source\renderer\dx12\dx12_descriptor.h" />
     <ClInclude Include="source\renderer\dx12\dx12_backend.h" />
+    <ClInclude Include="source\renderer\dx12\dx12_common.h" />
+    <ClInclude Include="source\renderer\gpupathtracer.h" />
     <ClInclude Include="source\renderer\raytracing_types.h" />
     <ClInclude Include="source\renderer\raytracing_utils.h" />
     <ClInclude Include="source\renderer\renderer.h" />
     <ClInclude Include="source\renderer\renderer_common.h" />
     <ClInclude Include="source\renderer\renderer_fwd.h" />
     <ClInclude Include="source\renderer\resource_slotmap.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="source\renderer\shaders\gpupathtracer.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

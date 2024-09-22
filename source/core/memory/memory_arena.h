@@ -16,7 +16,7 @@ struct memory_arena_t
 	u8* ptr_committed;
 
 	static void* alloc(memory_arena_t* arena, u64 size, u64 align);
-	static void* alloc_zero(memory_arena_t* arena, u64 Size, u64 align);
+	static void* alloc_zero(memory_arena_t* arena, u64 size, u64 align);
 
 	static void decommit(memory_arena_t* arena, u8* ptr);
 	static void free(memory_arena_t* arena, u8* ptr);

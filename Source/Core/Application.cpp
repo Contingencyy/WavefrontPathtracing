@@ -11,6 +11,7 @@
 
 #include <chrono>
 
+void create_window(i32 desired_width, i32 desired_height);
 void get_window_client_area(i32& out_window_width, i32& out_window_height);
 void set_window_capture_mouse(b8 capture);
 b8 poll_window_events();
@@ -79,10 +80,11 @@ namespace application
 		renderer::end_frame();
 	}
 
-	void init()
+	void init(const command_line_args_t& cmd_args)
 	{
 		LOG_INFO("Application", "Init");
 
+		create_window(cmd_args.window_width, cmd_args.window_height);
 		inst = ARENA_BOOTSTRAP(instance_t, 0);
 
 		i32 client_width = 0, client_height = 0;

@@ -3,32 +3,7 @@
 #include "core/logger.h"
 #include "core/input.h"
 
-#define WINDOWS_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-
-#ifdef create_window
-#undef create_window
-#endif
-
-#ifdef near
-#undef near
-#endif
-#ifdef far
-#undef far
-#endif
-
-#ifdef LoadImage
-#undef LoadImage
-#endif
-
-#ifdef OPAQUE
-#undef OPAQUE
-#endif
-
-#ifdef TRANSPARENT
-#undef TRANSPARENT
-#endif
+#include "platform/windows/windows_common.h"
 
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
@@ -191,15 +166,15 @@ b8 poll_window_events()
 	return true;
 }
 
-static inline void create_window(i32 desired_client_width, i32 desired_client_height)
+void create_window(i32 desired_width, i32 desired_height)
 {
 	i32 screen_width = GetSystemMetrics(SM_CXFULLSCREEN);
 	i32 screen_height = GetSystemMetrics(SM_CYFULLSCREEN);
 
-	if (desired_client_width <= 0 || desired_client_width > screen_width)
-		desired_client_width = 4 * screen_width / 5;
-	if (desired_client_height <= 0 || desired_client_height > screen_height)
-		desired_client_height = 4 * screen_height / 5;
+	if (desired_width <= 0 || desired_width > screen_width)
+		desired_width = 4 * screen_width / 5;
+	if (desired_height <= 0 || desired_height > screen_height)
+		desired_height = 4 * screen_height / 5;
 
 	WNDCLASSEXW window_class =
 	{
@@ -218,8 +193,8 @@ static inline void create_window(i32 desired_client_width, i32 desired_client_he
 	{
 		.left = 0,
 		.top = 0,
-		.right = desired_client_width,
-		.bottom = desired_client_height
+		.right = desired_width,
+		.bottom = desired_height
 	};
 	AdjustWindowRectEx(&window_rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
@@ -243,8 +218,8 @@ static inline void create_window(i32 desired_client_width, i32 desired_client_he
 	RECT client_rect;
 	GetClientRect(s_hwnd, &client_rect);
 
-	ASSERT(client_rect.right - client_rect.left == desired_client_width);
-	ASSERT(client_rect.bottom - client_rect.top == desired_client_height);
+	ASSERT(client_rect.right - client_rect.left == desired_width);
+	ASSERT(client_rect.bottom - client_rect.top == desired_height);
 }
 
 void fatal_error_impl(i32 line, const char* error_msg)
@@ -253,12 +228,6 @@ void fatal_error_impl(i32 line, const char* error_msg)
 	__debugbreak();
 	ExitProcess(1);
 }
-
-struct command_line_args_t
-{
-	i32 window_width = 0;
-	i32 window_height = 0;
-};
 
 static command_line_args_t ParseCommandLineArgs(char* cmd_line)
 {
@@ -310,15 +279,13 @@ int WINAPI wWinMain(
 
 	char cmd_line[512];
 	wcstombs(cmd_line, lpCmdLine, ARRAY_SIZE(cmd_line));
-	command_line_args_t parsed_cmd_args = ParseCommandLineArgs(cmd_line);
 
-	LOG_INFO("application", "Started with arguments: %s", cmd_line);
-	
-	create_window(parsed_cmd_args.window_width, parsed_cmd_args.window_height);
+	LOG_INFO("Command Line", "Passed arguments: %s", cmd_line);
+	command_line_args_t parsed_cmd_args = ParseCommandLineArgs(cmd_line);
 
 	while (!application::should_close())
 	{
-		application::init();
+		application::init(parsed_cmd_args);
 		application::run();
 		application::exit();
 	}

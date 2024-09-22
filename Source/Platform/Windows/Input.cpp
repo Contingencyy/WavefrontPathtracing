@@ -2,9 +2,7 @@
 #include "core/input.h"
 #include "core/containers/hashmap.h"
 
-#define WINDOWS_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
+#include "platform/windows/windows_common.h"
 
 void reset_mouse_position_to_center();
 void get_window_center(i32& out_centerX, i32& out_centerY);

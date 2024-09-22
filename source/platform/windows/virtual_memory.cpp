@@ -2,9 +2,7 @@
 #include "core/memory/virtual_memory.h"
 #include "core/assertion.h"
 
-#define WINDOWS_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
+#include "platform/windows/windows_common.h"
 
 namespace virtual_memory
 {

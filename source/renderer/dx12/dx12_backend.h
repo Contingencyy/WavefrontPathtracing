@@ -2,7 +2,7 @@
 
 namespace dx12_backend
 {
-
+	
 	void init(memory_arena_t* arena);
 	void exit();
 

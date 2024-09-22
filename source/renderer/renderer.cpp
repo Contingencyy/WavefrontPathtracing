@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "renderer.h"
 #include "renderer_common.h"
-#include "cpupathtracer.h"
 #include "dx12/dx12_backend.h"
+#include "gpupathtracer.h"
 
 #include "acceleration_structure/bvh.h"
 #include "acceleration_structure/bvh_instance.h"
@@ -64,8 +64,8 @@ namespace renderer
 		g_renderer->settings = get_default_render_settings();
 
 		// The path tracer and dx12 backend use the same arena as the front-end renderer since the renderer initializes them and they have the same lifetimes
-		cpupathtracer::init(&g_renderer->arena);
 		dx12_backend::init(&g_renderer->arena);
+		gpupathtracer::init(&g_renderer->arena);
 	}
 
 	void exit()
@@ -73,19 +73,19 @@ namespace renderer
 		g_renderer->texture_slotmap.destroy();
 		g_renderer->bvh_slotmap.destroy();
 
+		gpupathtracer::exit();
 		dx12_backend::exit();
-		cpupathtracer::exit();
 	}
 
 	void begin_frame()
 	{
 		dx12_backend::begin_frame();
-		cpupathtracer::begin_frame();
+		gpupathtracer::begin_frame();
 	}
 
 	void end_frame()
 	{
-		cpupathtracer::end_frame();
+		gpupathtracer::end_frame();
 
 		dx12_backend::end_frame();
 		dx12_backend::present();
@@ -95,7 +95,7 @@ namespace renderer
 
 	void begin_scene(const camera_t& scene_camera, render_texture_handle_t env_render_texture_handle)
 	{
-		cpupathtracer::begin_scene(scene_camera);
+		gpupathtracer::begin_scene(scene_camera);
 
 		g_renderer->scene_camera = scene_camera;
 		g_renderer->scene_hdr_env_texture = g_renderer->texture_slotmap.find(env_render_texture_handle);
@@ -104,14 +104,14 @@ namespace renderer
 
 	void render()
 	{
-		cpupathtracer::render();
+		gpupathtracer::render();
 	}
 
 	void end_scene()
 	{
 		g_renderer->bvh_instances_at = 0;
 
-		cpupathtracer::end_scene();
+		gpupathtracer::end_scene();
 	}
 
 	void render_ui()
@@ -187,7 +187,7 @@ namespace renderer
 
 			if (ImGui::CollapsingHeader("CPU Pathtracer"))
 			{
-				cpupathtracer::render_ui(should_reset_accumulators);
+				gpupathtracer::render_ui(should_reset_accumulators);
 			}
 		}
 

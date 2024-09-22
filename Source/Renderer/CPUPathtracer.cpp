@@ -94,48 +94,6 @@ namespace cpupathtracer
 
 	static glm::vec4 trace_path(ray_t& ray)
 	{
-		// TODO: Make memory arena statistics and visualizations using Dear ImPlot library
-		// TODO: Custom string class, counted strings, use in Assertion.h, logger.h, EntryPoint.cpp for command line parsing
-		// TODO: SafeTruncate for int and uint types, asserting if the value of a u64 is larger than the one to truncate to
-		// TODO: Make any resolution work with the multi-threaded rendering dispatch
-		// TODO: find a better epsilon for the Möller-Trumbore Triangle Intersection Algorithm
-		// TODO: add Config.h which has a whole bunch of defines like which intersection algorithms to use and what not
-		// REMEMBER: Set DXC to not use legacy struct padding
-		// TOOD: DX12 Agility SDK & Enhanced Barriers
-		// TODO: Profiling
-		// TODO: application window for profiler, Timer avg/min/max
-		// TODO: Profiling for tlas_t builds
-		// TODO: Next event estimation
-		// TODO: Stop moving mouse back to center when window loses focus
-		// TODO: Profile BVH build times for the BLAS and also the tlas_t
-		
-		// TODO: Setting for accumulation should be a render setting, with defaults for each render visualization
-		// TODO: BVH Refitting and Rebuilding (https://jacco.ompf2.com/2022/04/26/how-to-build-a-bvh-part-4-animation/)
-		// TODO: Display BVH build data like max depth, total number of vertices/triangles, etc. in the mesh assets once I have menus for that
-		// TODO: Separate BVH Builder and BVH's, which should just contain the actual data after a finished BVH build
-		// TODO: Assets, loading and storing BVH's
-		// TODO: DOF (https://youtu.be/Qz0KTGYJtUk)
-		// TODO: GPU Pathtracer
-			// TODO: GPU wavefront path tracer and path tracer inline raytracing for comparisons of performance, etc.
-			// NOTE: Need to figure out how the application-renderer interface should look like, the application should not know and/or care
-			//		 whether the frame was rendered using the GPU or CPU pathtracer
-		// FIX: Sometimes the colors just get flat and not even resetting the accumulator fixes it??
-		// TODO: Transmittance and density instead of absorption?
-		// TODO: Total Energy received, accumulated over time so it slowly stabilizes, for comparisons
-			// NOTE: Calculate average by using previous frame value * numAccumulated - 1 and current frame just times 1
-			// FIX: Why does the amount of average Energy received change when we toggle inst->Settings.linearToSRGB?
-		// TODO: Window resizing and resolution resizing
-		// TODO: Tooltips for render data visualization modes to know what they do, useful for e.g. ray recursion depth or RR kill depth
-		// TODO: Scene hierarchy
-			// TODO: Spawn new objects from ImGui
-		// TODO: ImGuizmo to transform objects
-		// TODO: ray/path visualization mode
-		// TODO: Unit tests for rt_util functions like UniformHemisphereSampling (testing the resulting dir for length 1 for example)
-		// TODO: Physically-based rendering
-		// TODO: BRDF importance sampling
-		// TODO: Denoising
-		// TODO: ReSTIR
-
 		glm::vec3 throughput(1.0f);
 		glm::vec3 energy(0.0f);
 
