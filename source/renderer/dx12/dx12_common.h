@@ -1,35 +1,8 @@
 #pragma once
-#include "d3d12.h"
-#include "dxgi1_6.h"
-#include "dxcompiler/inc/d3d12shader.h"
-#include "dxcompiler/inc/dxcapi.h"
-
-// Note: Windows.h needs to be included after d3d12.h, otherwise it will complain about redefinitions from the agility sdk
-#include "platform/windows/windows_common.h"
-
-#include "core/common.h"
-#include "core/assertion.h"
+#include "dx12_include.h"
+#include "dx12_descriptor.h"
 
 struct memory_arena_t;
-
-static inline void dx_check_hr(i32 Line, const char* File, HRESULT HR)
-{
-	if (FAILED(HR))
-		fatal_error(Line, File, "DX12 Backend", get_hr_message(HR));
-}
-
-#define DX_CHECK_HR(hr) dx_check_hr(__LINE__, __FILE__, hr)
-#define DX_RELEASE_OBJECT(object) \
-if ((object)) \
-{ \
-	ULONG ref_count = (object)->Release(); \
-	while (ref_count > 0) \
-	{ \
-/* Add a log warning here if it has to release more than once */ \
-		ref_count = (object)->Release(); \
-	} \
-} \
-(object) = nullptr
 
 namespace dx12_backend
 {
@@ -45,9 +18,7 @@ namespace dx12_backend
 		ID3D12GraphicsCommandList6* d3d12_command_list = nullptr;
 
 		ID3D12Resource* backbuffer = nullptr;
-		ID3D12Resource* upload_buffer = nullptr;
-		u8* ptr_upload_buffer = nullptr;
-
+		descriptor_allocation_t backbuffer_rtv;
 		u64 fence_value = 0;
 	};
 
@@ -92,8 +63,8 @@ namespace dx12_backend
 
 			struct heap_size_t
 			{
-				static constexpr u32 rtv = SWAP_CHAIN_BACK_BUFFER_COUNT;
-				static constexpr u32 cbv_srv_uav = 1024;
+				u32 rtv = 0;
+				u32 cbv_srv_uav = 0;
 			} heap_sizes;
 		} descriptor_heaps;
 
@@ -120,7 +91,7 @@ namespace dx12_backend
 		{
 		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_dx12->descriptor_heaps.rtv;
 		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_dx12->descriptor_heaps.cbv_srv_uav;
-		default:									 ASSERT(false);
+		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor heap for a descriptor heap type that is not supported or invalid");
 		}
 
 		return nullptr;
@@ -132,7 +103,7 @@ namespace dx12_backend
 		{
 		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_dx12->descriptor_heaps.handle_sizes.rtv;
 		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_dx12->descriptor_heaps.handle_sizes.cbv_srv_uav;
-		default:									 ASSERT(false);
+		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor handle size for a descriptor heap type that is not supported or invalid");
 		}
 
 		return 0;
@@ -144,10 +115,26 @@ namespace dx12_backend
 		{
 		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_dx12->descriptor_heaps.heap_sizes.rtv;
 		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_dx12->descriptor_heaps.heap_sizes.cbv_srv_uav;
-		default:									 ASSERT(false);
+		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor heap size for a descriptor heap type that is not supported or invalid");
 		}
 
 		return 0;
+	}
+
+	inline D3D12_CPU_DESCRIPTOR_HANDLE get_descriptor_heap_cpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE type, u32 offset)
+	{
+		return D3D12_CPU_DESCRIPTOR_HANDLE(get_descriptor_heap_by_type(type)->GetCPUDescriptorHandleForHeapStart().ptr + offset * get_descriptor_handle_size_by_type(type));
+	}
+
+	inline D3D12_GPU_DESCRIPTOR_HANDLE get_descriptor_heap_gpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE type, u32 offset)
+	{
+		// Only CBV_SRV_UAV and SAMPLER descriptor heaps can be shader visible (accessed through descriptor tables)
+		if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV || type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)
+		{
+			return D3D12_GPU_DESCRIPTOR_HANDLE(get_descriptor_heap_by_type(type)->GetGPUDescriptorHandleForHeapStart().ptr + offset * get_descriptor_handle_size_by_type(type));
+		}
+
+		return D3D12_GPU_DESCRIPTOR_HANDLE(0);
 	}
 
 }

@@ -331,7 +331,7 @@ namespace cpupathtracer
 
 	void end_frame()
 	{
-		dx12_backend::copy_to_back_buffer(reinterpret_cast<u8*>(inst->pixel_buffer));
+		//dx12_backend::copy_to_back_buffer(reinterpret_cast<u8*>(inst->pixel_buffer));
 		ARENA_FREE(inst->arena, inst->arena_marker_frame);
 	}
 
@@ -344,9 +344,6 @@ namespace cpupathtracer
 	void render()
 	{
 		inst->accumulated_frame_count++;
-
-		// build the current scene's tlas_t
-		g_renderer->scene_tlas.build(&g_renderer->arena, g_renderer->bvh_instances, g_renderer->bvh_instances_at);
 
 		f32 aspect = g_renderer->render_width / static_cast<f32>(g_renderer->render_height);
 		f32 tan_fov = glm::tan(glm::radians(g_renderer->scene_camera.vfov_deg) / 2.0f);
@@ -403,11 +400,14 @@ namespace cpupathtracer
 
 	void render_ui(b8 reset_accumulation)
 	{
-		ImGui::Text("Accumulated frames: %u", inst->accumulated_frame_count);
-		ImGui::Text("Total energy received: %.3f", inst->avg_energy_accumulator / static_cast<f64>(inst->accumulated_frame_count) * 1000.0f);
+		if (ImGui::CollapsingHeader("CPU Pathtracer"))
+		{
+			ImGui::Text("Accumulated frames: %u", inst->accumulated_frame_count);
+			ImGui::Text("Total energy received: %.3f", inst->avg_energy_accumulator / static_cast<f64>(inst->accumulated_frame_count) * 1000.0f);
 
-		if (reset_accumulation)
-			reset_accumulators();
+			if (reset_accumulation)
+				reset_accumulators();
+		}
 	}
 
 }

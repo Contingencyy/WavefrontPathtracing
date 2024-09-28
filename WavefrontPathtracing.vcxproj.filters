@@ -90,6 +90,9 @@
     <ClCompile Include="source\renderer\dx12\dx12_descriptor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\renderer\dx12\dx12_resource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\application.h">
@@ -198,6 +201,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\dx12\dx12_descriptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\dx12\dx12_resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\dx12\dx12_include.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

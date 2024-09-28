@@ -19,7 +19,7 @@ namespace renderer
 {
 
 	renderer_inst_t* g_renderer = nullptr;
-
+	
 	static render_settings_t get_default_render_settings()
 	{
 		render_settings_t defaults = {};
@@ -104,6 +104,9 @@ namespace renderer
 
 	void render()
 	{
+		// Build the TLAS
+		g_renderer->scene_tlas.build(&g_renderer->arena, g_renderer->bvh_instances, g_renderer->bvh_instances_at);
+
 		gpupathtracer::render();
 	}
 
@@ -185,10 +188,7 @@ namespace renderer
 				ImGui::Unindent(10.0f);
 			}
 
-			if (ImGui::CollapsingHeader("CPU Pathtracer"))
-			{
-				gpupathtracer::render_ui(should_reset_accumulators);
-			}
+			gpupathtracer::render_ui(should_reset_accumulators);
 		}
 
 		ImGui::End();

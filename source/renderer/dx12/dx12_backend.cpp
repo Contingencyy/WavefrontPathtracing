@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "dx12_backend.h"
 #include "dx12_common.h"
+#include "dx12_resource.h"
 #include "dx12_descriptor.h"
 #include "core/logger.h"
 #include "core/memory/memory_arena.h"
@@ -31,7 +32,7 @@ namespace dx12_backend
 
 		return barrier;
 	}
-
+	
 	void init(memory_arena_t* arena)
 	{
 		LOG_INFO("DX12 Backend", "Init");
@@ -64,6 +65,7 @@ namespace dx12_backend
 
 		// Select adapter
 		D3D_FEATURE_LEVEL d3d_min_feature_level = D3D_FEATURE_LEVEL_12_2;
+
 		IDXGIAdapter1* dxgi_adapter1 = nullptr;
 		u64 max_dedicated_video_mem = 0;
 
@@ -83,6 +85,13 @@ namespace dx12_backend
 
 		// Create D3D12 device
 		DX_CHECK_HR(D3D12CreateDevice(g_dx12->dxgi_adapter, d3d_min_feature_level, IID_PPV_ARGS(&g_dx12->d3d12_device)));
+
+		// Check if additional required features are supported
+		D3D12_FEATURE_DATA_D3D12_OPTIONS12 d3d_options12 = {};
+		DX_CHECK_HR(g_dx12->d3d12_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &d3d_options12, sizeof(d3d_options12)));
+
+		if (!d3d_options12.EnhancedBarriersSupported)
+			FATAL_ERROR("DX12 Backend", "DirectX 12 Feature not supported: Enhanced Barriers");
 
 #ifdef _DEBUG
 		// Set info queue behavior and filters
@@ -145,46 +154,19 @@ namespace dx12_backend
 		// Create fence and fence event
 		DX_CHECK_HR(g_dx12->d3d12_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_dx12->sync.d3d12_fence)));
 
-		// Create upload buffer
-		D3D12_HEAP_PROPERTIES upload_heap_props = {};
-		upload_heap_props.Type = D3D12_HEAP_TYPE_UPLOAD;
-
-		D3D12_RESOURCE_DESC upload_resource_desc = {};
-		upload_resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		upload_resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-		upload_resource_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-		upload_resource_desc.Format = DXGI_FORMAT_UNKNOWN;
-		// Need to make sure that the upload buffer matches the back buffer it will copy to
-		upload_resource_desc.Width = ALIGN_UP_POW2(g_dx12->swapchain.output_width * 4, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) * g_dx12->swapchain.output_height;
-		upload_resource_desc.Height = 1;
-		upload_resource_desc.DepthOrArraySize = 1;
-		upload_resource_desc.MipLevels = 1;
-		upload_resource_desc.SampleDesc.Count = 1;
-		upload_resource_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
-		{
-			DX_CHECK_HR(g_dx12->d3d12_device->CreateCommittedResource(&upload_heap_props, D3D12_HEAP_FLAG_NONE,
-				&upload_resource_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&g_dx12->frame_ctx[i].upload_buffer)));
-			g_dx12->frame_ctx[i].upload_buffer->Map(0, nullptr, reinterpret_cast<void**>(&g_dx12->frame_ctx[i].ptr_upload_buffer));
-		}
-
 		// Initialize descriptor heaps, descriptor allocation
+		g_dx12->descriptor_heaps.heap_sizes.rtv = SWAP_CHAIN_BACK_BUFFER_COUNT;
+		g_dx12->descriptor_heaps.heap_sizes.cbv_srv_uav = 1024;
 		descriptor::init();
 
 		// Create render target views for all back buffers
 		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
 		{
-			g_dx12->swapchain.dxgi_swapchain->GetBuffer(i, IID_PPV_ARGS(&g_dx12->frame_ctx[i].backbuffer));
+			frame_context_t& frame_ctx = g_dx12->frame_ctx[i];
 
-			D3D12_RENDER_TARGET_VIEW_DESC back_buffer_rtv_desc = {};
-			back_buffer_rtv_desc.Format = swapchain_desc.Format;
-			back_buffer_rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-			back_buffer_rtv_desc.Texture2D.MipSlice = 0;
-			back_buffer_rtv_desc.Texture2D.PlaneSlice = 0;
-
-			g_dx12->d3d12_device->CreateRenderTargetView(g_dx12->frame_ctx[i].backbuffer, &back_buffer_rtv_desc,
-				get_descriptor_heap_cpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, i));
+			g_dx12->swapchain.dxgi_swapchain->GetBuffer(i, IID_PPV_ARGS(&frame_ctx.backbuffer));
+			frame_ctx.backbuffer_rtv = descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			create_texture_2d_rtv(frame_ctx.backbuffer, frame_ctx.backbuffer_rtv, 0, swapchain_desc.Format);
 		}
 
 		// Initialize DXC
@@ -220,11 +202,6 @@ namespace dx12_backend
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
-
-		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
-		{
-			g_dx12->frame_ctx[i].upload_buffer->Unmap(0, nullptr);
-		}
 	}
 
 	void begin_frame()
@@ -253,43 +230,30 @@ namespace dx12_backend
 	{
 	}
 
-	void copy_to_back_buffer(u8* ptr_pixel_data)
+	void copy_to_back_buffer(ID3D12Resource* src_resource, u32 render_width, u32 render_height)
 	{
 		frame_context_t& frame_ctx = get_frame_context();
 
-		D3D12_RESOURCE_BARRIER copy_dst_barrier = transition_barrier(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
-		frame_ctx.d3d12_command_list->ResourceBarrier(1, &copy_dst_barrier);
-
-		u32 bpp = 4;
-		D3D12_RESOURCE_DESC dst_resource_desc = frame_ctx.backbuffer->GetDesc();
-
-		D3D12_SUBRESOURCE_FOOTPRINT dst_footprint = {};
-		dst_footprint.Format = dst_resource_desc.Format;
-		dst_footprint.Width = static_cast<UINT>(dst_resource_desc.Width);
-		dst_footprint.Height = dst_resource_desc.Height;
-		dst_footprint.Depth = 1;
-		dst_footprint.RowPitch = ALIGN_UP_POW2(static_cast<u32>(dst_resource_desc.Width * bpp), D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
-
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT src_footprint = {};
-		src_footprint.Footprint = dst_footprint;
-		src_footprint.Offset = 0;
-
-		u8* ptr_src = ptr_pixel_data;
-		u32 src_pitch = dst_resource_desc.Width * bpp;
-		u8* ptr_dst = frame_ctx.ptr_upload_buffer;
-		u32 dst_pitch = dst_footprint.RowPitch;
-
-		for (u32 y = 0; y < dst_resource_desc.Height; ++y)
 		{
-			memcpy(ptr_dst, ptr_src, src_pitch);
-			ptr_src += src_pitch;
-			ptr_dst += dst_pitch;
+			D3D12_RESOURCE_BARRIER barriers[2] =
+			{
+				transition_barrier(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST),
+				transition_barrier(src_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)
+			};
+			frame_ctx.d3d12_command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 		}
 
+		u32 bpp = 4;
+		D3D12_RESOURCE_DESC src_resource_desc = src_resource->GetDesc();
+		D3D12_RESOURCE_DESC dst_resource_desc = frame_ctx.backbuffer->GetDesc();
+
+		ASSERT(src_resource_desc.Width == dst_resource_desc.Width &&
+			   src_resource_desc.Height == dst_resource_desc.Height);
+
 		D3D12_TEXTURE_COPY_LOCATION src_copy_loc = {};
-		src_copy_loc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-		src_copy_loc.pResource = frame_ctx.upload_buffer;
-		src_copy_loc.PlacedFootprint = src_footprint;
+		src_copy_loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		src_copy_loc.pResource = src_resource;
+		src_copy_loc.SubresourceIndex = 0;
 
 		D3D12_TEXTURE_COPY_LOCATION dst_copy_loc = {};
 		dst_copy_loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -297,6 +261,14 @@ namespace dx12_backend
 		dst_copy_loc.SubresourceIndex = 0;
 
 		frame_ctx.d3d12_command_list->CopyTextureRegion(&dst_copy_loc, 0, 0, 0, &src_copy_loc, nullptr);
+
+		{
+			D3D12_RESOURCE_BARRIER barriers[1] =
+			{
+				transition_barrier(src_resource, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON)
+			};
+			frame_ctx.d3d12_command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+		}
 	}
 
 	void present()

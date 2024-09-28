@@ -37,6 +37,15 @@ struct memory_arena_t
 #define ARENA_ALLOC_STRUCT(arena, type) ARENA_ALLOC_ARRAY(arena, type, 1)
 #define ARENA_ALLOC_STRUCT_ZERO(arena, type) ARENA_ALLOC_ARRAY_ZERO(arena, type, 1)
 
+//	template<typename T>
+//	static T* alloc_default(memory_arena_t* arena)
+//	{
+//		T* alloc = ARENA_ALLOC_STRUCT(arena, T);
+//		*alloc = T();
+//		return alloc;
+//	}
+//#define ARENA_ALLOC_STRUCT_DEFAULT(arena, type) memory_arena_t::alloc_default<type>(arena)
+
 #define ARENA_FREE(arena, ptr) memory_arena_t::free(arena, ptr)
 #define ARENA_CLEAR(arena) memory_arena_t::clear(arena)
 #define ARENA_RELEASE(arena) memory_arena_t::release(arena)
