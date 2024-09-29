@@ -113,11 +113,11 @@ namespace rt_util
 	inline b8 intersect(const aabb_t& aabb, ray_t& ray)
 	{
 		f32 tx1 = (aabb.pmin.x - ray.origin.x) * ray.inv_dir.x, tx2 = (aabb.pmax.x - ray.origin.x) * ray.inv_dir.x;
-		f32 tmin = std::min(tx1, tx2), tmax = std::max(tx1, tx2);
+		f32 tmin = MIN(tx1, tx2), tmax = MAX(tx1, tx2);
 		f32 ty1 = (aabb.pmin.y - ray.origin.y) * ray.inv_dir.y, ty2 = (aabb.pmax.y - ray.origin.y) * ray.inv_dir.y;
-		tmin = std::max(tmin, std::min(ty1, ty2)), tmax = std::min(tmax, std::max(ty1, ty2));
+		tmin = MAX(tmin, MIN(ty1, ty2)), tmax = MIN(tmax, MAX(ty1, ty2));
 		f32 tz1 = (aabb.pmin.z - ray.origin.z) * ray.inv_dir.z, tz2 = (aabb.pmax.z - ray.origin.z) * ray.inv_dir.z;
-		tmin = std::max(tmin, std::min(tz1, tz2)), tmax = std::min(tmax, std::max(tz1, tz2));
+		tmin = MAX(tmin, MIN(tz1, tz2)), tmax = MIN(tmax, MAX(tz1, tz2));
 
 		if (tmax >= tmin && tmin < ray.t && tmax > 0.0f)
 		{
@@ -136,8 +136,8 @@ namespace rt_util
 		__m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_and_ps(aabb_max, mask4), ray.origin4), ray.inv_dir4);
 		__m128 vmax4 = _mm_max_ps(t1, t2), vmin4 = _mm_min_ps(t1, t2);
 
-		f32 tmax = std::min(vmax4.m128_f32[0], std::min(vmax4.m128_f32[1], vmax4.m128_f32[2]));
-		f32 tmin = std::max(vmin4.m128_f32[0], std::max(vmin4.m128_f32[1], vmin4.m128_f32[2]));
+		f32 tmax = MIN(vmax4.m128_f32[0], MIN(vmax4.m128_f32[1], vmax4.m128_f32[2]));
+		f32 tmin = MAX(vmin4.m128_f32[0], MAX(vmin4.m128_f32[1], vmin4.m128_f32[2]));
 
 		if (tmax >= tmin && tmin < ray.t && tmax > 0.0f)
 		{
@@ -323,10 +323,10 @@ namespace rt_util
 
 	inline u32 vec4_to_u32(const glm::vec4& rgba)
 	{
-		u8 r = static_cast<u8>(255.0f * std::min(1.0f, rgba.r));
-		u8 g = static_cast<u8>(255.0f * std::min(1.0f, rgba.g));
-		u8 b = static_cast<u8>(255.0f * std::min(1.0f, rgba.b));
-		u8 a = static_cast<u8>(255.0f * std::min(1.0f, rgba.a));
+		u8 r = static_cast<u8>(255.0f * MIN(1.0f, rgba.r));
+		u8 g = static_cast<u8>(255.0f * MIN(1.0f, rgba.g));
+		u8 b = static_cast<u8>(255.0f * MIN(1.0f, rgba.b));
+		u8 a = static_cast<u8>(255.0f * MIN(1.0f, rgba.a));
 		return (a << 24) | (b << 16) | (g << 8) | r;
 	}
 

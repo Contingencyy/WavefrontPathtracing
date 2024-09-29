@@ -4,9 +4,8 @@
 #include "raytracing_utils.h"
 #include "dx12/dx12_backend.h"
 
-#include "acceleration_structure/bvh.h"
-#include "acceleration_structure/bvh_instance.h"
-#include "acceleration_structure/tlas.h"
+#include "acceleration_structure/bvh_builder.h"
+#include "acceleration_structure/tlas_builder.h"
 
 #include "core/camera/camera_controller.h"
 #include "core/logger.h"
@@ -92,6 +91,177 @@ namespace cpupathtracer
 		return final_color;
 	}
 
+	static const triangle_t* trace_ray_bvh_local(const bvh_t& bvh, ray_t& ray, hit_result_t& hit_result)
+	{
+		const triangle_t* hit_triangle = nullptr;
+
+		const bvh_node_t* node_curr = &bvh.nodes[0];
+		const bvh_node_t* stack[64] = {};
+		u32 stack_at = 0;
+
+		while (true)
+		{
+			// The current node is a leaf node, so we need to check intersections with the primitives
+			if (node_curr->prim_count > 0)
+			{
+				for (u32 tri_idx = node_curr->left_first; tri_idx < node_curr->left_first + node_curr->prim_count; ++tri_idx)
+				{
+					const triangle_t& triangle = bvh.triangles[bvh.triangle_indices[tri_idx]];
+					b8 intersected = rt_util::intersect(triangle, ray, hit_result.t, hit_result.bary);
+
+					if (intersected)
+					{
+						hit_result.prim_idx = tri_idx;
+						hit_triangle = &bvh.triangles[bvh.triangle_indices[tri_idx]];
+					}
+				}
+
+				if (stack_at == 0)
+					break;
+				else
+					node_curr = stack[--stack_at];
+				continue;
+			}
+
+			// If the current node is not a leaf node, keep traversing the left and right child nodes
+			const bvh_node_t* left_child_node = &bvh.nodes[node_curr->left_first];
+			const bvh_node_t* right_child_node = &bvh.nodes[node_curr->left_first + 1];
+
+			// Determine distance to left and right child nodes, using SSE aabb_t intersections
+			f32 left_dist = rt_util::intersect_sse(left_child_node->aabb_min4, left_child_node->aabb_max4, ray);
+			f32 right_dist = rt_util::intersect_sse(right_child_node->aabb_min4, right_child_node->aabb_max4, ray);
+
+			// Swap left and right child nodes so the closest is now the left child
+			if (left_dist > right_dist)
+			{
+				std::swap(left_dist, right_dist);
+				std::swap(left_child_node, right_child_node);
+			}
+
+			// If we have not intersected with the left and right child nodes, we can keep traversing the stack, or terminate if stack is empty
+			if (left_dist == FLT_MAX)
+			{
+				if (stack_at == 0)
+					break;
+				else
+					node_curr = stack[--stack_at];
+			}
+			// We have intersected with either the left or right child node, so check the closest node first
+			// and push the other one on the stack, if we have hit that one as well
+			else
+			{
+				ray.bvh_depth++;
+
+				node_curr = left_child_node;
+				if (right_dist != FLT_MAX)
+					stack[stack_at++] = right_child_node;
+			}
+		}
+
+		return hit_triangle;
+	}
+
+	static const triangle_t* trace_ray_bvh_instance(const bvh_instance_t& bvh_inst, ray_t& ray_world, hit_result_t& hit_result)
+	{
+		// Create a new ray that is in object-space of the bvh_t we want to intersect
+		// This is the same as if we transformed the bvh_t to world-space instead
+		ray_t ray_intersect = ray_world;
+		ray_intersect.origin = bvh_inst.world_to_local_transform * glm::vec4(ray_world.origin, 1.0f);
+		ray_intersect.dir = bvh_inst.world_to_local_transform * glm::vec4(ray_world.dir, 0.0f);
+		ray_intersect.inv_dir = 1.0f / ray_intersect.dir;
+
+		// Trace ray through the bvh_t
+		const mesh_t* mesh = g_renderer->mesh_slotmap.find(bvh_inst.bvh_handle);
+		if (!mesh)
+			return nullptr;
+
+		const triangle_t* hit_triangle = trace_ray_bvh_local(mesh->bvh, ray_intersect, hit_result);
+
+		// update the ray with the object-space ray depth
+		ray_world.t = ray_intersect.t;
+		ray_world.bvh_depth = ray_intersect.bvh_depth;
+
+		if (hit_triangle)
+		{
+			hit_result.pos = ray_world.origin + ray_world.dir * ray_world.t;
+			glm::vec4 normal_world = bvh_inst.local_to_world_transform * glm::vec4(rt_util::get_hit_normal(*hit_triangle, hit_result.bary), 0.0f);
+			hit_result.normal = glm::normalize(normal_world);
+		}
+
+		return hit_triangle;
+	}
+
+	static void trace_ray_tlas(const tlas_t& tlas, ray_t& ray, hit_result_t& hit_result)
+	{
+		const tlas_node_t* node = &tlas.nodes[0];
+		// Check if we miss the tlas_t entirely
+		if (rt_util::intersect_sse(node->aabb_min4, node->aabb_max4, ray) == FLT_MAX)
+			return;
+
+		ray.bvh_depth++;
+		const tlas_node_t* stack[64] = {};
+		u32 stack_at = 0;
+
+		while (true)
+		{
+			// The current node is a leaf node, so it contains a bvh_t which we need to trace against
+			if (node->is_leaf())
+			{
+				const bvh_instance_t& bvh_instance = tlas.instances[node->blas_instance_index];
+
+				// Trace object-space ray against object-space bvh_t
+				const triangle_t* hit_triangle = trace_ray_bvh_instance(bvh_instance, ray, hit_result);
+
+				// If we have hit a triangle, update the hit result
+				if (hit_triangle)
+				{
+					// Hit t, bary and prim_idx are written in bvh_t::trace_ray, Hit pos and normal in bvh_instance_t::trace_ray
+					hit_result.instance_idx = node->blas_instance_index;
+				}
+
+				if (stack_at == 0)
+					break;
+				else
+					node = stack[--stack_at];
+				continue;
+			}
+
+			// If the current node is not a leaf node, keep traversing the left and right child nodes
+			const tlas_node_t* left_child_node = &tlas.nodes[node->left_right >> 16];
+			const tlas_node_t* right_child_node = &tlas.nodes[node->left_right & 0x0000FFFF];
+
+			// Determine distance to left and right child nodes, using SSE aabb_t intersections
+			f32 left_dist = rt_util::intersect_sse(left_child_node->aabb_min4, left_child_node->aabb_max4, ray);
+			f32 right_dist = rt_util::intersect_sse(right_child_node->aabb_min4, right_child_node->aabb_max4, ray);
+
+			// Swap left and right child nodes so the closest is now the left child
+			if (left_dist > right_dist)
+			{
+				std::swap(left_dist, right_dist);
+				std::swap(left_child_node, right_child_node);
+			}
+
+			// If we have not intersected with the left and right child nodes, we can keep traversing the stack, or terminate if stack is empty
+			if (left_dist == FLT_MAX)
+			{
+				if (stack_at == 0)
+					break;
+				else
+					node = stack[--stack_at];
+			}
+			// We have intersected with either the left or right child node, so check the closest node first
+			// and push the other one on the stack, if we have hit that one as well
+			else
+			{
+				ray.bvh_depth++;
+
+				node = left_child_node;
+				if (right_dist != FLT_MAX)
+					stack[stack_at++] = right_child_node;
+			}
+		}
+	}
+
 	static glm::vec4 trace_path(ray_t& ray)
 	{
 		glm::vec3 throughput(1.0f);
@@ -104,7 +274,7 @@ namespace cpupathtracer
 		while (ray_depth <= g_renderer->settings.ray_max_recursion)
 		{
 			hit_result_t hit_result = {};
-			g_renderer->scene_tlas.trace_ray(ray, hit_result);
+			trace_ray_tlas(g_renderer->scene_tlas, ray, hit_result);
 
 			// render visualizations that are not depending on valid geometry data
 			if (g_renderer->settings.render_view_mode != RenderViewMode_None)
@@ -331,7 +501,7 @@ namespace cpupathtracer
 
 	void end_frame()
 	{
-		//dx12_backend::copy_to_back_buffer(reinterpret_cast<u8*>(inst->pixel_buffer));
+		dx12_backend::copy_to_back_buffer(reinterpret_cast<u8*>(inst->pixel_buffer));
 		ARENA_FREE(inst->arena, inst->arena_marker_frame);
 	}
 

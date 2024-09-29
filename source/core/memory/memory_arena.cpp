@@ -12,9 +12,8 @@ static b8 arena_can_fit(memory_arena_t* arena, u64 size, u64 align)
 	return AlignedBytesLeft >= size;
 }
 
-void* memory_arena_t::alloc(memory_arena_t* arena, u64 size, u64 align)
+void memory_arena_t::init(memory_arena_t* arena)
 {
-	// The arena holds no memory yet, so we need to reserve some
 	if (!arena->ptr_base)
 	{
 		arena->ptr_base = (u8*)virtual_memory::reserve(ARENA_RESERVE_CHUNK_SIZE);
@@ -22,6 +21,12 @@ void* memory_arena_t::alloc(memory_arena_t* arena, u64 size, u64 align)
 		arena->ptr_end = arena->ptr_base + ARENA_RESERVE_CHUNK_SIZE;
 		arena->ptr_committed = arena->ptr_base;
 	}
+}
+
+void* memory_arena_t::alloc(memory_arena_t* arena, u64 size, u64 align)
+{
+	// The arena holds no memory yet, so we need to reserve some
+	init(arena);
 
 	u8* result = nullptr;
 
@@ -58,13 +63,14 @@ void memory_arena_t::decommit(memory_arena_t* arena, u8* ptr)
 {
 	ASSERT(ptr);
 
-	// decommit memory until ptr, except the first ARENA_DECOMMIT_KEEP_CHUNK_SIZE bytes after that pointer
-	u8* ptr_decommit = ptr + ARENA_DECOMMIT_KEEP_CHUNK_SIZE;
-	if (arena->ptr_committed > ptr_decommit)
+	// Decommit memory until ptr, aligned to ARENA_COMMIT_CHUNK_SIZE
+	u8* ptr_decommit = (u8*)ALIGN_UP_POW2(ptr, ARENA_COMMIT_CHUNK_SIZE);
+	u64 decommit_bytes = MAX(0, arena->ptr_committed - ptr_decommit);
+
+	if (decommit_bytes > 0)
 	{
-		u64 decommit_size = arena->ptr_committed - ptr_decommit;
-		virtual_memory::decommit(ptr_decommit, decommit_size);
-		arena->ptr_committed -= decommit_size;
+		virtual_memory::decommit(ptr_decommit, decommit_bytes);
+		arena->ptr_committed = ptr_decommit;
 	}
 }
 
@@ -126,4 +132,13 @@ void* memory_arena_t::bootstrap_arena(u64 size, u64 align, u64 arena_offset)
 	memcpy((u8*)result + arena_offset, &arena, sizeof(memory_arena_t));
 
 	return result;
+}
+
+memory_arena_t* memory_arena_t::get_scratch()
+{
+	thread_local memory_arena_t g_arena_thread;
+
+	// Per thread scratch arena, only used with memory scopes to always automatically reset them
+	init(&g_arena_thread);
+	return &g_arena_thread;
 }

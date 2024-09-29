@@ -193,9 +193,8 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="source\platform\windows\virtual_memory.cpp" />
-    <ClCompile Include="source\renderer\acceleration_structure\bvh.cpp" />
-    <ClCompile Include="source\renderer\acceleration_structure\bvh_instance.cpp" />
-    <ClCompile Include="source\renderer\acceleration_structure\tlas.cpp" />
+    <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp" />
+    <ClCompile Include="source\renderer\acceleration_structure\tlas_builder.cpp" />
     <ClCompile Include="source\renderer\cpupathtracer.cpp" />
     <ClCompile Include="source\renderer\dx12\dx12_descriptor.cpp" />
     <ClCompile Include="source\renderer\dx12\dx12_backend.cpp" />
@@ -226,9 +225,8 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\core\logger.h" />
     <ClInclude Include="source\pch.h" />
     <ClInclude Include="source\platform\windows\windows_common.h" />
-    <ClInclude Include="source\renderer\acceleration_structure\bvh.h" />
-    <ClInclude Include="source\renderer\acceleration_structure\bvh_instance.h" />
-    <ClInclude Include="source\renderer\acceleration_structure\tlas.h" />
+    <ClInclude Include="source\renderer\acceleration_structure\bvh_builder.h" />
+    <ClInclude Include="source\renderer\acceleration_structure\tlas_builder.h" />
     <ClInclude Include="source\renderer\cpupathtracer.h" />
     <ClInclude Include="source\renderer\dx12\dx12_descriptor.h" />
     <ClInclude Include="source\renderer\dx12\dx12_backend.h" />

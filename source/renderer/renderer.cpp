@@ -1,12 +1,11 @@
 #include "pch.h"
 #include "renderer.h"
 #include "renderer_common.h"
+#include "raytracing_utils.h"
 #include "dx12/dx12_backend.h"
 #include "gpupathtracer.h"
 
-#include "acceleration_structure/bvh.h"
-#include "acceleration_structure/bvh_instance.h"
-#include "acceleration_structure/tlas.h"
+#include "acceleration_structure/bvh_builder.h"
 
 #include "core/camera/camera.h"
 #include "core/logger.h"
@@ -53,7 +52,7 @@ namespace renderer
 		g_renderer->inv_render_height = 1.0f / static_cast<f32>(g_renderer->render_height);
 
 		g_renderer->texture_slotmap.init(&g_renderer->arena);
-		g_renderer->bvh_slotmap.init(&g_renderer->arena);
+		g_renderer->mesh_slotmap.init(&g_renderer->arena);
 
 		g_renderer->bvh_instances_count = 100;
 		g_renderer->bvh_instances_at = 0;
@@ -71,7 +70,7 @@ namespace renderer
 	void exit()
 	{
 		g_renderer->texture_slotmap.destroy();
-		g_renderer->bvh_slotmap.destroy();
+		g_renderer->mesh_slotmap.destroy();
 
 		gpupathtracer::exit();
 		dx12_backend::exit();
@@ -104,8 +103,13 @@ namespace renderer
 
 	void render()
 	{
-		// Build the TLAS
-		g_renderer->scene_tlas.build(&g_renderer->arena, g_renderer->bvh_instances, g_renderer->bvh_instances_at);
+		ARENA_SCRATCH_SCOPE()
+		{
+			// Build the TLAS
+			tlas_builder_t tlas_builder = {};
+			tlas_builder.build(arena_scratch, g_renderer->bvh_instances, g_renderer->bvh_instances_at);
+			g_renderer->scene_tlas = tlas_builder.extract(&g_renderer->arena);
+		}
 
 		gpupathtracer::render();
 	}
@@ -208,26 +212,48 @@ namespace renderer
 
 	render_mesh_handle_t create_render_mesh(vertex_t* vertices, u32 vertex_count, u32* indices, u32 index_count)
 	{
-		bvh_t::build_options_t build_opts = {};
+		bvh_builder_t::build_args_t bvh_build_args = {};
+		bvh_build_args.vertices = vertices;
+		bvh_build_args.vertex_count = vertex_count;
+		bvh_build_args.indices = indices;
+		bvh_build_args.index_count = index_count;
+		//bvh_build_args.options = {};
 
-		bvh_t mesh_bvh = {};
-		mesh_bvh.build(&g_renderer->arena, vertices, vertex_count, indices, index_count, build_opts);
+		render_mesh_handle_t handle = {};
 
-		render_mesh_handle_t handle = g_renderer->bvh_slotmap.add(std::move(mesh_bvh));
+		ARENA_SCRATCH_SCOPE()
+		{
+			bvh_builder_t bvh_builder = {};
+			bvh_builder.build(arena_scratch, bvh_build_args);
+
+			mesh_t mesh = {};
+			mesh.bvh = bvh_builder.extract(&g_renderer->arena);
+			handle = g_renderer->mesh_slotmap.add(std::move(mesh));
+		}
+
 		return handle;
 	}
 
 	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material)
 	{
-		const bvh_t* bvh = g_renderer->bvh_slotmap.find(render_mesh_handle);
-		if (!bvh)
-			return;
+		const mesh_t* mesh = g_renderer->mesh_slotmap.find(render_mesh_handle);
 
+		// TODO: Draw debug default mesh if the actual mesh is missing, and log a warning/error
+		ASSERT(mesh);
 		ASSERT(g_renderer->bvh_instances_at < g_renderer->bvh_instances_count);
 
 		bvh_instance_t* instance = &g_renderer->bvh_instances[g_renderer->bvh_instances_at];
-		instance->set_bvh(bvh);
-		instance->set_transform(transform);
+		instance->local_to_world_transform = transform;
+		instance->world_to_local_transform = glm::inverse(transform);
+		instance->bvh_handle = render_mesh_handle;
+
+		aabb_t bvh_aabb_local = { mesh->bvh.nodes[0].aabb_min, mesh->bvh.nodes[0].aabb_max };
+		for (u32 i = 0; i < 8; ++i)
+		{
+			glm::vec3 pos_world = instance->local_to_world_transform *
+				glm::vec4(i & 1 ? bvh_aabb_local.pmax.x : bvh_aabb_local.pmin.x, i & 2 ? bvh_aabb_local.pmax.y : bvh_aabb_local.pmin.y, i & 4 ? bvh_aabb_local.pmax.z : bvh_aabb_local.pmin.z, 1.0f);
+			rt_util::grow_aabb(instance->aabb_world.pmin, instance->aabb_world.pmax, pos_world);
+		}
 
 		material_t* instance_material = &g_renderer->bvh_instances_materials[g_renderer->bvh_instances_at];
 		*instance_material = material;

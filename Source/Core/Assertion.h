@@ -22,7 +22,7 @@
 // Platform-specific implementation
 void fatal_error_impl(i32 line, const char* error_msg);
 
-static void fatal_error(i32 line, const char* file, const char* sender, const char* message, ...)
+inline void fatal_error(i32 line, const char* file, const char* sender, const char* message, ...)
 {
 	va_list args;
 	va_start(args, message);

@@ -1,12 +1,12 @@
 #pragma once
 
 #include "core/camera/camera.h"
-#include "acceleration_structure/tlas.h"
+#include "acceleration_structure/tlas_builder.h"
+#include "acceleration_structure/bvh_builder.h"
 #include "resource_slotmap.h"
 
 struct material_t;
-class bvh_t;
-class bvh_instance_t;
+struct bvh_instance_t;
 
 namespace renderer
 {
@@ -67,6 +67,11 @@ namespace renderer
 		f32* ptr_pixel_data;
 	};
 
+	struct mesh_t
+	{
+		bvh_t bvh;
+	};
+
 	struct renderer_inst_t
 	{
 		memory_arena_t arena;
@@ -77,7 +82,7 @@ namespace renderer
 		f32 inv_render_height;
 
 		resource_slotmap_t<render_texture_handle_t, texture_t> texture_slotmap;
-		resource_slotmap_t<render_mesh_handle_t, bvh_t> bvh_slotmap;
+		resource_slotmap_t<render_mesh_handle_t, mesh_t> mesh_slotmap;
 
 		u32 bvh_instances_count;
 		u32 bvh_instances_at;

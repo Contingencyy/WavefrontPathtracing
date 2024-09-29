@@ -20,6 +20,9 @@ namespace dx12_backend
 		ID3D12Resource* backbuffer = nullptr;
 		descriptor_allocation_t backbuffer_rtv;
 		u64 fence_value = 0;
+
+		ID3D12Resource* cpu_pixel_upload_buffer = nullptr;
+		u8* ptr_cpu_pixel_upload_buffer = nullptr;
 	};
 
 	struct dx12_instance_t

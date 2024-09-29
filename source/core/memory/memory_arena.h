@@ -15,6 +15,8 @@ struct memory_arena_t
 	u8* ptr_at;
 	u8* ptr_committed;
 
+	static void init(memory_arena_t* arena);
+
 	static void* alloc(memory_arena_t* arena, u64 size, u64 align);
 	static void* alloc_zero(memory_arena_t* arena, u64 size, u64 align);
 
@@ -29,6 +31,7 @@ struct memory_arena_t
 	static u64 total_committed(memory_arena_t* arena);
 
 	static void* bootstrap_arena(u64 size, u64 align, u64 arena_offset);
+	static memory_arena_t* get_scratch();
 
 #define ARENA_ALLOC(arena, size, align) memory_arena_t::alloc(arena, size, align)
 #define ARENA_ALLOC_ZERO(arena, size, align) memory_arena_t::alloc_zero(arena, size, align)
@@ -55,4 +58,5 @@ struct memory_arena_t
 #define ARENA_MEMORY_SCOPE(arena) \
 	for (u8* arena_marker = (arena)->ptr_at; (arena) && arena_marker; ARENA_FREE((arena), arena_marker), arena_marker = nullptr)
 
+#define ARENA_SCRATCH_SCOPE() memory_arena_t* arena_scratch = memory_arena_t::get_scratch(); ARENA_MEMORY_SCOPE(arena_scratch)
 };
