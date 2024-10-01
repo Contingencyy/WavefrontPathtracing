@@ -1,5 +1,7 @@
 #pragma once
 #include "core/common.h"
+#include "core/string/string.h"
+#include "core/memory/memory_arena.h"
 
 #include <stdarg.h>
 
@@ -20,21 +22,20 @@
 #define FATAL_ERROR(sender, msg, ...) fatal_error(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
 
 // Platform-specific implementation
-void fatal_error_impl(i32 line, const char* error_msg);
+void fatal_error_impl(i32 line, const string_t& error_msg);
 
 inline void fatal_error(i32 line, const char* file, const char* sender, const char* message, ...)
 {
-	va_list args;
-	va_start(args, message);
+	ARENA_SCRATCH_SCOPE()
+	{
+		va_list args;
+		va_start(args, message);
 
-	// TODO: Implement custom counted string class
-	char formatted_msg[1024];
-	vsnprintf_s(formatted_msg, ARRAY_SIZE(formatted_msg), message, args);
+		string_t formatted_message = ARENA_PRINTF_ARGS(arena_scratch, message, args);
+		
+		va_end(args);
 
-	char error_msg[1024];
-	sprintf_s(error_msg, ARRAY_SIZE(error_msg), "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", sender, formatted_msg, file, line);
-
-	fatal_error_impl(line, error_msg);
-
-	va_end(args);
+		string_t error_message = ARENA_PRINTF(arena_scratch, "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", sender, string_t::make_nullterm(arena_scratch, formatted_message), file, line);
+		fatal_error_impl(line, error_message);
+	}
 }

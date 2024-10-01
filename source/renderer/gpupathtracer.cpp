@@ -47,6 +47,7 @@ namespace dx12_backend
 		shader_source_buffer.Ptr = shader_source_blob->GetBufferPointer();
 		shader_source_buffer.Size = shader_source_blob->GetBufferSize();
 
+		// TODO: Use string builder, add dynamic macros
 		const wchar_t* compile_args[] =
 		{
 			filepath, // Filepath

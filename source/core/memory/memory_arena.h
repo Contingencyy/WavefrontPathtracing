@@ -33,6 +33,9 @@ struct memory_arena_t
 	static void* bootstrap_arena(u64 size, u64 align, u64 arena_offset);
 	static memory_arena_t* get_scratch();
 
+	static string_t printf(memory_arena_t* arena, const char* fmt, ...);
+	static string_t printf_args(memory_arena_t* arena, const char* fmt, va_list args);
+
 #define ARENA_ALLOC(arena, size, align) memory_arena_t::alloc(arena, size, align)
 #define ARENA_ALLOC_ZERO(arena, size, align) memory_arena_t::alloc_zero(arena, size, align)
 #define ARENA_ALLOC_ARRAY(arena, type, count) (type *)memory_arena_t::alloc((arena), sizeof(type) * (count), alignof(type))
@@ -57,6 +60,9 @@ struct memory_arena_t
 
 #define ARENA_MEMORY_SCOPE(arena) \
 	for (u8* arena_marker = (arena)->ptr_at; (arena) && arena_marker; ARENA_FREE((arena), arena_marker), arena_marker = nullptr)
-
 #define ARENA_SCRATCH_SCOPE() memory_arena_t* arena_scratch = memory_arena_t::get_scratch(); ARENA_MEMORY_SCOPE(arena_scratch)
+
+#define ARENA_PRINTF(arena, fmt, ...) memory_arena_t::printf(arena, fmt, ##__VA_ARGS__)
+#define ARENA_PRINTF_ARGS(arena, fmt, args) memory_arena_t::printf_args(arena, fmt, args)
+	// TODO: wide string support for printf
 };

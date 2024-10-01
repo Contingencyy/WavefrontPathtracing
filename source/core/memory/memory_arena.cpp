@@ -142,3 +142,29 @@ memory_arena_t* memory_arena_t::get_scratch()
 	init(&g_arena_thread);
 	return &g_arena_thread;
 }
+
+string_t memory_arena_t::printf(memory_arena_t* arena, const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	string_t result = printf_args(arena, fmt, args);
+
+	va_end(args);
+	return result;
+}
+
+string_t memory_arena_t::printf_args(memory_arena_t* arena, const char* fmt, va_list args)
+{
+	va_list args2;
+	va_copy(args2, args);
+
+	u32 count = vsnprintf(NULL, 0, fmt, args2);
+
+	va_end(args2);
+
+	string_t result = string_t::make(arena, count + 1);
+	vsnprintf(result.buf, count + 1, fmt, args);
+
+	return result;
+}

@@ -32,19 +32,18 @@ namespace logger
 		if (severity < LOG_SEVERITY_MINIMUM_LEVEL)
 			return;
 
-		va_list args;
-		va_start(args, log_message);
+		ARENA_SCRATCH_SCOPE()
+		{
+			va_list args;
+			va_start(args, log_message);
 
-		// TODO: Implement custom counted string class
-		char log_message_formatted[512];
-		vsnprintf_s(log_message_formatted, ARRAY_SIZE(log_message_formatted), log_message, args);
+			string_t formatted_log_message = ARENA_PRINTF_ARGS(arena_scratch, log_message, args);
 
-		char full_log_message[512];
-		sprintf_s(full_log_message, ARRAY_SIZE(full_log_message), "[%s] [%s]\t%s", log_severity_to_string(severity), sender, log_message_formatted);
+			va_end(args);
 
-		va_end(args);
-
-		std::cout << full_log_message << std::endl;
+			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s] [%s]\t%s", log_severity_to_string(severity), sender, string_t::make_nullterm(arena_scratch, formatted_log_message));
+			std::cout << string_t::make_nullterm(arena_scratch, full_log_message) << std::endl;
+		}
 	}
 
 }

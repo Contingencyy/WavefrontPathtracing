@@ -2,6 +2,7 @@
 #include "core/application.h"
 #include "core/logger.h"
 #include "core/input.h"
+#include "core/string/string.h"
 
 #include "platform/windows/windows_common.h"
 
@@ -222,50 +223,61 @@ void create_window(i32 desired_width, i32 desired_height)
 	ASSERT(client_rect.bottom - client_rect.top == desired_height);
 }
 
-void fatal_error_impl(i32 line, const char* error_msg)
+void fatal_error_impl(i32 line, const string_t& error_msg)
 {
-	MessageBoxA(NULL, error_msg, "Fatal Error", MB_OK);
-	__debugbreak();
-	ExitProcess(1);
+	ARENA_SCRATCH_SCOPE()
+	{
+		const char* error_msg_nullterm = string_t::make_nullterm(arena_scratch, error_msg);
+
+		MessageBoxA(NULL, error_msg_nullterm, "Fatal Error", MB_OK);
+		__debugbreak();
+		ExitProcess(1);
+	}
 }
 
-static command_line_args_t ParseCommandLineArgs(char* cmd_line)
+static void parse_next_command_arg(string_t& cmd_line_cur, string_t& arg_str, string_t& param_str)
 {
-	command_line_args_t cmd_args = {};
-	char* arg_current = cmd_line;
+	u32 arg_begin = string_t::find_char(cmd_line_cur, '-');
+	u32 arg_end = string_t::find_char(cmd_line_cur, ' ');
+	if (arg_end == STRING_NPOS || arg_begin >= arg_end)
+		FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line_cur);
 
-	while (true)
+	arg_str = string_t::make_view(cmd_line_cur, arg_begin, arg_end - arg_begin);
+	cmd_line_cur = string_t::make_view(cmd_line_cur, arg_end + 1, cmd_line_cur.count - arg_end - 1);
+
+	u32 param_begin = 0;
+	u32 param_end = string_t::find_char(cmd_line_cur, ' ');
+	if (param_end == STRING_NPOS)
+		param_end = cmd_line_cur.count;
+
+	if (param_begin >= param_end)
+		FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line_cur);
+
+	param_str = string_t::make_view(cmd_line_cur, param_begin, param_end - param_begin);
+	cmd_line_cur = string_t::make_view(cmd_line_cur, param_end + 1, cmd_line_cur.count - param_end - 1);
+}
+
+static void parse_cmd_line_args(const string_t& cmd_line, command_line_args_t& parsed_args)
+{
+	if (cmd_line.count == 0)
+		return;
+
+	string_t cmd_line_cur = cmd_line;
+	while (cmd_line_cur.count > 0)
 	{
-		const char* arg_begin = strchr(arg_current, '-');
-		if (arg_begin == NULL)
-			break;
+		string_t arg_str, param_str;
+		parse_next_command_arg(cmd_line_cur, arg_str, param_str);
+		char* param_end_ptr = param_str.buf + param_str.count;
 
-		const char* arg_end = strchr(arg_begin, ' ');
-		if (arg_end == NULL)
-			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line);
-
-		const char* param_begin = arg_end + 1;
-		if (param_begin == NULL)
-			FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line);
-
-		const char* param_end = strchr(param_begin, ' ');
-		if (param_end == NULL)
-			param_end = strchr(param_begin, '\0');
-
-		char arg_str[32];
-		strncpy_s(arg_str, arg_begin, arg_end - arg_begin);
-
-		if (strcmp(arg_str, "--width") == 0)
+		if (string_t::compare(arg_str, STRING_LITERAL("--width")))
 		{
-			cmd_args.window_width = strtol(param_begin, &arg_current, 10);
+			parsed_args.window_width = strtol(param_str.buf, &param_end_ptr, 10);
 		}
-		else if (strcmp(arg_str, "--height") == 0)
+		else if (string_t::compare(arg_str, STRING_LITERAL("--height")))
 		{
-			cmd_args.window_height = strtol(param_begin, &arg_current, 10);
+			parsed_args.window_height = strtol(param_str.buf, &param_end_ptr, 10);
 		}
 	}
-
-	return cmd_args;
 }
 
 int WINAPI wWinMain(
@@ -277,15 +289,22 @@ int WINAPI wWinMain(
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 	create_console();
 
-	char cmd_line[512];
-	wcstombs(cmd_line, lpCmdLine, ARRAY_SIZE(cmd_line));
+	// Parse command line arguments
+	command_line_args_t parsed_args = {};
 
-	LOG_INFO("Command Line", "Passed arguments: %s", cmd_line);
-	command_line_args_t parsed_cmd_args = ParseCommandLineArgs(cmd_line);
+	ARENA_SCRATCH_SCOPE()
+	{
+		u32 cmd_line_count = wcslen(lpCmdLine);
+		string_t cmd_line = string_t::make(arena_scratch, cmd_line_count);
+		wcstombs(cmd_line.buf, lpCmdLine, cmd_line.count);
+
+		LOG_INFO("Command Line", "Passed arguments: %s", cmd_line.buf);
+		parse_cmd_line_args(cmd_line, parsed_args);
+	}
 
 	while (!application::should_close())
 	{
-		application::init(parsed_cmd_args);
+		application::init(parsed_args);
 		application::run();
 		application::exit();
 	}

@@ -181,6 +181,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\core\assets\asset_loader.cpp" />
     <ClCompile Include="source\core\memory\memory_arena.cpp" />
     <ClCompile Include="source\core\scene.cpp" />
+    <ClCompile Include="source\core\string\string.cpp" />
     <ClCompile Include="source\core\threadpool.cpp" />
     <ClCompile Include="source\core\camera\camera_controller.cpp" />
     <ClCompile Include="source\core\application.cpp" />
@@ -215,6 +216,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\core\memory\virtual_memory.h" />
     <ClInclude Include="source\core\random.h" />
     <ClInclude Include="source\core\scene.h" />
+    <ClInclude Include="source\core\string\string.h" />
     <ClInclude Include="source\core\threadpool.h" />
     <ClInclude Include="source\core\camera\camera_controller.h" />
     <ClInclude Include="source\core\application.h" />
