@@ -53,7 +53,7 @@ namespace dx12_backend
 			filepath, // Filepath
 			L"-E", entry_point, // Entry point
 			L"-T", target_profile, // Target profile
-			//L"-D <macro>", Defines a macro
+			//L"-D <macro>", Defines a macro, macros with values can be defined like this: -D MacroName=MacroValue
 			//L"-enable-16bit-types"
 			DXC_ARG_WARNINGS_ARE_ERRORS,
 			DXC_ARG_OPTIMIZATION_LEVEL3,

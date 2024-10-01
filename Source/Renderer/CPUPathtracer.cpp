@@ -91,9 +91,9 @@ namespace cpupathtracer
 		return final_color;
 	}
 
-	static const triangle_t* trace_ray_bvh_local(const bvh_t& bvh, ray_t& ray, hit_result_t& hit_result)
+	static b8 trace_ray_bvh_local(const bvh_t& bvh, ray_t& ray, hit_result_t& hit_result)
 	{
-		const triangle_t* hit_triangle = nullptr;
+		b8 has_hit = false;
 
 		const bvh_node_t* node_curr = &bvh.nodes[0];
 		const bvh_node_t* stack[64] = {};
@@ -106,13 +106,14 @@ namespace cpupathtracer
 			{
 				for (u32 tri_idx = node_curr->left_first; tri_idx < node_curr->left_first + node_curr->prim_count; ++tri_idx)
 				{
-					const triangle_t& triangle = bvh.triangles[bvh.triangle_indices[tri_idx]];
-					b8 intersected = rt_util::intersect(triangle, ray, hit_result.t, hit_result.bary);
+					const bvh_triangle_t& triangle = bvh.triangles[bvh.triangle_indices[tri_idx]];
+					b8 intersected = rt_util::intersect_triangle(triangle.p0, triangle.p1, triangle.p2, ray, hit_result.t, hit_result.bary);
 
 					if (intersected)
 					{
-						hit_result.prim_idx = tri_idx;
-						hit_triangle = &bvh.triangles[bvh.triangle_indices[tri_idx]];
+						//hit_result.prim_idx = tri_idx;
+						hit_result.prim_idx = bvh.triangle_indices[tri_idx];
+						has_hit = intersected;
 					}
 				}
 
@@ -158,11 +159,18 @@ namespace cpupathtracer
 			}
 		}
 
-		return hit_triangle;
+		return has_hit;
 	}
 
-	static const triangle_t* trace_ray_bvh_instance(const bvh_instance_t& bvh_inst, ray_t& ray_world, hit_result_t& hit_result)
+	static b8 trace_ray_bvh_instance(const bvh_instance_t& bvh_inst, ray_t& ray_world, hit_result_t& hit_result)
 	{
+		b8 has_hit = false;
+
+		// Trace ray through the bvh_t
+		const mesh_t* mesh = g_renderer->mesh_slotmap.find(bvh_inst.mesh_handle);
+		if (!mesh)
+			return has_hit;
+
 		// Create a new ray that is in object-space of the bvh_t we want to intersect
 		// This is the same as if we transformed the bvh_t to world-space instead
 		ray_t ray_intersect = ray_world;
@@ -170,25 +178,13 @@ namespace cpupathtracer
 		ray_intersect.dir = bvh_inst.world_to_local_transform * glm::vec4(ray_world.dir, 0.0f);
 		ray_intersect.inv_dir = 1.0f / ray_intersect.dir;
 
-		// Trace ray through the bvh_t
-		const mesh_t* mesh = g_renderer->mesh_slotmap.find(bvh_inst.bvh_handle);
-		if (!mesh)
-			return nullptr;
-
-		const triangle_t* hit_triangle = trace_ray_bvh_local(mesh->bvh, ray_intersect, hit_result);
+		has_hit = trace_ray_bvh_local(mesh->bvh, ray_intersect, hit_result);
 
 		// update the ray with the object-space ray depth
 		ray_world.t = ray_intersect.t;
 		ray_world.bvh_depth = ray_intersect.bvh_depth;
 
-		if (hit_triangle)
-		{
-			hit_result.pos = ray_world.origin + ray_world.dir * ray_world.t;
-			glm::vec4 normal_world = bvh_inst.local_to_world_transform * glm::vec4(rt_util::get_hit_normal(*hit_triangle, hit_result.bary), 0.0f);
-			hit_result.normal = glm::normalize(normal_world);
-		}
-
-		return hit_triangle;
+		return has_hit;
 	}
 
 	static void trace_ray_tlas(const tlas_t& tlas, ray_t& ray, hit_result_t& hit_result)
@@ -210,10 +206,10 @@ namespace cpupathtracer
 				const bvh_instance_t& bvh_instance = tlas.instances[node->blas_instance_index];
 
 				// Trace object-space ray against object-space bvh_t
-				const triangle_t* hit_triangle = trace_ray_bvh_instance(bvh_instance, ray, hit_result);
+				b8 intersected = trace_ray_bvh_instance(bvh_instance, ray, hit_result);
 
 				// If we have hit a triangle, update the hit result
-				if (hit_triangle)
+				if (intersected)
 				{
 					// Hit t, bary and prim_idx are written in bvh_t::trace_ray, Hit pos and normal in bvh_instance_t::trace_ray
 					hit_result.instance_idx = node->blas_instance_index;
@@ -262,6 +258,18 @@ namespace cpupathtracer
 		}
 	}
 
+	static void get_hit_pos_and_normal(const ray_t& ray, const hit_result_t& hit_result, glm::vec3& out_pos, glm::vec3& out_normal)
+	{
+		const bvh_instance_t& bvh_instance = g_renderer->scene_tlas.instances[hit_result.instance_idx];
+		const mesh_t* mesh = g_renderer->mesh_slotmap.find(bvh_instance.mesh_handle);
+		if (!mesh)
+			return;
+
+		out_pos = ray.origin + ray.dir * ray.t;
+		out_normal = bvh_instance.local_to_world_transform * glm::vec4(rt_util::get_hit_normal(mesh->triangles[hit_result.prim_idx], hit_result.bary), 0.0f);
+		out_normal = glm::normalize(out_normal);
+	}
+
 	static glm::vec4 trace_path(ray_t& ray)
 	{
 		glm::vec3 throughput(1.0f);
@@ -297,6 +305,8 @@ namespace cpupathtracer
 				break;
 			}
 
+			glm::vec3 hit_pos = {}, hit_normal = {};
+			get_hit_pos_and_normal(ray, hit_result, hit_pos, hit_normal);
 			material_t hit_material = g_renderer->bvh_instances_materials[hit_result.instance_idx];
 
 			// render visualizations that are depending on valid geometry data
@@ -307,7 +317,7 @@ namespace cpupathtracer
 				switch (g_renderer->settings.render_view_mode)
 				{
 				case RenderViewMode_HitAlbedo:		  energy = hit_material.albedo; stop_tracing = true; break;
-				case RenderViewMode_HitNormal:		  energy = glm::abs(hit_result.normal); stop_tracing = true; break;
+				case RenderViewMode_HitNormal:		  energy = glm::abs(hit_normal); stop_tracing = true; break;
 				case RenderViewMode_HitBarycentrics: energy = hit_result.bary; stop_tracing = true; break;
 				case RenderViewMode_HitSpecRefract:  energy = glm::vec3(hit_material.specular, hit_material.refractivity, 0.0f); stop_tracing = true; break;
 				case RenderViewMode_HitAbsorption:	  energy = glm::vec3(hit_material.absorption); stop_tracing = true; break;
@@ -350,8 +360,8 @@ namespace cpupathtracer
 			// specular path
 			if (r < hit_material.specular)
 			{
-				glm::vec3 spec_dir = rt_util::reflect(ray.dir, hit_result.normal);
-				ray = make_ray(hit_result.pos + spec_dir * RAY_NUDGE_MODIFIER, spec_dir);
+				glm::vec3 spec_dir = rt_util::reflect(ray.dir, hit_normal);
+				ray = make_ray(hit_pos + spec_dir * RAY_NUDGE_MODIFIER, spec_dir);
 
 				throughput *= hit_material.albedo;
 				specular_ray = true;
@@ -359,7 +369,7 @@ namespace cpupathtracer
 			// Refraction path
 			else if (r < hit_material.specular + hit_material.refractivity)
 			{
-				glm::vec3 N = hit_result.normal;
+				glm::vec3 N = hit_normal;
 
 				f32 cosi = glm::clamp(glm::dot(N, ray.dir), -1.0f, 1.0f);
 				f32 etai = 1.0f, etat = hit_material.ior;
@@ -387,8 +397,8 @@ namespace cpupathtracer
 				{
 					glm::vec3 refract_dir = rt_util::refract(ray.dir, N, eta, cosi, k);
 
-					f32 cos_in = glm::dot(ray.dir, hit_result.normal);
-					f32 cos_out = glm::dot(refract_dir, hit_result.normal);
+					f32 cos_in = glm::dot(ray.dir, hit_normal);
+					f32 cos_out = glm::dot(refract_dir, hit_normal);
 
 					Fr = rt_util::fresnel(cos_in, cos_out, etai, etat);
 
@@ -406,13 +416,13 @@ namespace cpupathtracer
 							throughput *= absorption;
 						}
 
-						ray = make_ray(hit_result.pos + refract_dir * RAY_NUDGE_MODIFIER, refract_dir);
+						ray = make_ray(hit_pos + refract_dir * RAY_NUDGE_MODIFIER, refract_dir);
 						specular_ray = true;
 					}
 					else
 					{
-						glm::vec3 spec_dir = rt_util::reflect(ray.dir, hit_result.normal);
-						ray = make_ray(hit_result.pos + spec_dir * RAY_NUDGE_MODIFIER, spec_dir);
+						glm::vec3 spec_dir = rt_util::reflect(ray.dir, hit_normal);
+						ray = make_ray(hit_pos + spec_dir * RAY_NUDGE_MODIFIER, spec_dir);
 
 						throughput *= hit_material.albedo;
 						specular_ray = true;
@@ -431,19 +441,19 @@ namespace cpupathtracer
 				// Cosine-weighted diffuse reflection
 				if (g_renderer->settings.cosine_weighted_diffuse)
 				{
-					diffuse_dir = rt_util::cosine_weighted_hemisphere_sample(hit_result.normal);
-					NdotR = glm::dot(diffuse_dir, hit_result.normal);
+					diffuse_dir = rt_util::cosine_weighted_hemisphere_sample(hit_normal);
+					NdotR = glm::dot(diffuse_dir, hit_normal);
 					hemi_pdf = NdotR * INV_PI;
 				}
 				// Uniform hemisphere diffuse reflection
 				else
 				{
-					diffuse_dir = rt_util::uniform_hemisphere_sample(hit_result.normal);
-					NdotR = glm::dot(diffuse_dir, hit_result.normal);
+					diffuse_dir = rt_util::uniform_hemisphere_sample(hit_normal);
+					NdotR = glm::dot(diffuse_dir, hit_normal);
 					hemi_pdf = INV_TWO_PI;
 				}
 
-				ray = make_ray(hit_result.pos + diffuse_dir * RAY_NUDGE_MODIFIER, diffuse_dir);
+				ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MODIFIER, diffuse_dir);
 				throughput *= (NdotR * diffuse_brdf) / hemi_pdf;
 				specular_ray = false;
 			}

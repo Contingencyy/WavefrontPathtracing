@@ -70,6 +70,7 @@ namespace renderer
 	struct mesh_t
 	{
 		bvh_t bvh;
+		triangle_t* triangles;
 	};
 
 	struct renderer_inst_t

@@ -11,7 +11,7 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	m_build_opts = build_args.options;
 
 	m_tri_count = build_args.index_count / 3;
-	m_tris = ARENA_ALLOC_ARRAY_ZERO(arena, triangle_t, m_tri_count);
+	m_tris = ARENA_ALLOC_ARRAY_ZERO(arena, bvh_triangle_t, m_tri_count);
 	m_tri_indices = ARENA_ALLOC_ARRAY_ZERO(arena, u32, m_tri_count);
 	m_tri_centroids = ARENA_ALLOC_ARRAY_ZERO(arena, glm::vec3, m_tri_count);
 
@@ -25,10 +25,6 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 		m_tris[tri_idx].p0 = build_args.vertices[build_args.indices[i]].position;
 		m_tris[tri_idx].p1 = build_args.vertices[build_args.indices[i + 1]].position;
 		m_tris[tri_idx].p2 = build_args.vertices[build_args.indices[i + 2]].position;
-
-		m_tris[tri_idx].n0 = build_args.vertices[build_args.indices[i]].normal;
-		m_tris[tri_idx].n1 = build_args.vertices[build_args.indices[i + 1]].normal;
-		m_tris[tri_idx].n2 = build_args.vertices[build_args.indices[i + 2]].normal;
 	}
 
 	// Fill all triangle indices with their default value
@@ -40,7 +36,7 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	// Calculate all triangle centroids
 	for (size_t i = 0; i < m_tri_count; ++i)
 	{
-		m_tri_centroids[i] = rt_util::get_triangle_centroid(m_tris[i]);
+		m_tri_centroids[i] = get_triangle_centroid(m_tris[i]);
 	}
 
 	// Set the first node to be the root node
@@ -63,8 +59,8 @@ bvh_t bvh_builder_t::extract(memory_arena_t* arena)
 	bvh.nodes = ARENA_ALLOC_ARRAY(arena, bvh_node_t, m_node_at);
 	memcpy(bvh.nodes, m_nodes, sizeof(bvh_node_t) * m_node_at);
 
-	bvh.triangles = ARENA_ALLOC_ARRAY(arena, triangle_t, m_tri_count);
-	memcpy(bvh.triangles, m_tris, sizeof(triangle_t) * m_tri_count);
+	bvh.triangles = ARENA_ALLOC_ARRAY(arena, bvh_triangle_t, m_tri_count);
+	memcpy(bvh.triangles, m_tris, sizeof(bvh_triangle_t) * m_tri_count);
 
 	bvh.triangle_indices = ARENA_ALLOC_ARRAY(arena, u32, m_tri_count);
 	memcpy(bvh.triangle_indices, m_tri_indices, sizeof(u32) * m_tri_count);
@@ -81,10 +77,10 @@ void bvh_builder_t::calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_
 
 	for (u32 tri_idx = node.left_first; tri_idx < node.left_first + node.prim_count; ++tri_idx)
 	{
-		const triangle_t& triangle = m_tris[m_tri_indices[tri_idx]];
+		const bvh_triangle_t& triangle = m_tris[m_tri_indices[tri_idx]];
 
 		glm::vec3 tri_min, tri_max;
-		rt_util::get_triangle_min_max(triangle, tri_min, tri_max);
+		get_triangle_min_max(triangle, tri_min, tri_max);
 
 		node.aabb_min = glm::min(node.aabb_min, tri_min);
 		node.aabb_max = glm::max(node.aabb_max, tri_max);
@@ -197,7 +193,7 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 		// Grow the bins
 		for (u32 tri_idx = node.left_first; tri_idx < node.left_first + node.prim_count; ++tri_idx)
 		{
-			const triangle_t& triangle = m_tris[m_tri_indices[tri_idx]];
+			const bvh_triangle_t& triangle = m_tris[m_tri_indices[tri_idx]];
 			const glm::vec3& tri_centroid = m_tri_centroids[m_tri_indices[tri_idx]];
 
 			i32 bin_idx = glm::min((i32)bin_count - 1,
@@ -251,4 +247,18 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 	}
 
 	return cheapest_split_cost;
+}
+
+glm::vec3 bvh_builder_t::get_triangle_centroid(const bvh_triangle_t& triangle)
+{
+	return (triangle.p0 + triangle.p1 + triangle.p2) * 0.3333f;
+}
+
+void bvh_builder_t::get_triangle_min_max(const bvh_triangle_t& triangle, glm::vec3& out_min, glm::vec3& out_max)
+{
+	out_min = glm::min(triangle.p0, triangle.p1);
+	out_max = glm::max(triangle.p0, triangle.p1);
+
+	out_min = glm::min(out_min, triangle.p2);
+	out_max = glm::max(out_max, triangle.p2);
 }

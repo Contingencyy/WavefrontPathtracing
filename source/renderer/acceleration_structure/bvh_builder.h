@@ -4,7 +4,13 @@
 
 struct memory_arena_t;
 struct vertex_t;
-struct triangle_t;
+
+struct bvh_triangle_t
+{
+	glm::vec3 p0 = {};
+	glm::vec3 p1 = {};
+	glm::vec3 p2 = {};
+};
 
 struct bvh_node_t
 {
@@ -15,7 +21,7 @@ struct bvh_node_t
 struct bvh_t
 {
 	bvh_node_t* nodes = nullptr;
-	triangle_t* triangles = nullptr;
+	bvh_triangle_t* triangles = nullptr;
 	u32* triangle_indices = nullptr;
 };
 
@@ -24,7 +30,7 @@ struct bvh_instance_t
 	glm::mat4 local_to_world_transform = glm::identity<glm::mat4>();
 	glm::mat4 world_to_local_transform = glm::identity<glm::mat4>();
 	aabb_t aabb_world;
-	render_mesh_handle_t bvh_handle = {};
+	render_mesh_handle_t mesh_handle = {};
 };
 
 class bvh_builder_t
@@ -57,6 +63,9 @@ private:
 	void subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, u32 depth);
 	f32 find_best_split_plane(memory_arena_t* arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, u32& out_axis, u32& out_split_pos);
 
+	glm::vec3 get_triangle_centroid(const bvh_triangle_t& triangle);
+	void get_triangle_min_max(const bvh_triangle_t& triangle, glm::vec3& out_min, glm::vec3& out_max);
+
 private:
 	struct bvh_bin_t
 	{
@@ -73,7 +82,7 @@ private:
 	bvh_node_t* m_nodes;
 
 	u32 m_tri_count;
-	triangle_t* m_tris;
+	bvh_triangle_t* m_tris;
 	u32* m_tri_indices;
 	glm::vec3* m_tri_centroids;
 

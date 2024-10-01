@@ -11,14 +11,14 @@ namespace rt_util
 	*/
 
 	// Möller-Trumbore
-	inline b8 intersect(const triangle_t& triangle, ray_t& ray, f32& out_t, glm::vec3& out_bary)
+	inline b8 intersect_triangle(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, ray_t& ray, f32& out_t, glm::vec3& out_bary)
 	{
 		// This algorithm is very sensitive to eps values, so we need a very small one, otherwise transforming/scaling the ray breaks this
 		const f32 eps = 0.00000000001f;
 
 		// First check whether we hit the plane the triangle is on
-		glm::vec3 edge1 = triangle.p1 - triangle.p0;
-		glm::vec3 edge2 = triangle.p2 - triangle.p0;
+		glm::vec3 edge1 = p1 - p0;
+		glm::vec3 edge2 = p2 - p0;
 
 		glm::vec3 h = glm::cross(ray.dir, edge2);
 		f32 det = glm::dot(edge1, h);
@@ -28,7 +28,7 @@ namespace rt_util
 
 		// Then check whether the ray-plane intersection lies outside of the triangle using barycentric coordinates
 		f32 f = 1.0f / det;
-		glm::vec3 s = ray.origin - triangle.p0;
+		glm::vec3 s = ray.origin - p0;
 		f32 v = f * glm::dot(s, h);
 
 		if (v < 0.0f || v > 1.0f)
@@ -178,20 +178,6 @@ namespace rt_util
 	/*
 		PRIMITIVES
 	*/
-
-	inline glm::vec3 get_triangle_centroid(const triangle_t& triangle)
-	{
-		return (triangle.p0 + triangle.p1 + triangle.p2) * 0.3333f;
-	}
-
-	inline void get_triangle_min_max(const triangle_t& triangle, glm::vec3& out_min, glm::vec3& out_max)
-	{
-		out_min = glm::min(triangle.p0, triangle.p1);
-		out_max = glm::max(triangle.p0, triangle.p1);
-
-		out_min = glm::min(out_min, triangle.p2);
-		out_max = glm::max(out_max, triangle.p2);
-	}
 
 	inline f32 get_aabb_volume(const glm::vec3& aabb_min, const glm::vec3& aabb_max)
 	{

@@ -14,8 +14,6 @@ static constexpr u32 PRIM_IDX_INVALID = ~0u;
 
 struct hit_result_t
 {
-	glm::vec3 pos = glm::vec3(0.0f);
-	glm::vec3 normal = glm::vec3(0.0f);
 	glm::vec3 bary = glm::vec3(0.0f);
 	f32 t = FLT_MAX;
 

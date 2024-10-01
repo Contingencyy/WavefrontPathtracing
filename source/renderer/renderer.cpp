@@ -228,6 +228,20 @@ namespace renderer
 
 			mesh_t mesh = {};
 			mesh.bvh = bvh_builder.extract(&g_renderer->arena);
+
+			u32 triangle_count = index_count / 3;
+			mesh.triangles = ARENA_ALLOC_ARRAY(&g_renderer->arena, triangle_t, triangle_count);
+			for (u32 tri_idx = 0, i = 0; tri_idx < triangle_count; ++tri_idx, i += 3)
+			{
+				mesh.triangles[tri_idx].p0 = vertices[indices[i]].position;
+				mesh.triangles[tri_idx].p1 = vertices[indices[i + 1]].position;
+				mesh.triangles[tri_idx].p2 = vertices[indices[i + 2]].position;
+
+				mesh.triangles[tri_idx].n0 = vertices[indices[i]].normal;
+				mesh.triangles[tri_idx].n1 = vertices[indices[i + 1]].normal;
+				mesh.triangles[tri_idx].n2 = vertices[indices[i + 2]].normal;
+			}
+
 			handle = g_renderer->mesh_slotmap.add(std::move(mesh));
 		}
 
@@ -245,7 +259,7 @@ namespace renderer
 		bvh_instance_t* instance = &g_renderer->bvh_instances[g_renderer->bvh_instances_at];
 		instance->local_to_world_transform = transform;
 		instance->world_to_local_transform = glm::inverse(transform);
-		instance->bvh_handle = render_mesh_handle;
+		instance->mesh_handle = render_mesh_handle;
 
 		aabb_t bvh_aabb_local = { mesh->bvh.nodes[0].aabb_min, mesh->bvh.nodes[0].aabb_max };
 		for (u32 i = 0; i < 8; ++i)
