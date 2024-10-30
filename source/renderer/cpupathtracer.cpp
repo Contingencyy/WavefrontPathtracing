@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "cpupathtracer.h"
 #include "renderer_common.h"
+#include "material.h"
 #include "raytracing_utils.h"
 #include "dx12/dx12_backend.h"
 
@@ -62,11 +63,11 @@ namespace cpupathtracer
 	{
 		glm::vec3 final_color = color;
 
-		if (g_renderer->settings.render_view_mode != RenderViewMode_None)
+		if (g_renderer->settings.render_view_mode != render_view_mode::none)
 		{
-			if (g_renderer->settings.render_view_mode == RenderViewMode_HitAlbedo ||
-				g_renderer->settings.render_view_mode == RenderViewMode_HitEmissive ||
-				g_renderer->settings.render_view_mode == RenderViewMode_HitAbsorption)
+			if (g_renderer->settings.render_view_mode == render_view_mode::hit_albedo ||
+				g_renderer->settings.render_view_mode == render_view_mode::hit_emissive ||
+				g_renderer->settings.render_view_mode == render_view_mode::hit_absorption)
 				return rt_util::linear_to_srgb(final_color);
 			else
 				return final_color;
@@ -285,13 +286,13 @@ namespace cpupathtracer
 			trace_ray_tlas(g_renderer->scene_tlas, ray, hit_result);
 
 			// render visualizations that are not depending on valid geometry data
-			if (g_renderer->settings.render_view_mode != RenderViewMode_None)
+			if (g_renderer->settings.render_view_mode != none)
 			{
 				b8 stop_tracing = false;
 
 				switch (g_renderer->settings.render_view_mode)
 				{
-					case RenderViewMode_AccelerationStructureDepth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvh_depth / 50.0f); stop_tracing = true; break;
+					case render_view_mode::acceleration_struct_depth: energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray.bvh_depth / 50.0f); stop_tracing = true; break;
 				}
 
 				if (stop_tracing)
@@ -310,19 +311,19 @@ namespace cpupathtracer
 			material_t hit_material = g_renderer->bvh_instances_materials[hit_result.instance_idx];
 
 			// render visualizations that are depending on valid geometry data
-			if (g_renderer->settings.render_view_mode != RenderViewMode_None)
+			if (g_renderer->settings.render_view_mode != none)
 			{
 				b8 stop_tracing = false;
 
 				switch (g_renderer->settings.render_view_mode)
 				{
-				case RenderViewMode_HitAlbedo:		  energy = hit_material.albedo; stop_tracing = true; break;
-				case RenderViewMode_HitNormal:		  energy = glm::abs(hit_normal); stop_tracing = true; break;
-				case RenderViewMode_HitBarycentrics: energy = hit_result.bary; stop_tracing = true; break;
-				case RenderViewMode_HitSpecRefract:  energy = glm::vec3(hit_material.specular, hit_material.refractivity, 0.0f); stop_tracing = true; break;
-				case RenderViewMode_HitAbsorption:	  energy = glm::vec3(hit_material.absorption); stop_tracing = true; break;
-				case RenderViewMode_HitEmissive:	  energy = glm::vec3(hit_material.emissive_color * hit_material.emissive_intensity * static_cast<f32>(hit_material.emissive)); stop_tracing = true; break;
-				case RenderViewMode_Depth:			  energy = glm::vec3(hit_result.t * 0.01f); stop_tracing = true; break;
+				case render_view_mode::hit_albedo:		  energy = hit_material.albedo; stop_tracing = true; break;
+				case render_view_mode::hit_normal:		  energy = glm::abs(hit_normal); stop_tracing = true; break;
+				case render_view_mode::hit_barycentrics: energy = hit_result.bary; stop_tracing = true; break;
+				case render_view_mode::hit_spec_refract:  energy = glm::vec3(hit_material.specular, hit_material.refractivity, 0.0f); stop_tracing = true; break;
+				case render_view_mode::hit_absorption:	  energy = glm::vec3(hit_material.absorption); stop_tracing = true; break;
+				case render_view_mode::hit_emissive:	  energy = glm::vec3(hit_material.emissive_color * hit_material.emissive_intensity * static_cast<f32>(hit_material.emissive)); stop_tracing = true; break;
+				case render_view_mode::depth:			  energy = glm::vec3(hit_result.t * 0.01f); stop_tracing = true; break;
 				}
 
 				if (stop_tracing)
@@ -462,15 +463,15 @@ namespace cpupathtracer
 		}
 
 		// handle any render data visualization that needs to trace the full path first
-		if (g_renderer->settings.render_view_mode != RenderViewMode_None)
+		if (g_renderer->settings.render_view_mode != render_view_mode::none)
 		{
 			switch (g_renderer->settings.render_view_mode)
 			{
-			case RenderViewMode_RayRecursionDepth:
+			case render_view_mode::ray_recursion_depth:
 			{
 				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), ray_depth / static_cast<f32>(g_renderer->settings.ray_max_recursion));
 			} break;
-			case RenderViewMode_RussianRouletteKillDepth:
+			case render_view_mode::russian_roulette_kill_depth:
 			{
 				f32 Weight = glm::clamp((ray_depth / static_cast<f32>(g_renderer->settings.ray_max_recursion)) - static_cast<f32>(survived_rr), 0.0f, 1.0f);
 				energy = glm::mix(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), Weight);
@@ -503,7 +504,7 @@ namespace cpupathtracer
 
 	void begin_frame()
 	{
-		if (g_renderer->settings.render_view_mode != RenderViewMode_None)
+		if (g_renderer->settings.render_view_mode != render_view_mode::none)
 			reset_accumulators();
 
 		inst->arena_marker_frame = inst->arena->ptr_at;

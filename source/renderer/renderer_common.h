@@ -11,27 +11,26 @@ struct bvh_instance_t;
 namespace renderer
 {
 
-	enum RenderViewMode : u32
+	enum render_view_mode : u32
 	{
-		RenderViewMode_None,
-		
-		RenderViewMode_HitAlbedo,
-		RenderViewMode_HitNormal,
-		RenderViewMode_HitBarycentrics,
-		RenderViewMode_HitSpecRefract,
-		RenderViewMode_HitAbsorption,
-		RenderViewMode_HitEmissive,
+		none,
 
-		RenderViewMode_Depth,
+		hit_albedo,
+		hit_normal,
+		hit_barycentrics,
+		hit_spec_refract,
+		hit_absorption,
+		hit_emissive,
 
-		RenderViewMode_RayRecursionDepth,
-		RenderViewMode_RussianRouletteKillDepth,
-		RenderViewMode_AccelerationStructureDepth,
+		depth,
+		ray_recursion_depth,
+		russian_roulette_kill_depth,
+		acceleration_struct_depth,
 
-		RenderViewMode_Count
+		count
 	};
 
-	static const char* render_view_mode_labels[RenderViewMode_Count] =
+	static const char* render_view_mode_labels[render_view_mode::count] =
 	{
 		"None",
 		"Hit albedo", "Hit normal", "Hit barycentrics", "Hit spec refract", "Hit absorption", "Hit emissive_color",
@@ -41,7 +40,7 @@ namespace renderer
 
 	struct render_settings_t
 	{
-		RenderViewMode render_view_mode;
+		render_view_mode render_view_mode;
 		u32 ray_max_recursion;
 		
 		b8 cosine_weighted_diffuse;

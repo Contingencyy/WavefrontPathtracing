@@ -93,6 +93,9 @@
     <ClCompile Include="source\core\string\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\renderer\material.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\application.h">
@@ -207,6 +210,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\string\string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\material.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,5 +1,7 @@
 #pragma once
-#include <stdarg.h>
+#include "core/common.h"
+#include "core/string/string.h"
+
 #include <iostream>
 
 namespace logger
@@ -41,8 +43,8 @@ namespace logger
 
 			va_end(args);
 
-			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s] [%s]\t%s", log_severity_to_string(severity), sender, string_t::make_nullterm(arena_scratch, formatted_log_message));
-			std::cout << string_t::make_nullterm(arena_scratch, full_log_message) << std::endl;
+			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s] [%s]\t%s", log_severity_to_string(severity), sender, string::make_nullterm(arena_scratch, formatted_log_message));
+			std::cout << string::make_nullterm(arena_scratch, full_log_message) << std::endl;
 		}
 	}
 

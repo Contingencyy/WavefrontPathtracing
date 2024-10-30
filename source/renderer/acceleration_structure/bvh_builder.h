@@ -54,7 +54,7 @@ public:
 
 public:
 	void build(memory_arena_t* arena, const build_args_t& build_args);
-	bvh_t extract(memory_arena_t* arena);
+	bvh_t extract(memory_arena_t* arena) const;
 
 private:
 	void calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max);
@@ -81,9 +81,9 @@ private:
 	u32 m_node_at;
 	bvh_node_t* m_nodes;
 
-	u32 m_tri_count;
-	bvh_triangle_t* m_tris;
-	u32* m_tri_indices;
-	glm::vec3* m_tri_centroids;
+	u32 m_triangle_count;
+	bvh_triangle_t* m_triangles;
+	u32* m_triangle_indices;
+	glm::vec3* m_triangle_centroids;
 
 };

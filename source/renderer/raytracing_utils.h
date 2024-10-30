@@ -1,5 +1,6 @@
 #pragma once
 #include "raytracing_types.h"
+#include "core/common.h"
 #include "core/camera/camera.h"
 #include "core/random.h"
 

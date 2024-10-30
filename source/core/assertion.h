@@ -35,7 +35,7 @@ inline void fatal_error(i32 line, const char* file, const char* sender, const ch
 		
 		va_end(args);
 
-		string_t error_message = ARENA_PRINTF(arena_scratch, "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", sender, string_t::make_nullterm(arena_scratch, formatted_message), file, line);
+		string_t error_message = ARENA_PRINTF(arena_scratch, "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", sender, string::make_nullterm(arena_scratch, formatted_message), file, line);
 		fatal_error_impl(line, error_message);
 	}
 }

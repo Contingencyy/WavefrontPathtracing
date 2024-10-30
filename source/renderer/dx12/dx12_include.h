@@ -26,7 +26,7 @@ if ((object)) \
 	ULONG ref_count = (object)->Release(); \
 	while (ref_count > 0) \
 	{ \
-/* Add a log warning here if it has to release more than once */ \
+		/* Add a log warning here if it has to release more than once */ \
 		ref_count = (object)->Release(); \
 	} \
 } \

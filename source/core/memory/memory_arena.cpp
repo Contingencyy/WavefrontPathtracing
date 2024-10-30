@@ -163,7 +163,7 @@ string_t memory_arena_t::printf_args(memory_arena_t* arena, const char* fmt, va_
 
 	va_end(args2);
 
-	string_t result = string_t::make(arena, count + 1);
+	string_t result = string::make(arena, count + 1);
 	vsnprintf(result.buf, count + 1, fmt, args);
 
 	return result;

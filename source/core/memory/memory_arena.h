@@ -1,4 +1,6 @@
 #pragma once
+#include "core/common.h"
+#include "core/string/string.h"
 
 struct memory_arena_t;
 

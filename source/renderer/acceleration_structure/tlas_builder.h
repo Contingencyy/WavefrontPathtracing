@@ -1,5 +1,4 @@
 #pragma once
-#include "renderer/raytracing_types.h"
 
 struct memory_arena_t;
 class bvh_instance_t;
@@ -26,7 +25,7 @@ class tlas_builder_t
 {
 public:
 	void build(memory_arena_t* arena, bvh_instance_t* bvh_instances, u32 bvh_instance_count);
-	tlas_t extract(memory_arena_t* arena);
+	tlas_t extract(memory_arena_t* arena) const;
 
 private:
 	u32 find_best_match(u32 A, const u32* indices, u32 index_count);

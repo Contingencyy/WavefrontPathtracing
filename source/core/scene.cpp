@@ -5,6 +5,7 @@
 #include "core/assets/asset_loader.h"
 
 #include "renderer/renderer.h"
+#include "renderer/material.h"
 
 #include "imgui/imgui.h"
 
@@ -33,7 +34,7 @@ void scene_t::init()
 	u32 plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
 	render_mesh_handle_t render_mesh_handle_plane = renderer::create_render_mesh(plane_verts, ARRAY_SIZE(plane_verts), plane_indices, ARRAY_SIZE(plane_indices));
 
-	material_t plane_material = material_t::make_diffuse(glm::vec3(1.0f));
+	material_t plane_material = material::make_diffuse(glm::vec3(1.0f));
 	create_scene_object(render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));
 
 	// HDR environment map
@@ -45,23 +46,23 @@ void scene_t::init()
 	m_dragon_scene_asset = asset_loader::load_gltf(&m_arena, "assets/gltf/dragon/DragonAttenuation.gltf");
 	// Dragon 1
 	//material_t dragon_material = material_t::make_refractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
-	material_t dragon_material = material_t::make_diffuse(glm::vec3(0.9f, 0.1f, 0.05f));
+	material_t dragon_material = material::make_diffuse(glm::vec3(0.9f, 0.1f, 0.05f));
 	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(-15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(1.0f));
 
 	// Dragon 2
-	dragon_material = material_t::make_diffuse(glm::vec3(0.05f, 0.1f, 0.9f));
+	dragon_material = material::make_diffuse(glm::vec3(0.05f, 0.1f, 0.9f));
 	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.0f));
 
 	// Dragon 3
-	dragon_material = material_t::make_diffuse(glm::vec3(0.1f, 0.9f, 0.1f));
+	dragon_material = material::make_diffuse(glm::vec3(0.1f, 0.9f, 0.1f));
 	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
 
 	// Dragon 4
-	dragon_material = material_t::make_diffuse(glm::vec3(0.9f, 0.9f, 0.1f));
+	dragon_material = material::make_diffuse(glm::vec3(0.9f, 0.9f, 0.1f));
 	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
 
 	// Dragon 5
-	dragon_material = material_t::make_specular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
+	dragon_material = material::make_specular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
 	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(5.0f));
 }
 

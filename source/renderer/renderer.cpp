@@ -1,9 +1,10 @@
 #include "pch.h"
 #include "renderer.h"
 #include "renderer_common.h"
+#include "renderer/material.h"
 #include "raytracing_utils.h"
 #include "dx12/dx12_backend.h"
-#include "cpupathtracer.h"
+#include "gpupathtracer.h"
 
 #include "acceleration_structure/bvh_builder.h"
 
@@ -22,7 +23,7 @@ namespace renderer
 	static render_settings_t get_default_render_settings()
 	{
 		render_settings_t defaults = {};
-		defaults.render_view_mode = RenderViewMode_None;
+		defaults.render_view_mode = render_view_mode::none;
 		defaults.ray_max_recursion = 8;
 
 		defaults.cosine_weighted_diffuse = true;
@@ -64,7 +65,7 @@ namespace renderer
 
 		// The path tracer and dx12 backend use the same arena as the front-end renderer since the renderer initializes them and they have the same lifetimes
 		dx12_backend::init(&g_renderer->arena);
-		cpupathtracer::init(&g_renderer->arena);
+		gpupathtracer::init(&g_renderer->arena);
 	}
 
 	void exit()
@@ -72,19 +73,19 @@ namespace renderer
 		g_renderer->texture_slotmap.destroy();
 		g_renderer->mesh_slotmap.destroy();
 
-		cpupathtracer::exit();
+		gpupathtracer::exit();
 		dx12_backend::exit();
 	}
 
 	void begin_frame()
 	{
 		dx12_backend::begin_frame();
-		cpupathtracer::begin_frame();
+		gpupathtracer::begin_frame();
 	}
 
 	void end_frame()
 	{
-		cpupathtracer::end_frame();
+		gpupathtracer::end_frame();
 
 		dx12_backend::end_frame();
 		dx12_backend::present();
@@ -94,7 +95,7 @@ namespace renderer
 
 	void begin_scene(const camera_t& scene_camera, render_texture_handle_t env_render_texture_handle)
 	{
-		cpupathtracer::begin_scene(scene_camera);
+		gpupathtracer::begin_scene(scene_camera);
 
 		g_renderer->scene_camera = scene_camera;
 		g_renderer->scene_hdr_env_texture = g_renderer->texture_slotmap.find(env_render_texture_handle);
@@ -111,14 +112,14 @@ namespace renderer
 			g_renderer->scene_tlas = tlas_builder.extract(&g_renderer->arena);
 		}
 
-		cpupathtracer::render();
+		gpupathtracer::render();
 	}
 
 	void end_scene()
 	{
 		g_renderer->bvh_instances_at = 0;
 
-		cpupathtracer::end_scene();
+		gpupathtracer::end_scene();
 	}
 
 	void render_ui()
@@ -140,13 +141,13 @@ namespace renderer
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", render_view_mode_labels[g_renderer->settings.render_view_mode], ImGuiComboFlags_None))
 				{
-					for (u32 i = 0; i < RenderViewMode_Count; ++i)
+					for (u32 i = 0; i < count; ++i)
 					{
 						b8 selected = i == g_renderer->settings.render_view_mode;
 
 						if (ImGui::Selectable(render_view_mode_labels[i], selected))
 						{
-							g_renderer->settings.render_view_mode = (RenderViewMode)i;
+							g_renderer->settings.render_view_mode = (render_view_mode)i;
 							should_reset_accumulators = true;
 						}
 
@@ -192,7 +193,7 @@ namespace renderer
 				ImGui::Unindent(10.0f);
 			}
 
-			cpupathtracer::render_ui(should_reset_accumulators);
+			gpupathtracer::render_ui(should_reset_accumulators);
 		}
 
 		ImGui::End();

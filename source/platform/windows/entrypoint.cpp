@@ -227,7 +227,7 @@ void fatal_error_impl(i32 line, const string_t& error_msg)
 {
 	ARENA_SCRATCH_SCOPE()
 	{
-		const char* error_msg_nullterm = string_t::make_nullterm(arena_scratch, error_msg);
+		const char* error_msg_nullterm = string::make_nullterm(arena_scratch, error_msg);
 
 		MessageBoxA(NULL, error_msg_nullterm, "Fatal Error", MB_OK);
 		__debugbreak();
@@ -237,24 +237,24 @@ void fatal_error_impl(i32 line, const string_t& error_msg)
 
 static void parse_next_command_arg(string_t& cmd_line_cur, string_t& arg_str, string_t& param_str)
 {
-	u32 arg_begin = string_t::find_char(cmd_line_cur, '-');
-	u32 arg_end = string_t::find_char(cmd_line_cur, ' ');
+	u32 arg_begin = string::find_char(cmd_line_cur, '-');
+	u32 arg_end = string::find_char(cmd_line_cur, ' ');
 	if (arg_end == STRING_NPOS || arg_begin >= arg_end)
 		FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line_cur);
 
-	arg_str = string_t::make_view(cmd_line_cur, arg_begin, arg_end - arg_begin);
-	cmd_line_cur = string_t::make_view(cmd_line_cur, arg_end + 1, cmd_line_cur.count - arg_end - 1);
+	arg_str = string::make_view(cmd_line_cur, arg_begin, arg_end - arg_begin);
+	cmd_line_cur = string::make_view(cmd_line_cur, arg_end + 1, cmd_line_cur.count - arg_end - 1);
 
 	u32 param_begin = 0;
-	u32 param_end = string_t::find_char(cmd_line_cur, ' ');
+	u32 param_end = string::find_char(cmd_line_cur, ' ');
 	if (param_end == STRING_NPOS)
 		param_end = cmd_line_cur.count;
 
 	if (param_begin >= param_end)
 		FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line_cur);
 
-	param_str = string_t::make_view(cmd_line_cur, param_begin, param_end - param_begin);
-	cmd_line_cur = string_t::make_view(cmd_line_cur, param_end + 1, cmd_line_cur.count - param_end - 1);
+	param_str = string::make_view(cmd_line_cur, param_begin, param_end - param_begin);
+	cmd_line_cur = string::make_view(cmd_line_cur, param_end + 1, cmd_line_cur.count - param_end - 1);
 }
 
 static void parse_cmd_line_args(const string_t& cmd_line, command_line_args_t& parsed_args)
@@ -269,11 +269,11 @@ static void parse_cmd_line_args(const string_t& cmd_line, command_line_args_t& p
 		parse_next_command_arg(cmd_line_cur, arg_str, param_str);
 		char* param_end_ptr = param_str.buf + param_str.count;
 
-		if (string_t::compare(arg_str, STRING_LITERAL("--width")))
+		if (string::compare(arg_str, STRING_LITERAL("--width")))
 		{
 			parsed_args.window_width = strtol(param_str.buf, &param_end_ptr, 10);
 		}
-		else if (string_t::compare(arg_str, STRING_LITERAL("--height")))
+		else if (string::compare(arg_str, STRING_LITERAL("--height")))
 		{
 			parsed_args.window_height = strtol(param_str.buf, &param_end_ptr, 10);
 		}
@@ -295,7 +295,7 @@ int WINAPI wWinMain(
 	ARENA_SCRATCH_SCOPE()
 	{
 		u32 cmd_line_count = wcslen(lpCmdLine);
-		string_t cmd_line = string_t::make(arena_scratch, cmd_line_count);
+		string_t cmd_line = string::make(arena_scratch, cmd_line_count);
 		wcstombs(cmd_line.buf, lpCmdLine, cmd_line.count);
 
 		LOG_INFO("Command Line", "Passed arguments: %s", cmd_line.buf);

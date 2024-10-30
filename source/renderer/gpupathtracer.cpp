@@ -215,7 +215,6 @@ namespace gpupathtracer
 
 		// Upload the scene TLAS to the GPU
 
-
 		// Set descriptor heap, needs to happen before clearing UAVs
 		ID3D12DescriptorHeap* descriptor_heaps[1] = { dx12_backend::g_dx12->descriptor_heaps.cbv_srv_uav };
 		frame_ctx.d3d12_command_list->SetDescriptorHeaps(ARRAY_SIZE(descriptor_heaps), descriptor_heaps);

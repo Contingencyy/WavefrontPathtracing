@@ -97,6 +97,7 @@
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;$(SolutionDir)extern\d3d12_agility\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -135,6 +136,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;$(SolutionDir)extern\d3d12_agility\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -201,6 +203,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\renderer\dx12\dx12_backend.cpp" />
     <ClCompile Include="source\renderer\dx12\dx12_resource.cpp" />
     <ClCompile Include="source\renderer\gpupathtracer.cpp" />
+    <ClCompile Include="source\renderer\material.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -236,6 +239,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\dx12\dx12_include.h" />
     <ClInclude Include="source\renderer\dx12\dx12_resource.h" />
     <ClInclude Include="source\renderer\gpupathtracer.h" />
+    <ClInclude Include="source\renderer\material.h" />
     <ClInclude Include="source\renderer\raytracing_types.h" />
     <ClInclude Include="source\renderer\raytracing_utils.h" />
     <ClInclude Include="source\renderer\renderer.h" />

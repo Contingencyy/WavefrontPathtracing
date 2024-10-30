@@ -66,7 +66,7 @@ void tlas_builder_t::build(memory_arena_t* arena, bvh_instance_t* bvh_instances,
 	m_nodes[0] = m_nodes[node_idx[A]];
 }
 
-tlas_t tlas_builder_t::extract(memory_arena_t* arena)
+tlas_t tlas_builder_t::extract(memory_arena_t* arena) const
 {
 	tlas_t tlas = {};
 
