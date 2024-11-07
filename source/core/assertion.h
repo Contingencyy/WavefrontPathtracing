@@ -3,7 +3,8 @@
 #include "core/string/string.h"
 #include "core/memory/memory_arena.h"
 
-#include <stdarg.h>
+#include <cstdarg>
+#include <vadefs.h>
 
 #define ASSERT_MSG(expr, msg, ...) ((expr) ? true : (fatal_error(__LINE__, __FILE__, "Assertion", msg, ##__VA_ARGS__), false))
 #define ASSERT(expr) ASSERT_MSG(expr, "Assertion failed: " #expr)

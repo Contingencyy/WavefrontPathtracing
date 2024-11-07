@@ -217,6 +217,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="source\renderer\shaders\gpupathtracer.hlsl" />
+    <FxCompile Include="source\renderer\shaders\pathtracer.hlsl" />
   </ItemGroup>
 </Project>

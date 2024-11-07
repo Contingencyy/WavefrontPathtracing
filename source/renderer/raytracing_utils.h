@@ -14,7 +14,7 @@ namespace rt_util
 	// Möller-Trumbore
 	inline b8 intersect_triangle(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, ray_t& ray, f32& out_t, glm::vec3& out_bary)
 	{
-		// This algorithm is very sensitive to eps values, so we need a very small one, otherwise transforming/scaling the ray breaks this
+		// This algorithm is very sensitive to eps values, so we need a very small one, otherwise transforming/scaling the ray when tracing against BVHs breaks this
 		const f32 eps = 0.00000000001f;
 
 		// First check whether we hit the plane the triangle is on

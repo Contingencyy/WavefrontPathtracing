@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "gpupathtracer.h"
 #include "renderer/renderer_common.h"
+#include "renderer/shaders/shared.hlsl.h"
 
 #include "dx12/dx12_common.h"
 #include "dx12/dx12_backend.h"
@@ -135,8 +136,7 @@ namespace gpupathtracer
 		dx12_backend::descriptor_allocation_t render_target_uav = {};
 		u32 render_target_uav_offset = 0;
 
-		ID3D12Resource* tlas_gpu_resource = nullptr;
-		dx12_backend::descriptor_allocation_t tlas_srv = {};
+		ID3D12Resource* cb_view_resource = nullptr;
 	} static *inst;
 
 	void init(memory_arena_t* arena)
@@ -146,6 +146,7 @@ namespace gpupathtracer
 		inst = ARENA_ALLOC_STRUCT_ZERO(arena, instance_t);
 		inst->arena = arena;
 
+		// Descriptor ranges and root parameters for root signature
 		D3D12_DESCRIPTOR_RANGE1 descriptor_ranges[2] = {};
 		descriptor_ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		descriptor_ranges[0].NumDescriptors = dx12_backend::g_dx12->descriptor_heaps.heap_sizes.cbv_srv_uav;
@@ -161,17 +162,25 @@ namespace gpupathtracer
 		descriptor_ranges[1].Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;// D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 		descriptor_ranges[1].OffsetInDescriptorsFromTableStart = 0;
 
-		D3D12_ROOT_PARAMETER1 root_parameters[2] = {};
+		D3D12_ROOT_PARAMETER1 root_parameters[3] = {};
+		// Global view constant buffer
 		root_parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 		root_parameters[0].Descriptor.ShaderRegister = 0;
 		root_parameters[0].Descriptor.RegisterSpace = 0;
 		root_parameters[0].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 		root_parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-		root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		root_parameters[1].DescriptorTable.NumDescriptorRanges = ARRAY_SIZE(descriptor_ranges);
-		root_parameters[1].DescriptorTable.pDescriptorRanges = descriptor_ranges;
+		// Local shader constant buffer for accessing bindless resources and other data used for that specific shader
+		root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+		root_parameters[1].Descriptor.ShaderRegister = 1;
+		root_parameters[1].Descriptor.RegisterSpace = 0;
+		root_parameters[1].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 		root_parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+		root_parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		root_parameters[2].DescriptorTable.NumDescriptorRanges = ARRAY_SIZE(descriptor_ranges);
+		root_parameters[2].DescriptorTable.pDescriptorRanges = descriptor_ranges;
+		root_parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 		D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc = {};
 		root_signature_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_2;
@@ -181,14 +190,19 @@ namespace gpupathtracer
 		root_signature_desc.Desc_1_2.pStaticSamplers = nullptr;
 		root_signature_desc.Desc_1_2.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
+		// Root signature and PSO
 		inst->root_signature = dx12_backend::create_root_signature(root_signature_desc);
-		inst->pso = dx12_backend::create_pipeline_state_compute(inst->root_signature, L"shaders/gpupathtracer.hlsl");
+		inst->pso = dx12_backend::create_pipeline_state_compute(inst->root_signature, L"shaders/pathtracer.hlsl");
 
+		// Render target
 		inst->render_target = dx12_backend::create_texture_2d(L"Final Color Texture", DXGI_FORMAT_R8G8B8A8_UNORM,
 			g_renderer->render_width, g_renderer->render_height, 1,
 			D3D12_RESOURCE_STATE_COMMON, nullptr, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 		inst->render_target_uav = dx12_backend::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
 		dx12_backend::create_texture_2d_uav(inst->render_target, inst->render_target_uav, 0);
+
+		// Global view constant buffer
+		inst->cb_view_resource = dx12_backend::create_buffer_upload(L"View Constant Buffer", sizeof(view_shader_data_t));
 	}
 
 	void exit()
@@ -207,19 +221,32 @@ namespace gpupathtracer
 
 	void begin_scene(const camera_t& scene_camera)
 	{
+		view_shader_data_t* view_shader_data = nullptr;
+		DX_CHECK_HR(inst->cb_view_resource->Map(0, nullptr, reinterpret_cast<void**>(&view_shader_data)));
+
+		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(scene_camera.vfov_deg),
+			static_cast<float>(g_renderer->render_width), static_cast<float>(g_renderer->render_height), 0.001f, 10000.0f);
+
+		view_shader_data->world_to_view = scene_camera.view_mat;
+		view_shader_data->view_to_world = glm::inverse(scene_camera.view_mat);
+		view_shader_data->view_to_clip = proj_mat;
+		view_shader_data->clip_to_view = glm::inverse(proj_mat);
+		view_shader_data->render_dim.x = g_renderer->render_width;
+		view_shader_data->render_dim.y = g_renderer->render_height;
+		
+		inst->cb_view_resource->Unmap(0, nullptr);
 	}
 
 	void render()
 	{
 		dx12_backend::frame_context_t& frame_ctx = dx12_backend::get_frame_context();
 
-		// Upload the scene TLAS to the GPU
+		// TODO: Upload the scene TLAS to the GPU
 
 		// Set descriptor heap, needs to happen before clearing UAVs
 		ID3D12DescriptorHeap* descriptor_heaps[1] = { dx12_backend::g_dx12->descriptor_heaps.cbv_srv_uav };
 		frame_ctx.d3d12_command_list->SetDescriptorHeaps(ARRAY_SIZE(descriptor_heaps), descriptor_heaps);
 
-		// Clear render target
 		{
 			D3D12_RESOURCE_BARRIER barrier = {};
 			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -233,6 +260,7 @@ namespace gpupathtracer
 		}
 
 #if 0
+		// Clear render target
 		float clear_value[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		// TODO: For clearing a UAV we need a handle to a shader visible heap and a non-shader visible heap.
 		// I think it might be a good idea to simply have a scratch non-shader visible heap, and whenever we need to clear a UAV,
@@ -251,6 +279,13 @@ namespace gpupathtracer
 
 		frame_ctx.d3d12_command_list->SetComputeRootSignature(inst->root_signature);
 		frame_ctx.d3d12_command_list->SetPipelineState(inst->pso);
+
+		// Bind global view constant buffer
+		frame_ctx.d3d12_command_list->SetComputeRootConstantBufferView(0, inst->cb_view_resource->GetGPUVirtualAddress());
+
+		// Bind shader specific constant buffer with bindless resource indices and other data related to the specific shader
+		//frame_ctx.d3d12_command_list->SetComputeRootConstantBufferView(1, );
+
 		frame_ctx.d3d12_command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 	}
 

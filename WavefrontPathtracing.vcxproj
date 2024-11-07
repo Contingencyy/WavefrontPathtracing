@@ -248,7 +248,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\resource_slotmap.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="source\renderer\shaders\gpupathtracer.hlsl">
+    <FxCompile Include="source\renderer\shaders\pathtracer.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
