@@ -280,6 +280,15 @@ static void parse_cmd_line_args(const string_t& cmd_line, command_line_args_t& p
 	}
 }
 
+static command_line_args_t get_default_cmd_line_args()
+{
+	command_line_args_t default_args = {};
+	default_args.window_width = 1920;
+	default_args.window_height = 1080;
+
+	return default_args;
+}
+
 int WINAPI wWinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -290,16 +299,20 @@ int WINAPI wWinMain(
 	create_console();
 
 	// Parse command line arguments
-	command_line_args_t parsed_args = {};
+	command_line_args_t parsed_args = get_default_cmd_line_args();
 
 	ARENA_SCRATCH_SCOPE()
 	{
 		u32 cmd_line_count = wcslen(lpCmdLine);
-		string_t cmd_line = string::make(arena_scratch, cmd_line_count);
-		wcstombs(cmd_line.buf, lpCmdLine, cmd_line.count);
 
-		LOG_INFO("Command Line", "Passed arguments: %s", cmd_line.buf);
-		parse_cmd_line_args(cmd_line, parsed_args);
+		if (cmd_line_count > 0)
+		{
+			string_t cmd_line = string::make(arena_scratch, cmd_line_count);
+			wcstombs(cmd_line.buf, lpCmdLine, cmd_line.count);
+
+			LOG_INFO("Command Line", "Passed arguments: %s", cmd_line.buf);
+			parse_cmd_line_args(cmd_line, parsed_args);
+		}
 	}
 
 	while (!application::should_close())

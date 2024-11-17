@@ -32,6 +32,11 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Exceptions
+!extern/dxcompiler/**
+!extern/dxcompiler/**
+!extern/d3d12_agility/**
+
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
@@ -396,7 +401,3 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
-
-# Exceptions
-![Ee]xtern/dxcompiler/bin/
-![Ee]xtern/d3d12_agility/bin/
