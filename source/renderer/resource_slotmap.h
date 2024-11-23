@@ -74,7 +74,6 @@ public:
 				}
 			}
 		}
-		// TODO: If the handle is invalid, maybe log a warning message here
 	}
 
 	TResource* find(THandle handle)

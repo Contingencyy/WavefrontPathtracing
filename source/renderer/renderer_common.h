@@ -65,6 +65,7 @@ namespace renderer
 	struct render_texture_t
 	{
 		ID3D12Resource* texture_buffer;
+		d3d12::descriptor_allocation_t texture_srv;
 	};
 
 	struct render_mesh_t

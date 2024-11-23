@@ -104,7 +104,7 @@ namespace renderer
 		root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 		root_parameters[1].Constants.ShaderRegister = 1;
 		root_parameters[1].Constants.RegisterSpace = 0;
-		root_parameters[1].Constants.Num32BitValues = 2;
+		root_parameters[1].Constants.Num32BitValues = 3;
 		root_parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 		root_parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -296,6 +296,7 @@ namespace renderer
 		//frame_ctx.command_list->SetComputeRootConstantBufferView(1, );
 		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->scene_tlas_srv.offset, 0);
 		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->render_target_uav.offset, 1);
+		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->scene_hdr_env_texture->texture_srv.offset, 2);
 
 		frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 	}
@@ -457,8 +458,10 @@ namespace renderer
 
 		render_texture_t render_texture = {};
 		render_texture.texture_buffer = d3d_resource;
-		render_texture_handle_t handle = g_renderer->texture_slotmap.add(std::move(render_texture));
+		render_texture.texture_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		d3d12::create_texture_2d_srv(render_texture.texture_buffer, render_texture.texture_srv, 0, DXGI_FORMAT_R32G32B32A32_FLOAT);
 
+		render_texture_handle_t handle = g_renderer->texture_slotmap.add(std::move(render_texture));
 		return handle;
 	}
 

@@ -34,6 +34,7 @@ struct view_shader_data_t
     float2 render_dim; // Render dimensions/resolution in pixels
 };
 
+#define TRIANGLE_SIZE 72
 struct triangle_t
 {
 	float3 p0;

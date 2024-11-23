@@ -63,13 +63,11 @@ bool trace_ray_bvh_local(ByteAddressBuffer buffer, inout ray_t ray, inout hit_re
     bvh_node_t stack[64];
     uint stack_at = 0;
  
-    [loop]
     while (true)
     {
         // Node is a leaf node, check for triangle intersections
         if (node.prim_count > 0)
         {
-            [loop]
             for (uint i = node.left_first; i < node.left_first + node.prim_count; ++i)
             {
                 uint tri_idx = bvh_get_triangle_index(buffer, header, i);
@@ -161,7 +159,6 @@ void trace_ray_tlas(ByteAddressBuffer buffer, inout ray_t ray, inout hit_result_
     tlas_node_t stack[64];
     uint stack_at = 0;
     
-    [loop]
     while (true)
     {
         if (tlas_node_is_leaf(node))
@@ -171,6 +168,7 @@ void trace_ray_tlas(ByteAddressBuffer buffer, inout ray_t ray, inout hit_result_
             
             if (intersected)
             {
+                hit.tri_buffer_idx = instance.bvh_index + 1;
                 hit.instance_idx = node.instance_idx;
             }
             

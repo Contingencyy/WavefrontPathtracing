@@ -74,5 +74,4 @@ struct memory_arena_t
 #define ARENA_WPRINTF_ARGS(arena, fmt, args) memory_arena_t::wprintf_args(arena, fmt, args)
 #define ARENA_WIDE_TO_CHAR(arena, wide) memory_arena_t::wide_to_char(arena, wide)
 #define ARENA_CHAR_TO_WIDE(arena, str) memory_arena_t::char_to_wide(arena, str)
-	// TODO: wide string support for printf
 };

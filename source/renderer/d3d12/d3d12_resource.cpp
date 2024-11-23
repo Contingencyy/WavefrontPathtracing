@@ -195,6 +195,10 @@ namespace d3d12
 		ASSERT(resource);
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
 
+		// If the mip count is set to MAX_UINT, it indicates we want the entire mip chain to be part of the SRV, minus the mip bias
+		if (mip_count == 0xFFFFFFFF)
+			mip_count = resource_desc.MipLevels - mip_bias;
+
 #if D3D12_VALIDATE_RESOURCE_VIEWS
 		ASSERT(mip_count + mip_bias <= resource_desc.MipLevels);
 		ASSERT(!IS_BIT_FLAG_SET(resource_desc.Flags, D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE));
@@ -205,7 +209,7 @@ namespace d3d12
 		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-		srv_desc.Texture2D.MipLevels = mip_count == 0xFFFFFFFF ? resource_desc.MipLevels : mip_count;
+		srv_desc.Texture2D.MipLevels = mip_count;
 		srv_desc.Texture2D.MostDetailedMip = mip_bias;
 		srv_desc.Texture2D.PlaneSlice = 0;
 		srv_desc.Texture2D.ResourceMinLODClamp = 0;

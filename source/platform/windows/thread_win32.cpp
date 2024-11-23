@@ -6,7 +6,6 @@ namespace thread
 
 	//static DWORD WINAPI thread_proc_win32(void* params)
 	//{
-	//	// TODO: Do something more useful
 	//	return 0;
 	//}
 
