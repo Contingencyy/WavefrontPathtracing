@@ -1,9 +1,9 @@
 #pragma once
-#include "dx12_include.h"
+#include "d3d12_include.h"
 
 struct descriptor_allocation_t;
 
-namespace dx12_backend
+namespace d3d12
 {
 
 	// --------------------------------------------------------------------------------------------------------

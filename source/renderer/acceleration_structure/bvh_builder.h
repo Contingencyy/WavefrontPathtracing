@@ -1,36 +1,13 @@
 #pragma once
-#include "renderer/raytracing_types.h"
-#include "renderer/renderer_fwd.h"
+#include "renderer/shaders/shared.hlsl.h"
 
 struct memory_arena_t;
 struct vertex_t;
 
-struct bvh_triangle_t
-{
-	glm::vec3 p0 = {};
-	glm::vec3 p1 = {};
-	glm::vec3 p2 = {};
-};
-
-struct bvh_node_t
-{
-	union { struct { glm::vec3 aabb_min; u32 left_first; }; __m128 aabb_min4 = {}; };
-	union { struct { glm::vec3 aabb_max; u32 prim_count; }; __m128 aabb_max4 = {}; };
-};
-
 struct bvh_t
 {
-	bvh_node_t* nodes = nullptr;
-	bvh_triangle_t* triangles = nullptr;
-	u32* triangle_indices = nullptr;
-};
-
-struct bvh_instance_t
-{
-	glm::mat4 local_to_world_transform = glm::identity<glm::mat4>();
-	glm::mat4 world_to_local_transform = glm::identity<glm::mat4>();
-	aabb_t aabb_world;
-	render_mesh_handle_t mesh_handle = {};
+	bvh_header_t header;
+	void* data;
 };
 
 class bvh_builder_t
@@ -44,17 +21,17 @@ public:
 
 	struct build_args_t
 	{
-		vertex_t* vertices = nullptr;
 		u32 vertex_count = 0;
-		u32* indices = nullptr;
+		vertex_t* vertices = nullptr;
 		u32 index_count = 0;
+		u32* indices = nullptr;
 
 		build_options_t options;
 	};
 
 public:
 	void build(memory_arena_t* arena, const build_args_t& build_args);
-	bvh_t extract(memory_arena_t* arena) const;
+	void extract(memory_arena_t* arena, bvh_t& out_bvh, u64& out_bvh_byte_size) const;
 
 private:
 	void calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max);

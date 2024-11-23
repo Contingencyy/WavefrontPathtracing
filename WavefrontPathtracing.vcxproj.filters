@@ -24,9 +24,6 @@
     <ClCompile Include="source\pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\dx12\dx12_backend.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="extern\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -78,12 +75,6 @@
     <ClCompile Include="source\renderer\gpupathtracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\dx12\dx12_descriptor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\renderer\dx12\dx12_resource.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -94,6 +85,33 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\renderer\material.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\resources\ring_buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d\dx12_command.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d\dx12_descriptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d\dx12_backend.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d\dx12_resource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_backend.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_command.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_descriptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_resource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -108,9 +126,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\assertion.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\dx12\dx12_backend.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\common.h">
@@ -191,18 +206,6 @@
     <ClInclude Include="source\platform\windows\windows_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\dx12\dx12_common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\dx12\dx12_descriptor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\dx12\dx12_resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\dx12\dx12_include.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\renderer\acceleration_structure\bvh_builder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -213,6 +216,48 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\material.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\core\api_types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\resources\ring_buffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d\dx12_command.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d\dx12_descriptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d\dx12_backend.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d\dx12_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d\dx12_include.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d\dx12_resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_backend.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_command.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_descriptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_include.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

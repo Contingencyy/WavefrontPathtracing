@@ -1,8 +1,8 @@
 #include "pch.h"
-#include "dx12_descriptor.h"
-#include "dx12_common.h"
+#include "d3d12_descriptor.h"
+#include "d3d12_common.h"
 
-namespace dx12_backend
+namespace d3d12
 {
 
 	namespace descriptor
@@ -60,31 +60,31 @@ namespace dx12_backend
 		
 		void init()
 		{
-			inst = ARENA_ALLOC_STRUCT_ZERO(g_dx12->arena, instance_t);
+			inst = ARENA_ALLOC_STRUCT_ZERO(g_d3d->arena, instance_t);
 
 			// Create descriptor heaps
 			D3D12_DESCRIPTOR_HEAP_DESC descriptor_heap_desc = {};
 			descriptor_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-			descriptor_heap_desc.NumDescriptors = g_dx12->descriptor_heaps.heap_sizes.rtv;
+			descriptor_heap_desc.NumDescriptors = g_d3d->descriptor_heaps.heap_sizes.rtv;
 			descriptor_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 			descriptor_heap_desc.NodeMask = 0;
-			DX_CHECK_HR(g_dx12->d3d12_device->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&g_dx12->descriptor_heaps.rtv)));
+			DX_CHECK_HR(g_d3d->device->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&g_d3d->descriptor_heaps.rtv)));
 
 			descriptor_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			descriptor_heap_desc.NumDescriptors = g_dx12->descriptor_heaps.heap_sizes.cbv_srv_uav;
+			descriptor_heap_desc.NumDescriptors = g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav;
 			descriptor_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			DX_CHECK_HR(g_dx12->d3d12_device->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&g_dx12->descriptor_heaps.cbv_srv_uav)));
+			DX_CHECK_HR(g_d3d->device->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&g_d3d->descriptor_heaps.cbv_srv_uav)));
 
 			// Get descriptor increment sizes
-			g_dx12->descriptor_heaps.handle_sizes.rtv = g_dx12->d3d12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-			g_dx12->descriptor_heaps.handle_sizes.cbv_srv_uav = g_dx12->d3d12_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			g_d3d->descriptor_heaps.handle_sizes.rtv = g_d3d->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			g_d3d->descriptor_heaps.handle_sizes.cbv_srv_uav = g_d3d->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 			// Initialize descriptor blocks per descriptor heap
-			inst->descriptor_blocks.rtv = ARENA_ALLOC_STRUCT_ZERO(g_dx12->arena, descriptor_block_t);
+			inst->descriptor_blocks.rtv = ARENA_ALLOC_STRUCT_ZERO(g_d3d->arena, descriptor_block_t);
 			inst->descriptor_blocks.rtv[0].offset = 0;
 			inst->descriptor_blocks.rtv[0].count = get_descriptor_heap_size_by_type(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-			inst->descriptor_blocks.cbv_srv_uav = ARENA_ALLOC_STRUCT_ZERO(g_dx12->arena, descriptor_block_t);
+			inst->descriptor_blocks.cbv_srv_uav = ARENA_ALLOC_STRUCT_ZERO(g_d3d->arena, descriptor_block_t);
 			inst->descriptor_blocks.cbv_srv_uav[0].offset = 0;
 			inst->descriptor_blocks.cbv_srv_uav[0].count = get_descriptor_heap_size_by_type(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		}
@@ -151,7 +151,7 @@ namespace dx12_backend
 			// If there is not a single block of free descriptors, create a new one
 			if (!descriptor_block)
 			{
-				descriptor_block_t* descriptor_block_new = ARENA_ALLOC_STRUCT_ZERO(g_dx12->arena, descriptor_block_t);
+				descriptor_block_t* descriptor_block_new = ARENA_ALLOC_STRUCT_ZERO(g_d3d->arena, descriptor_block_t);
 				descriptor_block_new->offset = descriptor.offset;
 				descriptor_block_new->count = descriptor.count;
 
@@ -181,7 +181,7 @@ namespace dx12_backend
 				}
 				else if (descriptor_block->offset > descriptor.offset)
 				{
-					descriptor_block_t* descriptor_block_new = ARENA_ALLOC_STRUCT_ZERO(g_dx12->arena, descriptor_block_t);
+					descriptor_block_t* descriptor_block_new = ARENA_ALLOC_STRUCT_ZERO(g_d3d->arena, descriptor_block_t);
 					descriptor_block_new->offset = descriptor.offset;
 					descriptor_block_new->count = descriptor.count;
 

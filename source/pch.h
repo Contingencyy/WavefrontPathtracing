@@ -21,5 +21,6 @@
 */
 
 #include "core/common.h"
+#include "core/api_types.h"
 #include "core/assertion.h"
 #include "core/memory/memory_arena.h"

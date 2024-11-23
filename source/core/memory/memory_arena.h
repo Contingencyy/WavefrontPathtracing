@@ -37,6 +37,10 @@ struct memory_arena_t
 
 	static string_t printf(memory_arena_t* arena, const char* fmt, ...);
 	static string_t printf_args(memory_arena_t* arena, const char* fmt, va_list args);
+	static wstring_t wprintf(memory_arena_t* arena, const wchar_t* fmt, ...);
+	static wstring_t wprintf_args(memory_arena_t* arena, const wchar_t* fmt, va_list args);
+	static string_t wide_to_char(memory_arena_t* arena, const wchar_t* wide);
+	static wstring_t char_to_wide(memory_arena_t* arena, const char* str);
 
 #define ARENA_ALLOC(arena, size, align) memory_arena_t::alloc(arena, size, align)
 #define ARENA_ALLOC_ZERO(arena, size, align) memory_arena_t::alloc_zero(arena, size, align)
@@ -66,5 +70,9 @@ struct memory_arena_t
 
 #define ARENA_PRINTF(arena, fmt, ...) memory_arena_t::printf(arena, fmt, ##__VA_ARGS__)
 #define ARENA_PRINTF_ARGS(arena, fmt, args) memory_arena_t::printf_args(arena, fmt, args)
+#define ARENA_WPRINTF(arena, fmt, ...) memory_arena_t::wprintf(arena, fmt, ##__VA_ARGS__)
+#define ARENA_WPRINTF_ARGS(arena, fmt, args) memory_arena_t::wprintf_args(arena, fmt, args)
+#define ARENA_WIDE_TO_CHAR(arena, wide) memory_arena_t::wide_to_char(arena, wide)
+#define ARENA_CHAR_TO_WIDE(arena, str) memory_arena_t::char_to_wide(arena, str)
 	// TODO: wide string support for printf
 };

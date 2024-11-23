@@ -19,8 +19,28 @@ namespace renderer
 
 	void render_ui();
 
-	render_texture_handle_t create_render_texture(u32 width, u32 height, f32* ptr_pixel_data);
-	render_mesh_handle_t create_render_mesh(vertex_t* vertices, u32 vertex_count, u32* indices, u32 index_count);
+	struct render_texture_params_t
+	{
+		u32 width;
+		u32 height;
+		u8 bytes_per_channel;
+		u8 channel_count;
+		u8* ptr_data;
+
+		const wchar_t* debug_name;
+	};
+	render_texture_handle_t create_render_texture(const render_texture_params_t& texture_params);
+
+	struct render_mesh_params_t
+	{
+		u32 vertex_count;
+		vertex_t* vertices;
+		u32 index_count;
+		u32* indices;
+
+		const wchar_t* debug_name;
+	};
+	render_mesh_handle_t create_render_mesh(const render_mesh_params_t& mesh_params);
 	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material);
 
 }

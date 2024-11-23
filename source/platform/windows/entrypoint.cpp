@@ -172,10 +172,12 @@ void create_window(i32 desired_width, i32 desired_height)
 	i32 screen_width = GetSystemMetrics(SM_CXFULLSCREEN);
 	i32 screen_height = GetSystemMetrics(SM_CYFULLSCREEN);
 
-	if (desired_width <= 0 || desired_width > screen_width)
+	if (desired_width <= 0 || desired_width > screen_width ||
+		desired_height <= 0 || desired_height > screen_height)
+	{
 		desired_width = 4 * screen_width / 5;
-	if (desired_height <= 0 || desired_height > screen_height)
 		desired_height = 4 * screen_height / 5;
+	}
 
 	WNDCLASSEXW window_class =
 	{
@@ -215,12 +217,6 @@ void create_window(i32 desired_width, i32 desired_height)
 		FATAL_ERROR("Window", "Failed to create window");
 
 	ShowWindow(s_hwnd, TRUE);
-
-	RECT client_rect;
-	GetClientRect(s_hwnd, &client_rect);
-
-	ASSERT(client_rect.right - client_rect.left == desired_width);
-	ASSERT(client_rect.bottom - client_rect.top == desired_height);
 }
 
 void fatal_error_impl(i32 line, const string_t& error_msg)
@@ -301,15 +297,11 @@ int WINAPI wWinMain(
 	// Parse command line arguments
 	command_line_args_t parsed_args = get_default_cmd_line_args();
 
-	ARENA_SCRATCH_SCOPE()
+	if (wcslen(lpCmdLine))
 	{
-		u32 cmd_line_count = wcslen(lpCmdLine);
-
-		if (cmd_line_count > 0)
+		ARENA_SCRATCH_SCOPE()
 		{
-			string_t cmd_line = string::make(arena_scratch, cmd_line_count);
-			wcstombs(cmd_line.buf, lpCmdLine, cmd_line.count);
-
+			string_t cmd_line = ARENA_WIDE_TO_CHAR(arena_scratch, lpCmdLine);
 			LOG_INFO("Command Line", "Passed arguments: %s", cmd_line.buf);
 			parse_cmd_line_args(cmd_line, parsed_args);
 		}

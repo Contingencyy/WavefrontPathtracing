@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "tlas_builder.h"
 #include "bvh_builder.h"
-#include "renderer/raytracing_utils.h"
+#include "as_util.h"
 
 void tlas_builder_t::build(memory_arena_t* arena, bvh_instance_t* bvh_instances, u32 bvh_instance_count)
 {
@@ -17,13 +17,14 @@ void tlas_builder_t::build(memory_arena_t* arena, bvh_instance_t* bvh_instances,
 
 	for (size_t i = 0; i < m_instance_count; ++i)
 	{
-		const aabb_t& blas_bb = m_instances[i].aabb_world;
+		const glm::vec3& blas_min = m_instances[i].aabb_min;
+		const glm::vec3& blas_max = m_instances[i].aabb_max;
 
 		node_idx[i] = m_node_at;
 
-		m_nodes[m_node_at].aabb_min = blas_bb.pmin;
-		m_nodes[m_node_at].aabb_max = blas_bb.pmax;
-		m_nodes[m_node_at].blas_instance_index = i;
+		m_nodes[m_node_at].aabb_min = blas_min;
+		m_nodes[m_node_at].aabb_max = blas_max;
+		m_nodes[m_node_at].instance_idx = i;
 		m_nodes[m_node_at].left_right = 0;
 
 		m_node_at++;
@@ -66,17 +67,20 @@ void tlas_builder_t::build(memory_arena_t* arena, bvh_instance_t* bvh_instances,
 	m_nodes[0] = m_nodes[node_idx[A]];
 }
 
-tlas_t tlas_builder_t::extract(memory_arena_t* arena) const
+void tlas_builder_t::extract(memory_arena_t* arena, tlas_t& out_tlas, u64& out_tlas_byte_size) const
 {
-	tlas_t tlas = {};
+	u32 header_size = sizeof(tlas_header_t);
+	u32 nodes_byte_size = sizeof(tlas_node_t) * m_node_at;
+	u32 instances_byte_size = sizeof(bvh_instance_t) * m_instance_count;
 
-	tlas.nodes = ARENA_ALLOC_ARRAY(arena, tlas_node_t, m_node_at);
-	memcpy(tlas.nodes, m_nodes, sizeof(tlas_node_t) * m_node_at);
+	out_tlas_byte_size = /*header_size + */nodes_byte_size + instances_byte_size;
+	out_tlas.data = ARENA_ALLOC(arena, out_tlas_byte_size, alignof(tlas_t));
+	
+	out_tlas.header.nodes_offset = header_size;
+	out_tlas.header.instances_offset = header_size + nodes_byte_size;
 
-	tlas.instances = ARENA_ALLOC_ARRAY(arena, bvh_instance_t, m_instance_count);
-	memcpy(tlas.instances, m_instances, sizeof(bvh_instance_t) * m_instance_count);
-
-	return tlas;
+	memcpy(PTR_OFFSET(out_tlas.data, 0), m_nodes, nodes_byte_size);
+	memcpy(PTR_OFFSET(out_tlas.data, nodes_byte_size), m_instances, instances_byte_size);
 }
 
 u32 tlas_builder_t::find_best_match(u32 A, const u32* indices, u32 index_count)
@@ -93,7 +97,7 @@ u32 tlas_builder_t::find_best_match(u32 A, const u32* indices, u32 index_count)
 			glm::vec3 bmin = glm::max(m_nodes[indices[A]].aabb_max, m_nodes[indices[B]].aabb_max);
 			glm::vec3 extent = bmax - bmin;
 
-			f32 area = rt_util::get_aabb_volume(bmin, bmax);
+			f32 area = as_util::get_aabb_volume(bmin, bmax);
 			if (area < smallest_area)
 			{
 				smallest_area = area;

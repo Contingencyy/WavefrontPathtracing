@@ -51,7 +51,15 @@ namespace asset_loader
 				FATAL_ERROR("asset_loader::load_image_hdr", "Failed to load HDR image: %s", filepath);
 			}
 
-			asset->render_texture_handle = renderer::create_render_texture(image_width, image_height, ptr_image_data);
+			renderer::render_texture_params_t rtexture_params = {};
+			rtexture_params.width = image_width;
+			rtexture_params.height = image_height;
+			rtexture_params.bytes_per_channel = 4;
+			rtexture_params.channel_count = 4; // Forced to 4 by using STBI_rgb_alpha flag
+			rtexture_params.ptr_data = reinterpret_cast<u8*>(ptr_image_data);
+			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath).buf;
+
+			asset->render_texture_handle = renderer::create_render_texture(rtexture_params);
 		}
 
 		return asset;
@@ -166,7 +174,14 @@ namespace asset_loader
 					}
 
 					// Create render mesh
-					asset->render_mesh_handles[asset->mesh_handle_count] = renderer::create_render_mesh(vertices, vertex_count, indices, index_count);
+					renderer::render_mesh_params_t rmesh_params = {};
+					rmesh_params.vertex_count = vertex_count;
+					rmesh_params.vertices = vertices;
+					rmesh_params.index_count = index_count;
+					rmesh_params.indices = indices;
+					rmesh_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath).buf;
+
+					asset->render_mesh_handles[asset->mesh_handle_count] = renderer::create_render_mesh(rmesh_params);
 					asset->mesh_handle_count++;
 				}
 			}

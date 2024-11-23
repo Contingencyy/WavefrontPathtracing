@@ -6,12 +6,46 @@
 */
 
 #define RAY_MAX_T 3.402823466e+38F
+#define RAY_NUDGE_MULTIPLIER 0.001f
+
+#define INSTANCE_IDX_INVALID ~0
+#define PRIMITIVE_IDX_INVALID ~0
+
+#define PI 3.14159265f;
+#define TWO_PI 2.0f * PI;
+#define INV_PI 1.0f / PI;
+#define INV_TWO_PI 1.0f / TWO_PI;
 
 /*
     Global constant buffers
 */
 
 ConstantBuffer<view_shader_data_t> cb_view : register(b0);
+
+/*
+    Common data structures
+*/
+
+struct hit_result_t
+{
+    float3 bary;
+    uint primitive_idx;
+    uint instance_idx;
+};
+
+hit_result_t make_hit_result()
+{
+    hit_result_t hit = (hit_result_t)0;
+    hit.primitive_idx = ~0;
+    hit.instance_idx = ~0;
+    
+    return hit;
+}
+
+bool hit_result_is_valid(hit_result_t hit)
+{
+    return (hit.instance_idx != INSTANCE_IDX_INVALID && hit.primitive_idx != PRIMITIVE_IDX_INVALID);
+}
 
 struct ray_t
 {

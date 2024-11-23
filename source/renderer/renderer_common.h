@@ -1,9 +1,12 @@
 #pragma once
 
 #include "core/camera/camera.h"
-#include "acceleration_structure/tlas_builder.h"
-#include "acceleration_structure/bvh_builder.h"
-#include "resource_slotmap.h"
+#include "renderer/resource_slotmap.h"
+#include "renderer/acceleration_structure/tlas_builder.h"
+#include "renderer/resources/ring_buffer.h"
+#include "renderer/d3d12/d3d12_descriptor.h"
+
+#define TLAS_MAX_BVH_INSTANCES 100
 
 struct material_t;
 struct bvh_instance_t;
@@ -59,17 +62,20 @@ namespace renderer
 		} postfx;
 	};
 
-	struct texture_t
+	struct render_texture_t
 	{
-		u32 width;
-		u32 height;
-		f32* ptr_pixel_data;
+		ID3D12Resource* texture_buffer;
 	};
 
-	struct mesh_t
+	struct render_mesh_t
 	{
-		bvh_t bvh;
-		triangle_t* triangles;
+		ID3D12Resource* bvh_buffer;
+		d3d12::descriptor_allocation_t bvh_srv;
+		glm::vec3 bvh_min;
+		glm::vec3 bvh_max;
+
+		ID3D12Resource* triangle_buffer;
+		d3d12::descriptor_allocation_t triangle_srv;
 	};
 
 	struct renderer_inst_t
@@ -81,8 +87,8 @@ namespace renderer
 		f32 inv_render_width;
 		f32 inv_render_height;
 
-		resource_slotmap_t<render_texture_handle_t, texture_t> texture_slotmap;
-		resource_slotmap_t<render_mesh_handle_t, mesh_t> mesh_slotmap;
+		resource_slotmap_t<render_texture_handle_t, render_texture_t> texture_slotmap;
+		resource_slotmap_t<render_mesh_handle_t, render_mesh_t> mesh_slotmap;
 
 		u32 bvh_instances_count;
 		u32 bvh_instances_at;
@@ -90,11 +96,24 @@ namespace renderer
 		material_t* bvh_instances_materials;
 
 		tlas_t scene_tlas;
+		ID3D12Resource* scene_tlas_resource;
+		d3d12::descriptor_allocation_t scene_tlas_srv;
+
 		camera_t scene_camera;
-		texture_t* scene_hdr_env_texture;
+		render_texture_t* scene_hdr_env_texture;
 
 		render_settings_t settings;
 		u64 frame_index;
+
+		ID3D12PipelineState* pso;
+		ID3D12RootSignature* root_signature;
+
+		ID3D12Resource* render_target;
+		d3d12::descriptor_allocation_t render_target_uav;
+
+		ID3D12Resource* cb_view_resource;
+
+		ring_buffer_t upload_ring_buffer;
 	};
 	extern renderer_inst_t* g_renderer;
 

@@ -160,11 +160,55 @@ string_t memory_arena_t::printf_args(memory_arena_t* arena, const char* fmt, va_
 	va_copy(args2, args);
 
 	u32 count = vsnprintf(NULL, 0, fmt, args2);
-
+	
 	va_end(args2);
 
 	string_t result = string::make(arena, count + 1);
 	vsnprintf(result.buf, count + 1, fmt, args);
 
 	return result;
+}
+
+wstring_t memory_arena_t::wprintf(memory_arena_t* arena, const wchar_t* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	wstring_t result = wprintf_args(arena, fmt, args);
+
+	va_end(args);
+	return result;
+}
+
+wstring_t memory_arena_t::wprintf_args(memory_arena_t* arena, const wchar_t* fmt, va_list args)
+{
+	va_list args2;
+	va_copy(args2, args);
+
+	u32 count = _vscwprintf(fmt, args2);
+	
+	va_end(args2);
+
+	wstring_t result = wstring::make(arena, count + 1);
+	_vsnwprintf(result.buf, count + 1, fmt, args);
+
+	return result;
+}
+
+string_t memory_arena_t::wide_to_char(memory_arena_t* arena, const wchar_t* wide)
+{
+	size_t len = wcslen(wide);
+	string_t str = string::make(arena, len);
+	wcstombs(str.buf, wide, str.count);
+
+	return str;
+}
+
+wstring_t memory_arena_t::char_to_wide(memory_arena_t* arena, const char* str)
+{
+	size_t len = strlen(str);
+	wstring_t wstr = wstring::make(arena, len);
+	mbstowcs(wstr.buf, str, wstr.count);
+
+	return wstr;
 }

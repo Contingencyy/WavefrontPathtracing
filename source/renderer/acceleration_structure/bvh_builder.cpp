@@ -1,9 +1,8 @@
 #include "pch.h"
 #include "bvh_builder.h"
-#include "core/memory/memory_arena.h"
+#include "as_util.h"
 
 #include "renderer/renderer_fwd.h"
-#include "renderer/raytracing_utils.h"
 
 void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 {
@@ -51,20 +50,23 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	subdivide_node(arena, root_node, node_centroid_min, node_centroid_max, 0);
 }
 
-bvh_t bvh_builder_t::extract(memory_arena_t* arena) const
+void bvh_builder_t::extract(memory_arena_t* arena, bvh_t& out_bvh, u64& out_bvh_byte_size) const
 {
-	bvh_t bvh = {};
+	u32 header_size = sizeof(bvh_header_t);
+	u32 nodes_byte_size = sizeof(bvh_node_t) * m_node_at;
+	u32 triangles_byte_size = sizeof(bvh_triangle_t) * m_triangle_count;
+	u32 triangle_indices_byte_size = sizeof(u32) * m_triangle_count;
 
-	bvh.nodes = ARENA_ALLOC_ARRAY(arena, bvh_node_t, m_node_at);
-	memcpy(bvh.nodes, m_nodes, sizeof(bvh_node_t) * m_node_at);
+	out_bvh_byte_size = /*header_size + */nodes_byte_size + triangles_byte_size + triangle_indices_byte_size;
+	out_bvh.data = ARENA_ALLOC(arena, out_bvh_byte_size, alignof(bvh_t));
 
-	bvh.triangles = ARENA_ALLOC_ARRAY(arena, bvh_triangle_t, m_triangle_count);
-	memcpy(bvh.triangles, m_triangles, sizeof(bvh_triangle_t) * m_triangle_count);
+	out_bvh.header.nodes_offset = header_size;
+	out_bvh.header.triangles_offset = header_size + nodes_byte_size;
+	out_bvh.header.indices_offset = header_size + nodes_byte_size + triangles_byte_size;
 
-	bvh.triangle_indices = ARENA_ALLOC_ARRAY(arena, u32, m_triangle_count);
-	memcpy(bvh.triangle_indices, m_triangle_indices, sizeof(u32) * m_triangle_count);
-
-	return bvh;
+	memcpy(PTR_OFFSET(out_bvh.data, 0), m_nodes, nodes_byte_size);
+	memcpy(PTR_OFFSET(out_bvh.data, nodes_byte_size), m_triangles, triangles_byte_size);
+	memcpy(PTR_OFFSET(out_bvh.data, nodes_byte_size + triangles_byte_size), m_triangle_indices, triangle_indices_byte_size);
 }
 
 void bvh_builder_t::calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max)
@@ -93,7 +95,7 @@ void bvh_builder_t::calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_
 
 f32 bvh_builder_t::calc_node_cost(const bvh_node_t& node) const
 {
-	return node.prim_count * rt_util::get_aabb_volume(node.aabb_min, node.aabb_max);
+	return node.prim_count * as_util::get_aabb_volume(node.aabb_min, node.aabb_max);
 }
 
 void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, u32 depth)
@@ -201,9 +203,9 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 			bvh_bin_t* bvh_bin = &bvh_bins[bin_idx];
 
 			bvh_bin->prim_count++;
-			rt_util::grow_aabb(bvh_bin->aabb_min, bvh_bin->aabb_max, triangle.p0);
-			rt_util::grow_aabb(bvh_bin->aabb_min, bvh_bin->aabb_max, triangle.p1);
-			rt_util::grow_aabb(bvh_bin->aabb_min, bvh_bin->aabb_max, triangle.p2);
+			as_util::grow_aabb(bvh_bin->aabb_min, bvh_bin->aabb_max, triangle.p0);
+			as_util::grow_aabb(bvh_bin->aabb_min, bvh_bin->aabb_max, triangle.p1);
+			as_util::grow_aabb(bvh_bin->aabb_min, bvh_bin->aabb_max, triangle.p2);
 		}
 
 		// Get all necessary data for the planes between the bins
@@ -220,13 +222,13 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 			const bvh_bin_t* left_bin = &bvh_bins[bin_idx];
 
 			left_sum += left_bin->prim_count;
-			rt_util::grow_aabb(left_aabb_min, left_aabb_max, left_bin->aabb_min, left_bin->aabb_max);
-			left_area[bin_idx] = left_sum * rt_util::get_aabb_volume(left_aabb_min, left_aabb_max);
+			as_util::grow_aabb(left_aabb_min, left_aabb_max, left_bin->aabb_min, left_bin->aabb_max);
+			left_area[bin_idx] = left_sum * as_util::get_aabb_volume(left_aabb_min, left_aabb_max);
 
 			const bvh_bin_t* right_bin = &bvh_bins[bin_count - 1 - bin_idx];
 			right_sum += right_bin->prim_count;
-			rt_util::grow_aabb(right_aabb_min, right_aabb_max, right_bin->aabb_min, right_bin->aabb_max);
-			right_area[bin_count - 2 - bin_idx] = right_sum * rt_util::get_aabb_volume(right_aabb_min, right_aabb_max);
+			as_util::grow_aabb(right_aabb_min, right_aabb_max, right_bin->aabb_min, right_bin->aabb_max);
+			right_area[bin_count - 2 - bin_idx] = right_sum * as_util::get_aabb_volume(right_aabb_min, right_aabb_max);
 		}
 
 		// Evaluate SAH cost for each plane

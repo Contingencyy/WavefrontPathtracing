@@ -43,7 +43,7 @@ namespace logger
 
 			va_end(args);
 
-			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s] [%s]\t%s", log_severity_to_string(severity), sender, string::make_nullterm(arena_scratch, formatted_log_message));
+			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s][%s]\t%s", log_severity_to_string(severity), sender, string::make_nullterm(arena_scratch, formatted_log_message));
 			std::cout << string::make_nullterm(arena_scratch, full_log_message) << std::endl;
 		}
 	}

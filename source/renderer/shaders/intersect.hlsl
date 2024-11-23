@@ -4,9 +4,9 @@
 #define INTERSECT_EPSILON 1e-8
 #define TRIANGLE_BACKFACE_CULLING 1
 
-// Möller-Trumbore ray-triangle intersection
+// Moeller-Trumbore ray-triangle intersection
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/moller-trumbore-ray-triangle-intersection.html
-void intersect_ray_triangle(float3 v0, float3 v1, float3 v2, inout ray_t ray, inout float3 barycentrics)
+bool intersect_ray_triangle(float3 v0, float3 v1, float3 v2, inout ray_t ray, inout float3 barycentrics)
 {
     float3 v0v1 = v1 - v0;
     float3 v0v2 = v2 - v0;
@@ -15,12 +15,12 @@ void intersect_ray_triangle(float3 v0, float3 v1, float3 v2, inout ray_t ray, in
     float det = dot(v0v1, pvec);
     
 #if TRIANGLE_BACKFACE_CULLING
-    if (abs(det) < INTERSECT_EPSILON)
-#else
     if (det < INTERSECT_EPSILON)
+#else
+    if (abs(det) < INTERSECT_EPSILON)
 #endif
     {
-        return;
+        return false;
     }
     
     float inv_det = 1.0f / det;
@@ -29,7 +29,7 @@ void intersect_ray_triangle(float3 v0, float3 v1, float3 v2, inout ray_t ray, in
     
     if (v < 0.0f || v > 1.0f)
     {
-        return;
+        return false;
     }
     
     float3 qvec = cross(tvec, v0v1);
@@ -37,21 +37,22 @@ void intersect_ray_triangle(float3 v0, float3 v1, float3 v2, inout ray_t ray, in
     
     if (w < 0.0f || v + w > 1.0f)
     {
-        return;
+        return false;
     }
     
     float t = dot(v0v2, qvec) * inv_det;
     
     if (t < 0.0f || t >= ray.t)
     {
-        return;
+        return false;
     }
     
     ray.t = t;
     barycentrics = float3(1.0f - v - w, v, w);
+    return true;
 }
 
-void intersect_ray_aabb(float3 aabb_min, float3 aabb_max, inout ray_t ray)
+float intersect_ray_aabb(float3 aabb_min, float3 aabb_max, ray_t ray)
 {
     float tx1 = (aabb_min.x - ray.origin.x) * ray.inv_dir.x;
     float tx2 = (aabb_max.x - ray.origin.x) * ray.inv_dir.x;
@@ -68,10 +69,10 @@ void intersect_ray_aabb(float3 aabb_min, float3 aabb_max, inout ray_t ray)
     tmin = max(tmin, min(tz1, tz2));
     tmax = min(tmax, max(tz1, tz2));
     
-    if (tmax < tmin || tmax <= 0.0f || tmin >= ray.t)
+    if (tmax >= tmin && tmin < ray.t && tmax > 0.0f)
     {
-        return;
+        return tmin;
     }
     
-    ray.t = tmin;
+    return RAY_MAX_T;
 }

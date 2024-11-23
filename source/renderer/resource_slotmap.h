@@ -51,7 +51,7 @@ public:
 		return handle;
 	}
 
-	void Remove(THandle handle)
+	void remove(THandle handle)
 	{
 		slot_t* sentinel = &m_slots[0];
 

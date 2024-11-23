@@ -1,10 +1,10 @@
 #pragma once
-#include "dx12_include.h"
-#include "dx12_descriptor.h"
+#include "d3d12_include.h"
+#include "d3d12_descriptor.h"
 
 struct memory_arena_t;
 
-namespace dx12_backend
+namespace d3d12
 {
 
 	static constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
@@ -14,8 +14,8 @@ namespace dx12_backend
 
 	struct frame_context_t
 	{
-		ID3D12CommandAllocator* d3d12_command_allocator = nullptr;
-		ID3D12GraphicsCommandList6* d3d12_command_list = nullptr;
+		ID3D12CommandAllocator* command_allocator = nullptr;
+		ID3D12GraphicsCommandList6* command_list = nullptr;
 
 		ID3D12Resource* backbuffer = nullptr;
 		descriptor_allocation_t backbuffer_rtv;
@@ -25,13 +25,13 @@ namespace dx12_backend
 		u8* ptr_cpu_pixel_upload_buffer = nullptr;
 	};
 
-	struct dx12_instance_t
+	struct d3d12_instance_t
 	{
 		memory_arena_t* arena = nullptr;
 
 		IDXGIAdapter4* dxgi_adapter = nullptr;
-		ID3D12Device8* d3d12_device = nullptr;
-		ID3D12CommandQueue* d3d12_command_queue_direct = nullptr;
+		ID3D12Device8* device = nullptr;
+		ID3D12CommandQueue* command_queue_direct = nullptr;
 
 		b8 vsync = false;
 
@@ -49,7 +49,7 @@ namespace dx12_backend
 
 		struct sync_t
 		{
-			ID3D12Fence* d3d12_fence = nullptr;
+			ID3D12Fence* fence = nullptr;
 			u64 fence_value = 0ull;
 		} sync;
 
@@ -78,22 +78,22 @@ namespace dx12_backend
 			IDxcIncludeHandler* dxc_include_handler = nullptr;
 		} shader_compiler;
 	};
-	extern dx12_instance_t* g_dx12;
+	extern d3d12_instance_t* g_d3d;
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Functions
 
 	inline frame_context_t& get_frame_context()
 	{
-		return g_dx12->frame_ctx[g_dx12->swapchain.back_buffer_index];
+		return g_d3d->frame_ctx[g_d3d->swapchain.back_buffer_index];
 	}
 
 	inline ID3D12DescriptorHeap* get_descriptor_heap_by_type(D3D12_DESCRIPTOR_HEAP_TYPE type)
 	{
 		switch (type)
 		{
-		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_dx12->descriptor_heaps.rtv;
-		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_dx12->descriptor_heaps.cbv_srv_uav;
+		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_d3d->descriptor_heaps.rtv;
+		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_d3d->descriptor_heaps.cbv_srv_uav;
 		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor heap for a descriptor heap type that is not supported or invalid");
 		}
 
@@ -104,8 +104,8 @@ namespace dx12_backend
 	{
 		switch (type)
 		{
-		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_dx12->descriptor_heaps.handle_sizes.rtv;
-		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_dx12->descriptor_heaps.handle_sizes.cbv_srv_uav;
+		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_d3d->descriptor_heaps.handle_sizes.rtv;
+		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_d3d->descriptor_heaps.handle_sizes.cbv_srv_uav;
 		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor handle size for a descriptor heap type that is not supported or invalid");
 		}
 
@@ -116,8 +116,8 @@ namespace dx12_backend
 	{
 		switch (type)
 		{
-		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_dx12->descriptor_heaps.heap_sizes.rtv;
-		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_dx12->descriptor_heaps.heap_sizes.cbv_srv_uav;
+		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_d3d->descriptor_heaps.heap_sizes.rtv;
+		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav;
 		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor heap size for a descriptor heap type that is not supported or invalid");
 		}
 

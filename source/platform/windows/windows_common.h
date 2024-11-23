@@ -27,6 +27,14 @@
 #undef TRANSPARENT
 #endif
 
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
 static inline const char* get_hr_message(HRESULT HR)
 {
 	char* msg = nullptr;

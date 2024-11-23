@@ -32,7 +32,14 @@ void scene_t::init()
 	plane_verts[0].normal = plane_verts[1].normal = plane_verts[2].normal = plane_verts[3].normal = glm::vec3(0.0f, 1.0f, 0.0f);
 
 	u32 plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
-	render_mesh_handle_t render_mesh_handle_plane = renderer::create_render_mesh(plane_verts, ARRAY_SIZE(plane_verts), plane_indices, ARRAY_SIZE(plane_indices));
+	renderer::render_mesh_params_t rmesh_params = {};
+	rmesh_params.vertex_count = ARRAY_SIZE(plane_verts);
+	rmesh_params.vertices = plane_verts;
+	rmesh_params.index_count = ARRAY_SIZE(plane_indices);
+	rmesh_params.indices = plane_indices;
+	rmesh_params.debug_name = L"Plane Mesh";
+	
+	render_mesh_handle_t render_mesh_handle_plane = renderer::create_render_mesh(rmesh_params);
 
 	material_t plane_material = material::make_diffuse(glm::vec3(1.0f));
 	create_scene_object(render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));

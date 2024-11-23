@@ -29,3 +29,5 @@ static constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #define IS_BIT_FLAG_SET(flags, bitflag) ((flags & bitflag) == bitflag)
+
+#define PTR_OFFSET(ptr, offset) ((u8*)ptr + offset)

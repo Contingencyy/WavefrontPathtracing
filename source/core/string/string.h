@@ -1,6 +1,6 @@
 #pragma once
 
-#define STRING_NPOS 0xFFFFFFF
+#define STRING_NPOS 0xFFFFFFFF
 #define STRING_LITERAL(str) string_t{ .buf = (char*)str, .count = sizeof(str) - 1 }
 #define WSTRING_LITERAL(wstr) wstring_t{ .buf = (wchar_t*)wstr, .count = sizeof(wstr) - 1 }
 

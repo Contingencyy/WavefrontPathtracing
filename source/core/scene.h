@@ -3,7 +3,6 @@
 #include "core/camera/camera_controller.h"
 
 #include "renderer/renderer_fwd.h"
-#include "renderer/raytracing_utils.h"
 #include "renderer/material.h"
 
 struct texture_asset_t;
