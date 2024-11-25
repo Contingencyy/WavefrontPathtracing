@@ -94,7 +94,7 @@ namespace d3d12
 		{
 		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_d3d->descriptor_heaps.rtv;
 		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_d3d->descriptor_heaps.cbv_srv_uav;
-		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor heap for a descriptor heap type that is not supported or invalid");
+		default:									 FATAL_ERROR("D3D12", "Tried to get descriptor heap for a descriptor heap type that is not supported or invalid");
 		}
 
 		return nullptr;
@@ -106,7 +106,7 @@ namespace d3d12
 		{
 		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_d3d->descriptor_heaps.handle_sizes.rtv;
 		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_d3d->descriptor_heaps.handle_sizes.cbv_srv_uav;
-		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor handle size for a descriptor heap type that is not supported or invalid");
+		default:									 FATAL_ERROR("D3D12", "Tried to get descriptor handle size for a descriptor heap type that is not supported or invalid");
 		}
 
 		return 0;
@@ -118,7 +118,7 @@ namespace d3d12
 		{
 		case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return g_d3d->descriptor_heaps.heap_sizes.rtv;
 		case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav;
-		default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor heap size for a descriptor heap type that is not supported or invalid");
+		default:									 FATAL_ERROR("D3D12", "Tried to get descriptor heap size for a descriptor heap type that is not supported or invalid");
 		}
 
 		return 0;

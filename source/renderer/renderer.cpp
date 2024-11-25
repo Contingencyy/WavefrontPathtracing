@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "renderer.h"
 #include "renderer_common.h"
-#include "renderer/material.h"
 #include "renderer/shaders/shared.hlsl.h"
 
 #include "d3d12/d3d12_common.h"
@@ -13,6 +12,7 @@
 
 #include "core/camera/camera.h"
 #include "core/logger.h"
+#include "core/random.h"
 
 #include "resource_slotmap.h"
 
@@ -22,7 +22,7 @@ namespace renderer
 {
 
 	renderer_inst_t* g_renderer = nullptr;
-	
+
 	static render_settings_t get_default_render_settings()
 	{
 		render_settings_t defaults = {};
@@ -58,16 +58,21 @@ namespace renderer
 		g_renderer->texture_slotmap.init(&g_renderer->arena);
 		g_renderer->mesh_slotmap.init(&g_renderer->arena);
 
+		// The d3d12 backend use the same arena as the front-end renderer since the renderer initializes the backend and they have the same lifetimes
+		d3d12::init(&g_renderer->arena);
+
 		g_renderer->bvh_instances_count = TLAS_MAX_BVH_INSTANCES;
 		g_renderer->bvh_instances_at = 0;
 		g_renderer->bvh_instances = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, bvh_instance_t, g_renderer->bvh_instances_count);
-		g_renderer->bvh_instances_materials = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, material_t, g_renderer->bvh_instances_count);
+
+		// Instance buffer
+		g_renderer->instance_buffer_resource = d3d12::create_buffer_upload(L"Instance Buffer", sizeof(instance_data_t) * TLAS_MAX_BVH_INSTANCES);
+		g_renderer->instance_buffer_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		d3d12::create_buffer_srv(g_renderer->instance_buffer_resource, g_renderer->instance_buffer_srv, 0, sizeof(instance_data_t) * TLAS_MAX_BVH_INSTANCES);
+		g_renderer->instance_buffer_resource->Map(0, nullptr, reinterpret_cast<void**>(&g_renderer->instance_buffer_ptr));
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
-
-		// The d3d12 backend use the same arena as the front-end renderer since the renderer initializes the backend and they have the same lifetimes
-		d3d12::init(&g_renderer->arena);
 
 		// Descriptor ranges and root parameters for root signature
 		D3D12_DESCRIPTOR_RANGE1 descriptor_ranges[2] = {};
@@ -104,7 +109,7 @@ namespace renderer
 		root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 		root_parameters[1].Constants.ShaderRegister = 1;
 		root_parameters[1].Constants.RegisterSpace = 0;
-		root_parameters[1].Constants.Num32BitValues = 3;
+		root_parameters[1].Constants.Num32BitValues = 5;
 		root_parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 		root_parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -153,6 +158,8 @@ namespace renderer
 		DX_RELEASE_OBJECT(g_renderer->root_signature);
 		DX_RELEASE_OBJECT(g_renderer->pso);
 		DX_RELEASE_OBJECT(g_renderer->cb_view_resource);
+		g_renderer->instance_buffer_resource->Unmap(0, nullptr);
+		DX_RELEASE_OBJECT(g_renderer->instance_buffer_resource);
 		DX_RELEASE_OBJECT(g_renderer->render_target);
 
 		// Ring buffer implementation waits on its own internal copy queue before safely releasing
@@ -297,6 +304,9 @@ namespace renderer
 		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->scene_tlas_srv.offset, 0);
 		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->render_target_uav.offset, 1);
 		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->scene_hdr_env_texture->texture_srv.offset, 2);
+		frame_ctx.command_list->SetComputeRoot32BitConstant(1, g_renderer->instance_buffer_srv.offset, 3);
+		u32 random_seed = random::rand_u32();
+		frame_ctx.command_list->SetComputeRoot32BitConstant(1, random_seed, 4);
 
 		frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 	}
@@ -514,6 +524,7 @@ namespace renderer
 				upload_alloc_t* upload = ring_buffer::alloc(g_renderer->upload_ring_buffer, sizeof(bvh_header_t) + mesh_bvh_byte_size, 4);
 				// TODO: If the mesh is larger than the ring buffer, need to upload in chunks
 				ASSERT(upload->byte_size >= sizeof(bvh_header_t) + mesh_bvh_byte_size);
+
 				memcpy(upload->ptr, &mesh_bvh.header, sizeof(bvh_header_t));
 				memcpy(PTR_OFFSET(upload->ptr, sizeof(bvh_header_t)), mesh_bvh.data, mesh_bvh_byte_size);
 
@@ -533,6 +544,9 @@ namespace renderer
 			{
 				// CPU to upload copy
 				upload_alloc_t* upload = ring_buffer::alloc(g_renderer->upload_ring_buffer, mesh_triangles_byte_size, 4);
+				// TODO: If the mesh is larger than the ring buffer, need to upload in chunks
+				ASSERT(upload->byte_size >= mesh_triangles_byte_size);
+
 				memcpy(upload->ptr, mesh_triangles, mesh_triangles_byte_size);
 
 				// Create GPU buffer and do copy from upload to GPU
@@ -561,19 +575,20 @@ namespace renderer
 		ASSERT_MSG(g_renderer->bvh_instances_at < g_renderer->bvh_instances_count, "Exceeded maximum amount of BVH instances");
 
 		bvh_instance_t* instance = &g_renderer->bvh_instances[g_renderer->bvh_instances_at];
-		instance->local_to_world = transform;
 		instance->world_to_local = glm::inverse(transform);
 		instance->bvh_index = mesh->bvh_srv.offset;
 
 		for (u32 i = 0; i < 8; ++i)
 		{
-			glm::vec3 pos_world = instance->local_to_world *
+			glm::vec3 pos_world = transform *
 				glm::vec4(i & 1 ? mesh->bvh_max.x : mesh->bvh_min.x, i & 2 ? mesh->bvh_max.y : mesh->bvh_min.y, i & 4 ? mesh->bvh_max.z : mesh->bvh_min.z, 1.0f);
 			as_util::grow_aabb(instance->aabb_min, instance->aabb_max, pos_world);
 		}
 
-		material_t* instance_material = &g_renderer->bvh_instances_materials[g_renderer->bvh_instances_at];
-		*instance_material = material;
+		// Write instance to instance buffer
+		g_renderer->instance_buffer_ptr[g_renderer->bvh_instances_at].local_to_world = transform;
+		g_renderer->instance_buffer_ptr[g_renderer->bvh_instances_at].world_to_local = instance->world_to_local;
+		g_renderer->instance_buffer_ptr[g_renderer->bvh_instances_at].material = material;
 
 		g_renderer->bvh_instances_at++;
 	}

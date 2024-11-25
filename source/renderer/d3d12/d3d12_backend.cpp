@@ -35,7 +35,7 @@ namespace d3d12
 
 	void init(memory_arena_t* arena)
 	{
-		LOG_INFO("DX12 Backend", "Init");
+		LOG_INFO("D3D12", "Init");
 
 		g_d3d = ARENA_ALLOC_STRUCT_ZERO(arena, d3d12_instance_t);
 		g_d3d->arena = arena;
@@ -91,7 +91,7 @@ namespace d3d12
 		DX_CHECK_HR(g_d3d->device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &d3d_options12, sizeof(d3d_options12)));
 
 		if (!d3d_options12.EnhancedBarriersSupported)
-			FATAL_ERROR("DX12 Backend", "DirectX 12 Feature not supported: Enhanced Barriers");
+			FATAL_ERROR("D3D12", "DirectX 12 Feature not supported: Enhanced Barriers");
 
 #ifdef _DEBUG
 		// Set info queue behavior and filters
@@ -193,7 +193,7 @@ namespace d3d12
 
 	void exit()
 	{
-		LOG_INFO("DX12 Backend", "Exit");
+		LOG_INFO("D3D12", "Exit");
 
 		descriptor::exit();
 
@@ -419,7 +419,13 @@ namespace d3d12
 		u32 codepage = 0;
 
 		IDxcBlobEncoding* shader_source_blob = nullptr;
-		DX_CHECK_HR(g_d3d->shader_compiler.dxc_utils->LoadFile(filepath, &codepage, &shader_source_blob));
+		hr = g_d3d->shader_compiler.dxc_utils->LoadFile(filepath, &codepage, &shader_source_blob);
+		
+		if (FAILED(hr))
+		{
+			FATAL_ERROR("D3D12", "Failed to load shader source: %s", filepath);
+			return nullptr;
+		}
 
 		DxcBuffer shader_source_buffer = {};
 		shader_source_buffer.Encoding = DXC_CP_ACP;
@@ -458,7 +464,7 @@ namespace d3d12
 			IDxcBlobEncoding* compile_error = nullptr;
 			compile_result->GetErrorBuffer(&compile_error);
 
-			FATAL_ERROR("DX12 Backend", reinterpret_cast<char*>(compile_error->GetBufferPointer()));
+			FATAL_ERROR("D3D12", reinterpret_cast<char*>(compile_error->GetBufferPointer()));
 
 			DX_RELEASE_OBJECT(compile_error);
 			return nullptr;
@@ -470,7 +476,7 @@ namespace d3d12
 
 		if (!shader_binary)
 		{
-			FATAL_ERROR("DX12 Backend", "Failed to retrieve the shader binary");
+			FATAL_ERROR("D3D12", "Failed to retrieve the shader binary");
 		}
 
 		DX_RELEASE_OBJECT(shader_source_blob);
@@ -488,7 +494,7 @@ namespace d3d12
 		DX_CHECK_HR(D3D12SerializeVersionedRootSignature(&root_signature_desc, &root_signature_serialized, &error_blob));
 		if (error_blob)
 		{
-			FATAL_ERROR("DX12 Backend", reinterpret_cast<char*>(error_blob->GetBufferPointer()));
+			FATAL_ERROR("D3D12", reinterpret_cast<char*>(error_blob->GetBufferPointer()));
 		}
 		DX_RELEASE_OBJECT(error_blob);
 

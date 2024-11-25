@@ -94,7 +94,10 @@ namespace renderer
 		u32 bvh_instances_count;
 		u32 bvh_instances_at;
 		bvh_instance_t* bvh_instances;
-		material_t* bvh_instances_materials;
+
+		ID3D12Resource* instance_buffer_resource;
+		d3d12::descriptor_allocation_t instance_buffer_srv;
+		instance_data_t* instance_buffer_ptr;
 
 		tlas_t scene_tlas;
 		ID3D12Resource* scene_tlas_resource;

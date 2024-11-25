@@ -33,7 +33,7 @@ namespace d3d12
 			{
 			case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 return inst->descriptor_blocks.rtv;
 			case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: return inst->descriptor_blocks.cbv_srv_uav;
-			default:									 FATAL_ERROR("DX12 Backend", "Tried to get descriptor block head for a descriptor heap type that is not supported or invalid");
+			default:									 FATAL_ERROR("D3D12", "Tried to get descriptor block head for a descriptor heap type that is not supported or invalid");
 			}
 
 			return nullptr;
@@ -45,7 +45,7 @@ namespace d3d12
 			{
 			case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:		 if (block) { block->next = inst->descriptor_blocks.rtv; } inst->descriptor_blocks.rtv = block; break;
 			case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV: if (block) { block->next = inst->descriptor_blocks.cbv_srv_uav; } inst->descriptor_blocks.cbv_srv_uav = block; break;
-			default:									 FATAL_ERROR("DX12 Backend", "Tried to set descriptor block head for a descriptor heap type that is not supported or invalid");
+			default:									 FATAL_ERROR("D3D12", "Tried to set descriptor block head for a descriptor heap type that is not supported or invalid");
 			}
 		}
 
@@ -110,7 +110,7 @@ namespace d3d12
 
 			// Could not find a descriptor block that can satisfy the allocation
 			if (!descriptor_block)
-				FATAL_ERROR("DX12 Backend", "Could not find a descriptor block that can fit %u descriptors", count);
+				FATAL_ERROR("D3D12", "Could not find a descriptor block that can fit %u descriptors", count);
 
 			descriptor_allocation_t alloc = {};
 

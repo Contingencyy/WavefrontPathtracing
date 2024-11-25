@@ -9,7 +9,6 @@
 #define STATIC_ASSERT(x)
 #endif
 
-
 #if CPLUSPLUS
 #define int i32
 #define uint u32
@@ -46,6 +45,28 @@ struct triangle_t
 	float3 n2;
 };
 
+struct material_t
+{
+	float3 albedo;
+	float specular;
+
+	float refractivity;
+	float ior;
+	float3 absorption;
+
+	uint emissive;
+	float3 emissive_color;
+	float emissive_intensity;
+};
+
+#define INSTANCE_DATA_SIZE 184
+struct instance_data_t
+{
+	float4x4 local_to_world;
+	float4x4 world_to_local;
+	material_t material;
+};
+
 // ---------------------------------------------------------------------------------------
 // Acceleration structure
 
@@ -74,10 +95,9 @@ struct bvh_triangle_t
 	float3 p2;
 };
 
-#define BVH_INSTANCE_SIZE 156
+#define BVH_INSTANCE_SIZE 92
 struct bvh_instance_t
 {
-	float4x4 local_to_world;
 	float4x4 world_to_local;
 	float3 aabb_min;
 	float3 aabb_max;
