@@ -3,6 +3,9 @@
 #include "d3d12_common.h"
 #include "d3d12_resource.h"
 #include "d3d12_descriptor.h"
+#include "d3d12_upload.h"
+#include "d3d12_frame.h"
+
 #include "core/logger.h"
 #include "core/memory/memory_arena.h"
 
@@ -154,18 +157,11 @@ namespace d3d12
 		g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav = 1024;
 		descriptor::init();
 
-		// Create render target views for all back buffers
-		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
-		{
-			frame_context_t& frame_ctx = g_d3d->frame_ctx[i];
+		// Initialize upload ring buffer
+		upload::init(UPLOAD_CAPACITY);
 
-			g_d3d->swapchain.dxgi_swapchain->GetBuffer(i, IID_PPV_ARGS(&frame_ctx.backbuffer));
-			frame_ctx.backbuffer_rtv = descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-			create_texture_2d_rtv(frame_ctx.backbuffer, frame_ctx.backbuffer_rtv, 0, swapchain_desc.Format);
-
-			frame_ctx.cpu_pixel_upload_buffer = create_buffer_upload(L"Pixel upload buffer", swapchain_desc.Width * swapchain_desc.Height * 4);
-			DX_CHECK_HR(frame_ctx.cpu_pixel_upload_buffer->Map(0, nullptr, (void**)&frame_ctx.ptr_cpu_pixel_upload_buffer));
-		}
+		// Initialize per-frame contexts
+		frame::init(PER_FRAME_RESOURCE_CAPACITY, swapchain_desc);
 
 		// Initialize DXC
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&g_d3d->shader_compiler.dx_compiler));
@@ -195,16 +191,13 @@ namespace d3d12
 	{
 		LOG_INFO("D3D12", "Exit");
 
+		frame::exit();
+		upload::exit();
 		descriptor::exit();
 
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
-
-		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
-		{
-			g_d3d->frame_ctx[i].cpu_pixel_upload_buffer->Unmap(0, nullptr);
-		}
 	}
 
 	void begin_frame()
@@ -213,13 +206,7 @@ namespace d3d12
 
 		// Wait for in-flight frame for the current back buffer
 		wait_on_fence(g_d3d->sync.fence, frame_ctx.fence_value);
-
-		// Reset command allocator and command list for the next back buffer
-		if (frame_ctx.fence_value > 0)
-		{
-			DX_CHECK_HR(frame_ctx.command_allocator->Reset());
-			DX_CHECK_HR(frame_ctx.command_list->Reset(frame_ctx.command_allocator, nullptr));
-		}
+		frame::reset();
 
 		ImGui_ImplWin32_NewFrame();
 		ImGui_ImplDX12_NewFrame();
@@ -228,49 +215,6 @@ namespace d3d12
 
 	void end_frame()
 	{
-	}
-
-	void copy_to_back_buffer(u8* ptr_pixel_data)
-	{
-		frame_context_t& frame_ctx = get_frame_context();
-
-		D3D12_RESOURCE_BARRIER copy_dst_barrier = transition_barrier(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
-		frame_ctx.command_list->ResourceBarrier(1, &copy_dst_barrier);
-
-		u32 bpp = 4;
-		D3D12_RESOURCE_DESC dst_resource_desc = frame_ctx.backbuffer->GetDesc();
-
-		D3D12_SUBRESOURCE_FOOTPRINT dst_footprint = {};
-		dst_footprint.Format = dst_resource_desc.Format;
-		dst_footprint.Width = static_cast<UINT>(dst_resource_desc.Width);
-		dst_footprint.Height = dst_resource_desc.Height;
-		dst_footprint.Depth = 1;
-		dst_footprint.RowPitch = ALIGN_UP_POW2(static_cast<u32>(dst_resource_desc.Width * bpp), D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT src_footprint = {};
-		src_footprint.Footprint = dst_footprint;
-		src_footprint.Offset = 0;
-		u8* ptr_src = ptr_pixel_data;
-		u32 src_pitch = dst_resource_desc.Width * bpp;
-		u8* ptr_dst = frame_ctx.ptr_cpu_pixel_upload_buffer;
-		u32 dst_pitch = dst_footprint.RowPitch;
-		for (u32 y = 0; y < dst_resource_desc.Height; ++y)
-		{
-			memcpy(ptr_dst, ptr_src, src_pitch);
-			ptr_src += src_pitch;
-			ptr_dst += dst_pitch;
-		}
-
-		D3D12_TEXTURE_COPY_LOCATION src_copy_loc = {};
-		src_copy_loc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-		src_copy_loc.pResource = frame_ctx.cpu_pixel_upload_buffer;
-		src_copy_loc.PlacedFootprint = src_footprint;
-
-		D3D12_TEXTURE_COPY_LOCATION dst_copy_loc = {};
-		dst_copy_loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		dst_copy_loc.pResource = frame_ctx.backbuffer;
-		dst_copy_loc.SubresourceIndex = 0;
-
-		frame_ctx.command_list->CopyTextureRegion(&dst_copy_loc, 0, 0, 0, &src_copy_loc, nullptr);
 	}
 
 	void copy_to_back_buffer(ID3D12Resource* src_resource, u32 render_width, u32 render_height)

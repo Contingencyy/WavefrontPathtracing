@@ -44,13 +44,10 @@ float3 uniform_hemisphere_sample(float3 normal, float2 r)
 
 float3 cosine_weighted_hemisphere_sample(float3 normal, float2 r)
 {
-    float cos_theta = sqrt(r.x);
-    float sin_theta = sqrt(1.0f - cos_theta * cos_theta);
-    //float sin_theta = sqrt(1.0f - r.x);
+    float sin_theta = sqrt(r.x);
     float phi = 2.0f * PI * r.y;
     
-    return direction_to_normal_space(normal, float3(sin_theta * cos(phi), cos_theta, sin_theta * sin(phi)));
-    //return direction_to_normal_space(normal, float3(sin_theta * cos(phi), sqrt(r.x), sin_theta * sin(phi)));
+    return direction_to_normal_space(normal, float3(sin_theta * cos(phi), sqrt(1.0f - r.x), sin_theta * sin(phi)));
 }
 
 float3 refract(float3 dir, float3 normal, float eta, float cosi, float k)

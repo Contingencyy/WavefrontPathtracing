@@ -11,26 +11,21 @@
 #define GROUP_THREADS_Y 16
 #endif
 
-//struct cb_shader_params_t
-//{
-//  uint scene_tlas;
-//};
-
-//ConstantBuffer<cb_shader_params_t> cb_params : register(b1);
-
-struct constants_t
+struct shader_input_t
 {
-    uint tlas_index;
-    uint rt_index;
+    uint scene_tlas_index;
     uint hdr_env_index;
     uint instance_buffer_index;
+    uint rt_index;
+    uint sample_count;
     uint random_seed;
 };
-ConstantBuffer<constants_t> g_consts : register(b1);
+
+ConstantBuffer<shader_input_t> g_input : register(b1, space0);
 
 float4 sample_hdr_env(float3 dir)
 {
-    Texture2D<float4> env_texture = ResourceDescriptorHeap[NonUniformResourceIndex(g_consts.hdr_env_index)];
+    Texture2D<float4> env_texture = ResourceDescriptorHeap[NonUniformResourceIndex(g_input.hdr_env_index)];
     uint2 sample_pos = direction_to_equirect_uv(dir) * float2(4096.0f, 2048.0f);
     
     return env_texture[sample_pos];
@@ -62,7 +57,7 @@ float4 trace_path(ByteAddressBuffer scene_tlas, inout ray_t ray, uint seed)
         
         float3 hit_pos = ray.origin + ray.dir * ray.t;
         
-        ByteAddressBuffer instance_buffer = ResourceDescriptorHeap[NonUniformResourceIndex(g_consts.instance_buffer_index)];
+        ByteAddressBuffer instance_buffer = ResourceDescriptorHeap[NonUniformResourceIndex(g_input.instance_buffer_index)];
         instance_data_t instance = load_instance(instance_buffer, hit.instance_idx);
         material_t hit_mat = instance.material;
         
@@ -156,10 +151,15 @@ float4 trace_path(ByteAddressBuffer scene_tlas, inout ray_t ray, uint seed)
             float2 random_sample = float2(rand_float(seed), rand_float(seed));
             
             float3 diffuse_brdf = hit_mat.albedo * INV_PI;
+#if DIFFUSE_SAMPLE_COSINE_WEIGHTED
             float3 diffuse_dir = cosine_weighted_hemisphere_sample(hit_normal, random_sample);
-            
             float NdotR = dot(diffuse_dir, hit_normal);
             float hemi_pdf = NdotR * INV_PI;
+#elif DIFFUSE_SAMPLE_UNIFORM
+            float3 diffuse_dir = uniform_hemisphere_sample(hit_normal, random_sample);
+            float NdotR = dot(diffuse_dir, hit_normal);
+            float hemi_pdf = INV_TWO_PI;
+#endif
             
             ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MULTIPLIER, diffuse_dir);
             throughput *= (NdotR * diffuse_brdf) / hemi_pdf;
@@ -175,17 +175,16 @@ float4 trace_path(ByteAddressBuffer scene_tlas, inout ray_t ray, uint seed)
 [numthreads(GROUP_THREADS_X, GROUP_THREADS_Y, 1)]
 void main(uint3 dispatch_id : SV_DispatchThreadID)
 {
-    ByteAddressBuffer scene_tlas = ResourceDescriptorHeap[NonUniformResourceIndex(g_consts.tlas_index)];
-    RWTexture2D<float4> render_target = ResourceDescriptorHeap[NonUniformResourceIndex(g_consts.rt_index)];
+    ByteAddressBuffer scene_tlas = ResourceDescriptorHeap[NonUniformResourceIndex(g_input.scene_tlas_index)];
+    RWTexture2D<float4> color_out = ResourceDescriptorHeap[NonUniformResourceIndex(g_input.rt_index)];
     
     // Make the primary ray and start tracing
     uint2 pixel_pos = uint2(dispatch_id.xy);
     ray_t ray = make_primary_ray(pixel_pos, cb_view.render_dim);
-    float4 final_color = trace_path(scene_tlas, ray, g_consts.random_seed + dispatch_id.y * dispatch_id.x + dispatch_id.x);
+    float4 final_color = trace_path(scene_tlas, ray, g_input.random_seed + dispatch_id.y * dispatch_id.x + dispatch_id.x);
     
-    // TODO: NEED BLUE NOISE TEXTURES
-    // Write result to render target
-    final_color.xyz = final_color.xyz / (1.0f + final_color.xyz);
-    final_color.xyz = linear_to_srgb(final_color.xyz);
-    render_target[pixel_pos] = final_color;
+    float4 color_accum = color_out[pixel_pos];
+    float sample_weight = 1.0f / g_input.sample_count;
+    
+    color_out[pixel_pos] = color_accum * (1.0f - sample_weight) + final_color * sample_weight;
 }

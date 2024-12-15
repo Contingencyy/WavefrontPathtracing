@@ -1,10 +1,12 @@
 #pragma once
 
 #include "core/camera/camera.h"
+
 #include "renderer/resource_slotmap.h"
 #include "renderer/acceleration_structure/tlas_builder.h"
-#include "renderer/resources/ring_buffer.h"
+
 #include "renderer/d3d12/d3d12_descriptor.h"
+#include "renderer/d3d12/d3d12_frame.h"
 
 #define TLAS_MAX_BVH_INSTANCES 100
 
@@ -40,6 +42,7 @@ namespace renderer
 		"Depth",
 		"ray_t recursion depth", "Russian roulette kill depth", "Acceleration structure depth"
 	};
+	static_assert(render_view_mode::count == ARRAY_SIZE(render_view_mode_labels));
 
 	struct render_settings_t
 	{
@@ -94,14 +97,14 @@ namespace renderer
 		u32 bvh_instances_count;
 		u32 bvh_instances_at;
 		bvh_instance_t* bvh_instances;
-
-		ID3D12Resource* instance_buffer_resource;
-		d3d12::descriptor_allocation_t instance_buffer_srv;
-		instance_data_t* instance_buffer_ptr;
+		instance_data_t* instance_data;
 
 		tlas_t scene_tlas;
 		ID3D12Resource* scene_tlas_resource;
 		d3d12::descriptor_allocation_t scene_tlas_srv;
+
+		ID3D12Resource* instance_buffer;
+		d3d12::descriptor_allocation_t instance_buffer_srv;
 
 		camera_t scene_camera;
 		render_texture_t* scene_hdr_env_texture;
@@ -109,15 +112,19 @@ namespace renderer
 		render_settings_t settings;
 		u64 frame_index;
 
-		ID3D12PipelineState* pso;
 		ID3D12RootSignature* root_signature;
+		ID3D12PipelineState* pso_cs_pathtracer;
+		ID3D12PipelineState* pso_cs_post_process;
 
-		ID3D12Resource* render_target;
-		d3d12::descriptor_allocation_t render_target_uav;
+		ID3D12Resource* rt_color_accum;
+		d3d12::descriptor_allocation_t rt_color_accum_srv_uav;
+		u32 accum_count;
+		ID3D12Resource* rt_final_color;
+		d3d12::descriptor_allocation_t rt_final_color_uav;
 
-		ID3D12Resource* cb_view_resource;
-
-		ring_buffer_t upload_ring_buffer;
+		d3d12::frame_alloc_t cb_view;
+		d3d12::frame_alloc_t cb_pathtracer;
+		d3d12::frame_alloc_t cb_post_process;
 	};
 	extern renderer_inst_t* g_renderer;
 

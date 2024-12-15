@@ -1,15 +1,16 @@
 #pragma once
 #include "glm/glm.hpp"
+#include <cstdint>
 
 using b8 = bool;
-using i8 = char;
-using i16 = short;
-using i32 = int;
-using i64 = long long;
-using u8 = unsigned char;
-using u16 = unsigned short;
-using u32 = unsigned int;
-using u64 = unsigned long long;
+using i8 = int8_t;
+using i16 = int16_t;
+using i32 = int32_t;
+using i64 = int64_t;
+using u8 = uint8_t;
+using u16 = uint16_t;
+using u32 = uint32_t;
+using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
@@ -23,6 +24,8 @@ static constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 
 #define ALIGN_UP_POW2(value, align) ((intptr_t)(value)+((align)-1) & (-(intptr_t)(align)))
 #define ALIGN_DOWN_POW2(value, align) ((intptr_t)(value) & (-(intptr_t)(align)))
+#define IS_POW2(value) (value & (value - 1) == 0 || value != 0)
+
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))

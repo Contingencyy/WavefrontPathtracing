@@ -54,9 +54,6 @@
     <ClCompile Include="source\core\scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\core\threadpool.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\core\assets\asset_loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -72,13 +69,7 @@
     <ClCompile Include="source\renderer\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\gpupathtracer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\renderer\cpupathtracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\core\string\string.cpp">
@@ -87,19 +78,7 @@
     <ClCompile Include="source\renderer\material.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\resources\ring_buffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\renderer\d3d\dx12_command.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\renderer\d3d\dx12_descriptor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\renderer\d3d\dx12_backend.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\renderer\d3d\dx12_resource.cpp">
+    <ClCompile Include="source\core\allocators\ring_alloc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\renderer\d3d12\d3d12_backend.cpp">
@@ -112,6 +91,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\renderer\d3d12\d3d12_resource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\platform\windows\thread_win32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_upload.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\core\allocators\linear_alloc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_frame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -146,12 +137,6 @@
     <ClInclude Include="source\core\camera\camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\raytracing_utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\raytracing_types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\core\input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -162,9 +147,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\random.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\core\threadpool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\renderer_common.h">
@@ -200,16 +182,10 @@
     <ClInclude Include="source\renderer\renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\gpupathtracer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\platform\windows\windows_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\acceleration_structure\bvh_builder.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\cpupathtracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\string\string.h">
@@ -221,25 +197,7 @@
     <ClInclude Include="source\core\api_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\resources\ring_buffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\d3d\dx12_command.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\d3d\dx12_descriptor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\d3d\dx12_backend.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\d3d\dx12_common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\d3d\dx12_include.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\renderer\d3d\dx12_resource.h">
+    <ClInclude Include="source\core\allocators\ring_alloc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\d3d12\d3d12_backend.h">
@@ -258,6 +216,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\d3d12\d3d12_resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\core\thread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\acceleration_structure\as_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_upload.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\core\allocators\linear_alloc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_frame.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,8 @@
 #pragma once
 #include "d3d12_include.h"
 #include "d3d12_descriptor.h"
+#include "d3d12_upload.h"
+#include "d3d12_frame.h"
 
 struct memory_arena_t;
 
@@ -8,40 +10,28 @@ namespace d3d12
 {
 
 	static constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
+	static constexpr u32 MAX_UPLOAD_ALLOCATIONS = 32u;
+	static constexpr u64 UPLOAD_CAPACITY = MB(64);
+	static constexpr u64 PER_FRAME_RESOURCE_CAPACITY = MB(8);
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Structs
 
-	struct frame_context_t
-	{
-		ID3D12CommandAllocator* command_allocator = nullptr;
-		ID3D12GraphicsCommandList6* command_list = nullptr;
-
-		ID3D12Resource* backbuffer = nullptr;
-		descriptor_allocation_t backbuffer_rtv;
-		u64 fence_value = 0;
-
-		ID3D12Resource* cpu_pixel_upload_buffer = nullptr;
-		u8* ptr_cpu_pixel_upload_buffer = nullptr;
-	};
-
 	struct d3d12_instance_t
 	{
-		memory_arena_t* arena = nullptr;
+		memory_arena_t* arena;
 
-		IDXGIAdapter4* dxgi_adapter = nullptr;
-		ID3D12Device8* device = nullptr;
-		ID3D12CommandQueue* command_queue_direct = nullptr;
+		IDXGIAdapter4* dxgi_adapter;
+		ID3D12Device8* device;
+		ID3D12CommandQueue* command_queue_direct;
 
-		b8 vsync = false;
-
-		frame_context_t frame_ctx[SWAP_CHAIN_BACK_BUFFER_COUNT];
+		b8 vsync;
 
 		struct swapchain_t
 		{
-			IDXGISwapChain4* dxgi_swapchain = nullptr;
-			u32 back_buffer_index = 0u;
-			b8 supports_tearing = false;
+			IDXGISwapChain4* dxgi_swapchain;
+			u32 back_buffer_index;
+			b8 supports_tearing;
 
 			u32 output_width = 0;
 			u32 output_height = 0;
@@ -49,34 +39,53 @@ namespace d3d12
 
 		struct sync_t
 		{
-			ID3D12Fence* fence = nullptr;
-			u64 fence_value = 0ull;
+			ID3D12Fence* fence;
+			u64 fence_value;
 		} sync;
 
 		struct descriptor_heaps_t
 		{
-			ID3D12DescriptorHeap* rtv = nullptr;
-			ID3D12DescriptorHeap* cbv_srv_uav = nullptr;
+			ID3D12DescriptorHeap* rtv;
+			ID3D12DescriptorHeap* cbv_srv_uav;
 
 			struct handle_size_t
 			{
-				u32 rtv = 0;
-				u32 cbv_srv_uav = 0;
+				u32 rtv;
+				u32 cbv_srv_uav;
 			} handle_sizes;
 
 			struct heap_size_t
 			{
-				u32 rtv = 0;
-				u32 cbv_srv_uav = 0;
+				u32 rtv;
+				u32 cbv_srv_uav;
 			} heap_sizes;
 		} descriptor_heaps;
 
 		struct shader_compiler_t
 		{
-			IDxcCompiler3* dx_compiler = nullptr;
-			IDxcUtils* dxc_utils = nullptr;
-			IDxcIncludeHandler* dxc_include_handler = nullptr;
+			IDxcCompiler3* dx_compiler;
+			IDxcUtils* dxc_utils;
+			IDxcIncludeHandler* dxc_include_handler;
 		} shader_compiler;
+
+		struct upload_t
+		{
+			ID3D12Resource* buffer;
+			void* buffer_ptr;
+
+			ID3D12CommandQueue* command_queue_copy;
+			ID3D12Fence* fence;
+			u64 fence_value;
+
+			upload_alloc_t allocations[MAX_UPLOAD_ALLOCATIONS];
+			u32 alloc_head;
+			u32 alloc_tail;
+
+			ring_buffer_t ring_buffer;
+			mutex_t mutex;
+		} upload;
+
+		frame_context_t frame_ctx[SWAP_CHAIN_BACK_BUFFER_COUNT];
 	};
 	extern d3d12_instance_t* g_d3d;
 
