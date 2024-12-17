@@ -8,13 +8,13 @@
 #include "renderer/d3d12/d3d12_descriptor.h"
 #include "renderer/d3d12/d3d12_frame.h"
 
-#define TLAS_MAX_BVH_INSTANCES 100
-
 struct material_t;
 struct bvh_instance_t;
 
 namespace renderer
 {
+
+	inline constexpr u32 TLAS_MAX_BVH_INSTANCES = 1024;
 
 	enum render_view_mode : u32
 	{
@@ -43,27 +43,6 @@ namespace renderer
 		"ray_t recursion depth", "Russian roulette kill depth", "Acceleration structure depth"
 	};
 	static_assert(render_view_mode::count == ARRAY_SIZE(render_view_mode_labels));
-
-	struct render_settings_t
-	{
-		render_view_mode render_view_mode;
-		u32 ray_max_recursion;
-		
-		b8 cosine_weighted_diffuse;
-		b8 russian_roulette;
-
-		f32 hdr_env_intensity;
-
-		struct postfx_t
-		{
-			f32 max_white;
-			f32 exposure;
-			f32 contrast;
-			f32 brightness;
-			f32 saturation;
-			b8 linear_to_srgb;
-		} postfx;
-	};
 
 	struct render_texture_t
 	{
@@ -109,7 +88,7 @@ namespace renderer
 		camera_t scene_camera;
 		render_texture_t* scene_hdr_env_texture;
 
-		render_settings_t settings;
+		render_settings_shader_data_t settings;
 		u64 frame_index;
 
 		ID3D12RootSignature* root_signature;
@@ -122,6 +101,7 @@ namespace renderer
 		ID3D12Resource* rt_final_color;
 		d3d12::descriptor_allocation_t rt_final_color_uav;
 
+		d3d12::frame_alloc_t cb_render_settings;
 		d3d12::frame_alloc_t cb_view;
 		d3d12::frame_alloc_t cb_pathtracer;
 		d3d12::frame_alloc_t cb_post_process;

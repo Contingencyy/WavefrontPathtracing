@@ -21,7 +21,7 @@ struct shader_input_t
     uint random_seed;
 };
 
-ConstantBuffer<shader_input_t> g_input : register(b1, space0);
+ConstantBuffer<shader_input_t> g_input : register(b2, space0);
 
 float4 sample_hdr_env(float3 dir)
 {
@@ -39,7 +39,7 @@ float4 trace_path(ByteAddressBuffer scene_tlas, inout ray_t ray, uint seed)
     uint ray_depth = 0;
     bool specular_ray = false;
     
-    while (ray_depth <= RAY_MAX_RECURSION)
+    while (ray_depth <= cb_render_settings.ray_max_recursion)
     {
         // Prepare hit result and trace TLAS
         hit_result_t hit = make_hit_result();
@@ -149,20 +149,24 @@ float4 trace_path(ByteAddressBuffer scene_tlas, inout ray_t ray, uint seed)
         else
         {
             float2 random_sample = float2(rand_float(seed), rand_float(seed));
+            float3 diffuse_dir = (float3) 0;
+            float hemisphere_pdf = 0.0f;
+            
+            if (cb_render_settings.cosine_weighted_diffuse)
+            {
+                cosine_weighted_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
+            }
+            else
+            {
+                uniform_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
+            }
             
             float3 diffuse_brdf = hit_mat.albedo * INV_PI;
-#if DIFFUSE_SAMPLE_COSINE_WEIGHTED
-            float3 diffuse_dir = cosine_weighted_hemisphere_sample(hit_normal, random_sample);
-            float NdotR = dot(diffuse_dir, hit_normal);
-            float hemi_pdf = NdotR * INV_PI;
-#elif DIFFUSE_SAMPLE_UNIFORM
-            float3 diffuse_dir = uniform_hemisphere_sample(hit_normal, random_sample);
-            float NdotR = dot(diffuse_dir, hit_normal);
-            float hemi_pdf = INV_TWO_PI;
-#endif
+            float NdotR = max(dot(diffuse_dir, hit_normal), 0.0f);
             
             ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MULTIPLIER, diffuse_dir);
-            throughput *= (NdotR * diffuse_brdf) / hemi_pdf;
+            throughput *= (NdotR * diffuse_brdf) / hemisphere_pdf;
+            
             specular_ray = false;
         }
         
@@ -186,5 +190,12 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     float4 color_accum = color_out[pixel_pos];
     float sample_weight = 1.0f / g_input.sample_count;
     
-    color_out[pixel_pos] = color_accum * (1.0f - sample_weight) + final_color * sample_weight;
+    if (cb_render_settings.accumulate)
+    {
+        color_out[pixel_pos] = color_accum * (1.0f - sample_weight) + final_color * sample_weight;
+    }
+    else
+    {
+        color_out[pixel_pos] = final_color;
+    }
 }

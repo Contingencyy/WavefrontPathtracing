@@ -51,7 +51,7 @@ namespace d3d12
 
 			alloc.resource = frame_ctx.per_frame_resource;
 			alloc.byte_count = byte_size;
-			alloc.ptr_write = PTR_OFFSET(frame_ctx.per_frame_ptr, alloc.byte_offset);
+			alloc.ptr = PTR_OFFSET(frame_ctx.per_frame_ptr, alloc.byte_offset);
 
 			return alloc;
 		}

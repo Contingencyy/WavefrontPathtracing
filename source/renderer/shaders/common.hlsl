@@ -7,29 +7,26 @@
 
 #define RAY_MAX_T 3.402823466e+38F
 #define RAY_NUDGE_MULTIPLIER 0.001f
-#define RAY_MAX_RECURSION 3
 
 #define TRI_BUFFER_IDX_INVALID 0xFFFFFFFF
 #define INSTANCE_IDX_INVALID 0xFFFFFFFF
 #define PRIMITIVE_IDX_INVALID 0xFFFFFFFF
 
-#define PI 3.14159265f
-#define TWO_PI 2.0f * PI
-#define INV_PI 1.0f / PI
-#define INV_TWO_PI 1.0f / TWO_PI
+#define PI (3.14159265f)
+#define TWO_PI (2.0f * PI)
+#define INV_PI (1.0f / PI)
+#define INV_TWO_PI (1.0f / TWO_PI)
 #define INV_ATAN float2(0.1591f, 0.3183f)
 
 #define RANDOM_USE_WANG_HASH 1
 #define RANDOM_USE_XOR_SHIFT !RANDOM_USE_WANG_HASH
 
-#define DIFFUSE_SAMPLE_COSINE_WEIGHTED 1
-#define DIFFUSE_SAMPLE_UNIFORM !DIFFUSE_SAMPLE_COSINE_WEIGHTED
-
 /*
     Global constant buffers
 */
 
-ConstantBuffer<view_shader_data_t> cb_view : register(b0);
+ConstantBuffer<render_settings_shader_data_t> cb_render_settings : register(b0, space0);
+ConstantBuffer<view_shader_data_t> cb_view : register(b1, space0);
 
 /*
     Random

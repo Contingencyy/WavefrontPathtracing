@@ -54,11 +54,11 @@ void scene_t::init()
 	// Dragon 1
 	//material_t dragon_material = material_t::make_refractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
 	material_t dragon_material = material::make_diffuse(glm::vec3(0.9f, 0.1f, 0.05f));
-	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(-15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(1.0f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(-20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(2.0f));
 
 	// Dragon 2
 	dragon_material = material::make_diffuse(glm::vec3(0.05f, 0.1f, 0.9f));
-	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(15.0f, 0.0f, 40.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.0f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.5f));
 
 	// Dragon 3
 	dragon_material = material::make_diffuse(glm::vec3(0.1f, 0.9f, 0.1f));
@@ -66,11 +66,11 @@ void scene_t::init()
 
 	// Dragon 4
 	dragon_material = material::make_diffuse(glm::vec3(0.9f, 0.9f, 0.1f));
-	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(3.5f));
 
 	// Dragon 5
 	dragon_material = material::make_specular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
-	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(5.0f));
+	create_scene_object(m_dragon_scene_asset->render_mesh_handles[1], dragon_material, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
 }
 
 void scene_t::destroy()

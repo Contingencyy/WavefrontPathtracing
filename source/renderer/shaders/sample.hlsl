@@ -30,24 +30,26 @@ float3 direction_to_normal_space(float3 normal, float3 dir)
     float3 bitangent = (float3) 0;
     create_orthonormal_basis(normal, tangent, bitangent);
     
-    return dir.x * tangent + dir.y * normal + dir.z * bitangent;
+    float3x3 basis = float3x3(tangent, normal, bitangent);
+    return mul(dir, basis);
 }
 
-
-float3 uniform_hemisphere_sample(float3 normal, float2 r)
+void uniform_hemisphere_sample(float3 normal, float2 r, out float3 out_dir, out float out_pdf)
 {
     float sin_theta = sqrt(1.0f - r.x * r.x);
     float phi = 2.0f * PI * r.y;
     
-    return direction_to_normal_space(normal, float3(sin_theta * cos(phi), r.x, sin_theta * sin(phi)));
+    out_dir = normalize(direction_to_normal_space(normal, float3(sin_theta * cos(phi), r.x, sin_theta * sin(phi))));
+    out_pdf = INV_TWO_PI;
 }
 
-float3 cosine_weighted_hemisphere_sample(float3 normal, float2 r)
+void cosine_weighted_hemisphere_sample(float3 normal, float2 r, out float3 out_dir, out float out_pdf)
 {
-    float sin_theta = sqrt(r.x);
+    float sin_theta = sqrt(1.0f - r.x);
     float phi = 2.0f * PI * r.y;
     
-    return direction_to_normal_space(normal, float3(sin_theta * cos(phi), sqrt(1.0f - r.x), sin_theta * sin(phi)));
+    out_dir = normalize(direction_to_normal_space(normal, float3(sin_theta * cos(phi), sqrt(r.x), sin_theta * sin(phi))));
+    out_pdf = max(dot(normal, out_dir), 0.0f) * INV_PI;
 }
 
 float3 refract(float3 dir, float3 normal, float eta, float cosi, float k)

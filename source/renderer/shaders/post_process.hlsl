@@ -14,7 +14,7 @@ struct shader_input_t
     uint rt_index;
 };
 
-ConstantBuffer<shader_input_t> g_input : register(b1, space0);
+ConstantBuffer<shader_input_t> g_input : register(b2, space0);
 
 [numthreads(GROUP_THREADS_X, GROUP_THREADS_Y, 1)]
 void main(uint3 dispatch_id : SV_DispatchThreadID)

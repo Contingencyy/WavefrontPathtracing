@@ -23,23 +23,13 @@ namespace renderer
 
 	renderer_inst_t* g_renderer = nullptr;
 
-	static render_settings_t get_default_render_settings()
+	static render_settings_shader_data_t get_default_render_settings()
 	{
-		render_settings_t defaults = {};
+		render_settings_shader_data_t defaults = {};
 		defaults.render_view_mode = render_view_mode::none;
-		defaults.ray_max_recursion = 8;
-
+		defaults.ray_max_recursion = 3;
+		defaults.accumulate = true;
 		defaults.cosine_weighted_diffuse = true;
-		defaults.russian_roulette = true;
-
-		defaults.hdr_env_intensity = 1.0f;
-
-		defaults.postfx.max_white = 10.0f;
-		defaults.postfx.exposure = 1.0f;
-		defaults.postfx.contrast = 1.0f;
-		defaults.postfx.brightness = 0.0f;
-		defaults.postfx.saturation = 1.0f;
-		defaults.postfx.linear_to_srgb = true;
 
 		return defaults;
 	}
@@ -90,25 +80,32 @@ namespace renderer
 		descriptor_ranges[1].Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;// D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 		descriptor_ranges[1].OffsetInDescriptorsFromTableStart = 0;
 
-		D3D12_ROOT_PARAMETER1 root_parameters[3] = {};
-		// Global view constant buffer
+		D3D12_ROOT_PARAMETER1 root_parameters[4] = {};
+		// Global render settings constant buffer
 		root_parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 		root_parameters[0].Descriptor.ShaderRegister = 0;
 		root_parameters[0].Descriptor.RegisterSpace = 0;
 		root_parameters[0].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 		root_parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-		// Local shader constant buffer for accessing bindless resources and other data used for that specific shader
+		// Global view constant buffer
 		root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 		root_parameters[1].Descriptor.ShaderRegister = 1;
 		root_parameters[1].Descriptor.RegisterSpace = 0;
 		root_parameters[1].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 		root_parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-		root_parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		root_parameters[2].DescriptorTable.NumDescriptorRanges = ARRAY_SIZE(descriptor_ranges);
-		root_parameters[2].DescriptorTable.pDescriptorRanges = descriptor_ranges;
+		// Local shader constant buffer for accessing bindless resources and other data used for that specific shader
+		root_parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+		root_parameters[2].Descriptor.ShaderRegister = 2;
+		root_parameters[2].Descriptor.RegisterSpace = 0;
+		root_parameters[2].Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 		root_parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+		root_parameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		root_parameters[3].DescriptorTable.NumDescriptorRanges = ARRAY_SIZE(descriptor_ranges);
+		root_parameters[3].DescriptorTable.pDescriptorRanges = descriptor_ranges;
+		root_parameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 		D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc = {};
 		root_signature_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_2;
@@ -172,6 +169,10 @@ namespace renderer
 	void begin_frame()
 	{
 		d3d12::begin_frame();
+
+		g_renderer->cb_render_settings = d3d12::frame::alloc_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		render_settings_shader_data_t* ptr_settings = reinterpret_cast<render_settings_shader_data_t*>(g_renderer->cb_render_settings.ptr);
+		*ptr_settings = g_renderer->settings;
 	}
 
 	void end_frame()
@@ -200,8 +201,8 @@ namespace renderer
 		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(scene_camera.vfov_deg),
 			static_cast<float>(g_renderer->render_width), static_cast<float>(g_renderer->render_height), 0.001f, 10000.0f);
 
-		g_renderer->cb_view = d3d12::frame::alloc_resource(sizeof(view_shader_data_t));
-		view_shader_data_t* ptr_view = reinterpret_cast<view_shader_data_t*>(g_renderer->cb_view.ptr_write);
+		g_renderer->cb_view = d3d12::frame::alloc_resource(sizeof(view_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		view_shader_data_t* ptr_view = reinterpret_cast<view_shader_data_t*>(g_renderer->cb_view.ptr);
 
 		ptr_view->world_to_view = scene_camera.view_mat;
 		ptr_view->view_to_world = glm::inverse(scene_camera.view_mat);
@@ -228,7 +229,7 @@ namespace renderer
 
 				// Upload TLAS to the GPU
 				// Copy TLAS data from CPU to upload buffer allocation
-				d3d12::upload_alloc_t& upload = d3d12::upload::begin(sizeof(tlas_header_t) + tlas_byte_size, alignof(tlas_t));
+				d3d12::frame_alloc_t upload = d3d12::frame::alloc_resource(sizeof(tlas_header_t) + tlas_byte_size);
 
 				memcpy(upload.ptr, &g_renderer->scene_tlas.header, sizeof(tlas_header_t));
 				memcpy(PTR_OFFSET(upload.ptr, sizeof(tlas_header_t)), g_renderer->scene_tlas.data, tlas_byte_size);
@@ -250,34 +251,31 @@ namespace renderer
 				}
 
 				// Copy TLAS data from upload buffer to final buffer
-				upload.d3d_command_list->CopyBufferRegion(g_renderer->scene_tlas_resource, 0,
-					upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, sizeof(tlas_header_t) + tlas_byte_size);
-
-				// Wait on upload buffer copy queue to finish TLAS upload before rendering
-				// TODO: Have a linear allocator for per-frame resources, right now we need to flush all uploads from the d3d12 upload queue to upload our TLAS
-				d3d12::upload::end(upload);
-				d3d12::upload::flush();
+				frame_ctx.command_list->CopyBufferRegion(g_renderer->scene_tlas_resource, 0,
+					upload.resource, upload.byte_offset, sizeof(tlas_header_t) + tlas_byte_size);
 			}
 
 			{
 				// Upload instance buffer data
 				u64 byte_size = sizeof(instance_data_t) * g_renderer->bvh_instances_at;
-				d3d12::upload_alloc_t& upload = d3d12::upload::begin(byte_size, alignof(instance_data_t));
+				d3d12::frame_alloc_t upload = d3d12::frame::alloc_resource(byte_size);
 
 				// CPU to upload heap copy
 				memcpy(upload.ptr, g_renderer->instance_data, byte_size);
 
 				// Upload heap to default heap copy
-				upload.d3d_command_list->CopyBufferRegion(g_renderer->instance_buffer, 0, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, byte_size);
-
-				d3d12::upload::end(upload);
-				d3d12::upload::flush();
+				frame_ctx.command_list->CopyBufferRegion(g_renderer->instance_buffer, 0, upload.resource, upload.byte_offset, byte_size);
 			}
 		}
 
 		// Set descriptor heap, needs to happen before clearing UAVs
 		ID3D12DescriptorHeap* descriptor_heaps[1] = { d3d12::g_d3d->descriptor_heaps.cbv_srv_uav };
 		frame_ctx.command_list->SetDescriptorHeaps(ARRAY_SIZE(descriptor_heaps), descriptor_heaps);
+
+		// Bind root signature and global constant buffers
+		frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
+		frame_ctx.command_list->SetComputeRootConstantBufferView(0, g_renderer->cb_render_settings.resource->GetGPUVirtualAddress() + g_renderer->cb_render_settings.byte_offset);
+		frame_ctx.command_list->SetComputeRootConstantBufferView(1, g_renderer->cb_view.resource->GetGPUVirtualAddress() + g_renderer->cb_view.byte_offset);
 
 		{
 			D3D12_RESOURCE_BARRIER barrier = {};
@@ -310,11 +308,7 @@ namespace renderer
 			u32 dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
 			u32 dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
-			frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
 			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer);
-
-			// Bind global view constant buffer
-			frame_ctx.command_list->SetComputeRootConstantBufferView(0, g_renderer->cb_view.resource->GetGPUVirtualAddress() + g_renderer->cb_view.byte_offset);
 
 			// Bind shader input constant buffer
 			struct pathtracer_shader_input_t
@@ -328,7 +322,7 @@ namespace renderer
 			};
 
 			g_renderer->cb_pathtracer = d3d12::frame::alloc_resource(sizeof(pathtracer_shader_input_t), 256);
-			pathtracer_shader_input_t* shader_input = reinterpret_cast<pathtracer_shader_input_t*>(g_renderer->cb_pathtracer.ptr_write);
+			pathtracer_shader_input_t* shader_input = reinterpret_cast<pathtracer_shader_input_t*>(g_renderer->cb_pathtracer.ptr);
 
 			shader_input->scene_tlas_index = g_renderer->scene_tlas_srv.offset;
 			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
@@ -337,7 +331,7 @@ namespace renderer
 			shader_input->random_seed = random::rand_u32();
 			shader_input->sample_count = g_renderer->accum_count;
 			
-			frame_ctx.command_list->SetComputeRootConstantBufferView(1, g_renderer->cb_pathtracer.resource->GetGPUVirtualAddress() + g_renderer->cb_pathtracer.byte_offset);
+			frame_ctx.command_list->SetComputeRootConstantBufferView(2, g_renderer->cb_pathtracer.resource->GetGPUVirtualAddress() + g_renderer->cb_pathtracer.byte_offset);
 			frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 		}
 
@@ -360,11 +354,11 @@ namespace renderer
 			};
 
 			g_renderer->cb_post_process = d3d12::frame::alloc_resource(sizeof(post_process_shader_input_t), 256);
-			post_process_shader_input_t* shader_input = reinterpret_cast<post_process_shader_input_t*>(g_renderer->cb_post_process.ptr_write);
+			post_process_shader_input_t* shader_input = reinterpret_cast<post_process_shader_input_t*>(g_renderer->cb_post_process.ptr);
 			shader_input->color_index = g_renderer->rt_color_accum_srv_uav.offset;
 			shader_input->rt_index = g_renderer->rt_final_color_uav.offset;
 
-			frame_ctx.command_list->SetComputeRootConstantBufferView(1, g_renderer->cb_post_process.resource->GetGPUVirtualAddress() + g_renderer->cb_post_process.byte_offset);
+			frame_ctx.command_list->SetComputeRootConstantBufferView(2, g_renderer->cb_post_process.resource->GetGPUVirtualAddress() + g_renderer->cb_post_process.byte_offset);
 			frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 		}
 	}
@@ -417,33 +411,18 @@ namespace renderer
 			{
 				ImGui::Indent(10.0f);
 
-				if (ImGui::SliderInt("Max ray Recursion Depth: %u", reinterpret_cast<i32*>(&g_renderer->settings.ray_max_recursion), 0, 8)) should_reset_accumulators = true;
-
-				// Enable/disable cosine weighted diffuse reflections, russian roulette
-				if (ImGui::Checkbox("Cosine weighted diffuse", &g_renderer->settings.cosine_weighted_diffuse)) should_reset_accumulators = true;
-				if (ImGui::Checkbox("Russian roulette", &g_renderer->settings.russian_roulette)) should_reset_accumulators = true;
-
-				// HDR environment emissive_intensity
-				if (ImGui::DragFloat("HDR env emissive_intensity", &g_renderer->settings.hdr_env_intensity, 0.001f)) should_reset_accumulators = true;
-
-				// Post-process Settings, constract, brightness, saturation, sRGB
-				ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-				if (ImGui::CollapsingHeader("Post-processing"))
-				{
-					ImGui::Indent(10.0f);
-
-					if (ImGui::SliderFloat("Max white", &g_renderer->settings.postfx.max_white, 0.0f, 100.0f)) should_reset_accumulators = true;
-					if (ImGui::SliderFloat("Exposure", &g_renderer->settings.postfx.exposure, 0.0f, 100.0f)) should_reset_accumulators = true;
-					if (ImGui::SliderFloat("Contrast", &g_renderer->settings.postfx.contrast, 0.0f, 3.0f)) should_reset_accumulators = true;
-					if (ImGui::SliderFloat("Brightness", &g_renderer->settings.postfx.brightness, -1.0f, 1.0f)) should_reset_accumulators = true;
-					if (ImGui::SliderFloat("Saturation", &g_renderer->settings.postfx.saturation, 0.0f, 10.0f)) should_reset_accumulators = true;
-					if (ImGui::Checkbox("Linear to SRGB", &g_renderer->settings.postfx.linear_to_srgb)) should_reset_accumulators = true;
-
-					ImGui::Unindent(10.0f);
-				}
+				// Slider for maximum amount of recursion for each ray
+				if (ImGui::SliderInt("Ray max recursion", reinterpret_cast<i32*>(&g_renderer->settings.ray_max_recursion), 0, 8)) should_reset_accumulators = true;
+				// Toggle accumulation
+				if (ImGui::Checkbox("Accumulate", reinterpret_cast<bool*>(&g_renderer->settings.accumulate))) should_reset_accumulators = true;
+				// Enable/disable cosine weighted diffuse reflections, uses uniform hemisphere sample if disabled
+				if (ImGui::Checkbox("Cosine weighted diffuse", reinterpret_cast<bool*>(&g_renderer->settings.cosine_weighted_diffuse))) should_reset_accumulators = true;
 
 				ImGui::Unindent(10.0f);
 			}
+
+			if (should_reset_accumulators)
+				reset_color_accumulator();
 		}
 
 		ImGui::End();

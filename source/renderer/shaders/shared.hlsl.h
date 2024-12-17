@@ -23,6 +23,14 @@
 #define float4x4 glm::mat4
 #endif
 
+struct render_settings_shader_data_t
+{
+	uint render_view_mode;
+	uint ray_max_recursion;
+	uint cosine_weighted_diffuse;
+	uint accumulate;
+};
+
 struct view_shader_data_t
 {
     float4x4 world_to_view; // View matrix

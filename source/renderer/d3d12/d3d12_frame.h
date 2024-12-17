@@ -27,7 +27,7 @@ namespace d3d12
 		u64 byte_offset;
 		u64 byte_count;
 
-		u8* ptr_write;
+		u8* ptr;
 	};
 
 	namespace frame

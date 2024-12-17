@@ -9,10 +9,10 @@ struct memory_arena_t;
 namespace d3d12
 {
 
-	static constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
-	static constexpr u32 MAX_UPLOAD_ALLOCATIONS = 32u;
-	static constexpr u64 UPLOAD_CAPACITY = MB(64);
-	static constexpr u64 PER_FRAME_RESOURCE_CAPACITY = MB(8);
+	inline constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
+	inline constexpr u32 MAX_UPLOAD_ALLOCATIONS = 32u;
+	inline constexpr u64 UPLOAD_CAPACITY = MB(64);
+	inline constexpr u64 PER_FRAME_RESOURCE_CAPACITY = MB(8);
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Structs
@@ -33,8 +33,8 @@ namespace d3d12
 			u32 back_buffer_index;
 			b8 supports_tearing;
 
-			u32 output_width = 0;
-			u32 output_height = 0;
+			u32 output_width;
+			u32 output_height;
 		} swapchain;
 
 		struct sync_t
