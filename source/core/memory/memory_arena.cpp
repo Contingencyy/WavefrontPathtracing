@@ -12,7 +12,7 @@ static b8 arena_can_fit(memory_arena_t* arena, u64 size, u64 align)
 	return AlignedBytesLeft >= size;
 }
 
-void memory_arena_t::init(memory_arena_t* arena)
+void memory_arena::init(memory_arena_t* arena)
 {
 	if (!arena->ptr_base)
 	{
@@ -23,7 +23,7 @@ void memory_arena_t::init(memory_arena_t* arena)
 	}
 }
 
-void* memory_arena_t::alloc(memory_arena_t* arena, u64 size, u64 align)
+void* memory_arena::alloc(memory_arena_t* arena, u64 size, u64 align)
 {
 	// The arena holds no memory yet, so we need to reserve some
 	init(arena);
@@ -52,14 +52,14 @@ void* memory_arena_t::alloc(memory_arena_t* arena, u64 size, u64 align)
 	return result;
 }
 
-void* memory_arena_t::alloc_zero(memory_arena_t* arena, u64 size, u64 align)
+void* memory_arena::alloc_zero(memory_arena_t* arena, u64 size, u64 align)
 {
 	void* result = alloc(arena, size, align);
 	memset(result, 0, size);
 	return result;
 }
 
-void memory_arena_t::decommit(memory_arena_t* arena, u8* ptr)
+void memory_arena::decommit(memory_arena_t* arena, u8* ptr)
 {
 	ASSERT(ptr);
 
@@ -74,7 +74,7 @@ void memory_arena_t::decommit(memory_arena_t* arena, u8* ptr)
 	}
 }
 
-void memory_arena_t::free(memory_arena_t* arena, u8* ptr)
+void memory_arena::free(memory_arena_t* arena, u8* ptr)
 {
 	ASSERT(ptr);
 
@@ -87,45 +87,45 @@ void memory_arena_t::free(memory_arena_t* arena, u8* ptr)
 	{
 		// Move the current pointer back to free size memory
 		arena->ptr_at -= bytes_to_free;
-		memory_arena_t::decommit(arena, arena->ptr_at);
+		memory_arena::decommit(arena, arena->ptr_at);
 	}
 }
 
-void memory_arena_t::clear(memory_arena_t* arena)
+void memory_arena::clear(memory_arena_t* arena)
 {
 	// reset the arena current pointer to its base
 	arena->ptr_at = arena->ptr_base;
-	memory_arena_t::decommit(arena, arena->ptr_base);
+	memory_arena::decommit(arena, arena->ptr_base);
 }
 
-void memory_arena_t::release(memory_arena_t* arena)
+void memory_arena::release(memory_arena_t* arena)
 {
 	void* ptr_arena_base = arena->ptr_base;
 	arena->ptr_base = arena->ptr_at = arena->ptr_end = arena->ptr_committed = nullptr;
 	virtual_memory::release(ptr_arena_base);
 }
 
-u64 memory_arena_t::total_reserved(memory_arena_t* arena)
+u64 memory_arena::total_reserved(memory_arena_t* arena)
 {
 	return arena->ptr_end - arena->ptr_base;
 }
 
-u64 memory_arena_t::total_allocated(memory_arena_t* arena)
+u64 memory_arena::total_allocated(memory_arena_t* arena)
 {
 	return arena->ptr_at - arena->ptr_base;
 }
 
-u64 memory_arena_t::total_free(memory_arena_t* arena)
+u64 memory_arena::total_free(memory_arena_t* arena)
 {
 	return arena->ptr_committed - arena->ptr_at;
 }
 
-u64 memory_arena_t::total_committed(memory_arena_t* arena)
+u64 memory_arena::total_committed(memory_arena_t* arena)
 {
 	return arena->ptr_committed - arena->ptr_base;
 }
 
-void* memory_arena_t::bootstrap_arena(u64 size, u64 align, u64 arena_offset)
+void* memory_arena::bootstrap_arena(u64 size, u64 align, u64 arena_offset)
 {
 	memory_arena_t arena = {};
 	void* result = ARENA_ALLOC_ZERO(&arena, size, align);
@@ -134,7 +134,7 @@ void* memory_arena_t::bootstrap_arena(u64 size, u64 align, u64 arena_offset)
 	return result;
 }
 
-memory_arena_t* memory_arena_t::get_scratch()
+memory_arena_t* memory_arena::get_scratch()
 {
 	thread_local memory_arena_t g_arena_thread;
 
@@ -143,7 +143,7 @@ memory_arena_t* memory_arena_t::get_scratch()
 	return &g_arena_thread;
 }
 
-string_t memory_arena_t::printf(memory_arena_t* arena, const char* fmt, ...)
+string_t memory_arena::printf(memory_arena_t* arena, const char* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -154,7 +154,7 @@ string_t memory_arena_t::printf(memory_arena_t* arena, const char* fmt, ...)
 	return result;
 }
 
-string_t memory_arena_t::printf_args(memory_arena_t* arena, const char* fmt, va_list args)
+string_t memory_arena::printf_args(memory_arena_t* arena, const char* fmt, va_list args)
 {
 	va_list args2;
 	va_copy(args2, args);
@@ -169,7 +169,7 @@ string_t memory_arena_t::printf_args(memory_arena_t* arena, const char* fmt, va_
 	return result;
 }
 
-wstring_t memory_arena_t::wprintf(memory_arena_t* arena, const wchar_t* fmt, ...)
+wstring_t memory_arena::wprintf(memory_arena_t* arena, const wchar_t* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -180,7 +180,7 @@ wstring_t memory_arena_t::wprintf(memory_arena_t* arena, const wchar_t* fmt, ...
 	return result;
 }
 
-wstring_t memory_arena_t::wprintf_args(memory_arena_t* arena, const wchar_t* fmt, va_list args)
+wstring_t memory_arena::wprintf_args(memory_arena_t* arena, const wchar_t* fmt, va_list args)
 {
 	va_list args2;
 	va_copy(args2, args);
@@ -195,7 +195,7 @@ wstring_t memory_arena_t::wprintf_args(memory_arena_t* arena, const wchar_t* fmt
 	return result;
 }
 
-string_t memory_arena_t::wide_to_char(memory_arena_t* arena, const wchar_t* wide)
+string_t memory_arena::wide_to_char(memory_arena_t* arena, const wchar_t* wide)
 {
 	size_t len = wcslen(wide);
 	string_t str = string::make(arena, len);
@@ -204,7 +204,7 @@ string_t memory_arena_t::wide_to_char(memory_arena_t* arena, const wchar_t* wide
 	return str;
 }
 
-wstring_t memory_arena_t::char_to_wide(memory_arena_t* arena, const char* str)
+wstring_t memory_arena::char_to_wide(memory_arena_t* arena, const char* str)
 {
 	size_t len = strlen(str);
 	wstring_t wstr = wstring::make(arena, len);

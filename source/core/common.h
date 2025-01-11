@@ -14,9 +14,9 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
-static constexpr glm::vec3 DEFAULT_RIGHT_VECTOR = glm::vec3(1.0f, 0.0f, 0.0f);
-static constexpr glm::vec3 DEFAULT_UP_VECTOR = glm::vec3(0.0f, 1.0f, 0.0f);
-static constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
+inline constexpr glm::vec3 DEFAULT_RIGHT_VECTOR = glm::vec3(1.0f, 0.0f, 0.0f);
+inline constexpr glm::vec3 DEFAULT_UP_VECTOR = glm::vec3(0.0f, 1.0f, 0.0f);
+inline constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 
 #define KB(x) ((x) << 10ull)
 #define MB(x) ((x) << 20ull)

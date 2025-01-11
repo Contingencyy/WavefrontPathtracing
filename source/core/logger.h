@@ -15,9 +15,9 @@ namespace logger
 		LogSeverity_Error
 	};
 
-	static constexpr log_severity_t LOG_SEVERITY_MINIMUM_LEVEL = LogSeverity_Verbose;
+	inline constexpr log_severity_t LOG_SEVERITY_MINIMUM_LEVEL = LogSeverity_Verbose;
 
-	static constexpr const char* log_severity_to_string(log_severity_t severity)
+	inline constexpr const char* log_severity_to_string(log_severity_t severity)
 	{
 		switch (severity)
 		{
@@ -29,7 +29,7 @@ namespace logger
 		}
 	}
 
-	static void log(log_severity_t severity, const char* sender, const char* log_message, ...)
+	inline void log(log_severity_t severity, const char* sender, const char* log_message, ...)
 	{
 		if (severity < LOG_SEVERITY_MINIMUM_LEVEL)
 			return;

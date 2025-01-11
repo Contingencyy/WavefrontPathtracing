@@ -251,7 +251,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\renderer_common.h" />
     <ClInclude Include="source\renderer\renderer_fwd.h" />
     <ClInclude Include="source\core\allocators\ring_alloc.h" />
-    <ClInclude Include="source\renderer\resource_slotmap.h" />
+    <ClInclude Include="source\core\containers\slotmap.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\renderer\shaders\pathtracer.hlsl">

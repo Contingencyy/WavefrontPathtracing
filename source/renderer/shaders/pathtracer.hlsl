@@ -161,7 +161,7 @@ float4 trace_path(ByteAddressBuffer scene_tlas, inout ray_t ray, uint seed)
                 uniform_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
             }
             
-            float3 diffuse_brdf = hit_mat.albedo * INV_PI;
+            float3 diffuse_brdf = hit_mat.albedo;
             float NdotR = max(dot(diffuse_dir, hit_normal), 0.0f);
             
             ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MULTIPLIER, diffuse_dir);

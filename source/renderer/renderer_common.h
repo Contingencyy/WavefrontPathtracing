@@ -1,8 +1,8 @@
 #pragma once
 
 #include "core/camera/camera.h"
+#include "core/containers/slotmap.h"
 
-#include "renderer/resource_slotmap.h"
 #include "renderer/acceleration_structure/tlas_builder.h"
 
 #include "renderer/d3d12/d3d12_descriptor.h"
@@ -70,8 +70,8 @@ namespace renderer
 		f32 inv_render_width;
 		f32 inv_render_height;
 
-		resource_slotmap_t<render_texture_handle_t, render_texture_t> texture_slotmap;
-		resource_slotmap_t<render_mesh_handle_t, render_mesh_t> mesh_slotmap;
+		slotmap_t<render_texture_handle_t, render_texture_t> texture_slotmap;
+		slotmap_t<render_mesh_handle_t, render_mesh_t> mesh_slotmap;
 
 		u32 bvh_instances_count;
 		u32 bvh_instances_at;
@@ -103,8 +103,6 @@ namespace renderer
 
 		d3d12::frame_alloc_t cb_render_settings;
 		d3d12::frame_alloc_t cb_view;
-		d3d12::frame_alloc_t cb_pathtracer;
-		d3d12::frame_alloc_t cb_post_process;
 	};
 	extern renderer_inst_t* g_renderer;
 

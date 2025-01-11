@@ -164,7 +164,7 @@
     <ClInclude Include="source\renderer\renderer_fwd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\resource_slotmap.h">
+    <ClInclude Include="source\core\containers\slotmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\memory\memory_arena.h">

@@ -27,7 +27,7 @@ public:
 
 	TValue* insert(TKey key, TValue value)
 	{
-		ASSERT(m_size < m_capacity);
+		ASSERT_MSG(m_size < m_capacity, "Failed to insert pair into hashmap because the hashmap is full");
 
 		// Create a temporary node with our new values
 		node_t temp_node = {};

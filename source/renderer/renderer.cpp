@@ -14,8 +14,6 @@
 #include "core/logger.h"
 #include "core/random.h"
 
-#include "resource_slotmap.h"
-
 #include "imgui/imgui.h"
 
 namespace renderer
@@ -51,8 +49,8 @@ namespace renderer
 		g_renderer->inv_render_width = 1.0f / static_cast<f32>(g_renderer->render_width);
 		g_renderer->inv_render_height = 1.0f / static_cast<f32>(g_renderer->render_height);
 
-		g_renderer->texture_slotmap.init(&g_renderer->arena);
-		g_renderer->mesh_slotmap.init(&g_renderer->arena);
+		slotmap::init(g_renderer->texture_slotmap, &g_renderer->arena);
+		slotmap::init(g_renderer->mesh_slotmap, &g_renderer->arena);
 
 		// The d3d12 backend use the same arena as the front-end renderer since the renderer initializes the backend and they have the same lifetimes
 		d3d12::init(&g_renderer->arena);
@@ -149,8 +147,8 @@ namespace renderer
 
 	void exit()
 	{
-		g_renderer->texture_slotmap.destroy();
-		g_renderer->mesh_slotmap.destroy();
+		slotmap::destroy(g_renderer->texture_slotmap);
+		slotmap::destroy(g_renderer->mesh_slotmap);
 
 		// Wait for all potential in-flight frames to finish operations on the GPU
 		d3d12::wait_on_fence(d3d12::g_d3d->sync.fence, d3d12::g_d3d->sync.fence_value);
@@ -194,7 +192,7 @@ namespace renderer
 		}
 
 		g_renderer->scene_camera = scene_camera;
-		g_renderer->scene_hdr_env_texture = g_renderer->texture_slotmap.find(env_render_texture_handle);
+		g_renderer->scene_hdr_env_texture = slotmap::find(g_renderer->texture_slotmap, env_render_texture_handle);
 		ASSERT(g_renderer->scene_hdr_env_texture);
 
 		// Set new camera data for the view constant buffer
@@ -321,8 +319,8 @@ namespace renderer
 				u32 random_seed;
 			};
 
-			g_renderer->cb_pathtracer = d3d12::frame::alloc_resource(sizeof(pathtracer_shader_input_t), 256);
-			pathtracer_shader_input_t* shader_input = reinterpret_cast<pathtracer_shader_input_t*>(g_renderer->cb_pathtracer.ptr);
+			d3d12::frame_alloc_t cb_shader = d3d12::frame::alloc_resource(sizeof(pathtracer_shader_input_t), 256);
+			pathtracer_shader_input_t* shader_input = reinterpret_cast<pathtracer_shader_input_t*>(cb_shader.ptr);
 
 			shader_input->scene_tlas_index = g_renderer->scene_tlas_srv.offset;
 			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
@@ -331,7 +329,7 @@ namespace renderer
 			shader_input->random_seed = random::rand_u32();
 			shader_input->sample_count = g_renderer->accum_count;
 			
-			frame_ctx.command_list->SetComputeRootConstantBufferView(2, g_renderer->cb_pathtracer.resource->GetGPUVirtualAddress() + g_renderer->cb_pathtracer.byte_offset);
+			frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
 			frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 		}
 
@@ -353,12 +351,12 @@ namespace renderer
 				u32 rt_index;
 			};
 
-			g_renderer->cb_post_process = d3d12::frame::alloc_resource(sizeof(post_process_shader_input_t), 256);
-			post_process_shader_input_t* shader_input = reinterpret_cast<post_process_shader_input_t*>(g_renderer->cb_post_process.ptr);
+			d3d12::frame_alloc_t shader_cb = d3d12::frame::alloc_resource(sizeof(post_process_shader_input_t), 256);
+			post_process_shader_input_t* shader_input = reinterpret_cast<post_process_shader_input_t*>(shader_cb.ptr);
 			shader_input->color_index = g_renderer->rt_color_accum_srv_uav.offset;
 			shader_input->rt_index = g_renderer->rt_final_color_uav.offset;
 
-			frame_ctx.command_list->SetComputeRootConstantBufferView(2, g_renderer->cb_post_process.resource->GetGPUVirtualAddress() + g_renderer->cb_post_process.byte_offset);
+			frame_ctx.command_list->SetComputeRootConstantBufferView(2, shader_cb.resource->GetGPUVirtualAddress() + shader_cb.byte_offset);
 			frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 		}
 	}
@@ -377,6 +375,7 @@ namespace renderer
 			//ImGui::Text("render time: %.3f ms", Profiler::GetTimerResult(GlobalProfilingScope_RenderTime).lastElapsed * 1000.0f);
 
 			ImGui::Text("Resolution: %ux%u", g_renderer->render_width, g_renderer->render_height);
+			ImGui::Text("Accumulator: %u", g_renderer->accum_count);
 
 			// Debug category
 			if (ImGui::CollapsingHeader("Debug"))
@@ -387,7 +386,7 @@ namespace renderer
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", render_view_mode_labels[g_renderer->settings.render_view_mode], ImGuiComboFlags_None))
 				{
-					for (u32 i = 0; i < count; ++i)
+					for (u32 i = 0; i < render_view_mode::count; ++i)
 					{
 						b8 selected = i == g_renderer->settings.render_view_mode;
 
@@ -507,7 +506,7 @@ namespace renderer
 		render_texture.texture_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		d3d12::create_texture_2d_srv(render_texture.texture_buffer, render_texture.texture_srv, 0, DXGI_FORMAT_R32G32B32A32_FLOAT);
 
-		render_texture_handle_t handle = g_renderer->texture_slotmap.add(std::move(render_texture));
+		render_texture_handle_t handle = slotmap::add(g_renderer->texture_slotmap, render_texture);
 		return handle;
 	}
 
@@ -597,7 +596,7 @@ namespace renderer
 				d3d12::upload::end(upload);
 			}
 
-			handle = g_renderer->mesh_slotmap.add(std::move(mesh));
+			handle = slotmap::add(g_renderer->mesh_slotmap, mesh);
 		}
 
 		return handle;
@@ -605,7 +604,7 @@ namespace renderer
 
 	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material)
 	{
-		const render_mesh_t* mesh = g_renderer->mesh_slotmap.find(render_mesh_handle);
+		const render_mesh_t* mesh = slotmap::find(g_renderer->mesh_slotmap, render_mesh_handle);
 
 		ASSERT_MSG(mesh, "Mesh with render mesh handle { index: %u, version: %u } was not valid", render_mesh_handle.index, render_mesh_handle.version);
 		ASSERT_MSG(g_renderer->bvh_instances_at < g_renderer->bvh_instances_count, "Exceeded maximum amount of BVH instances");
