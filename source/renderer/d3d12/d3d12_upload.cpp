@@ -14,14 +14,14 @@ namespace d3d12
 
 		static u32 get_used_allocations()
 		{
-			u32 allocs_used = ((g_d3d->upload.alloc_head + MAX_UPLOAD_ALLOCATIONS) - g_d3d->upload.alloc_tail) % MAX_UPLOAD_ALLOCATIONS;
+			u32 allocs_used = ((g_d3d->upload.alloc_head + UPLOAD_BUFFER_MAX_SUBMISSIONS) - g_d3d->upload.alloc_tail) % UPLOAD_BUFFER_MAX_SUBMISSIONS;
 			return allocs_used;
 		}
 
 		static u32 get_free_allocations()
 		{
-			u32 allocs_used = ((g_d3d->upload.alloc_head + MAX_UPLOAD_ALLOCATIONS) - g_d3d->upload.alloc_tail) % MAX_UPLOAD_ALLOCATIONS;
-			u32 allocs_free = MAX_UPLOAD_ALLOCATIONS - allocs_used;
+			u32 allocs_used = ((g_d3d->upload.alloc_head + UPLOAD_BUFFER_MAX_SUBMISSIONS) - g_d3d->upload.alloc_tail) % UPLOAD_BUFFER_MAX_SUBMISSIONS;
+			u32 allocs_free = UPLOAD_BUFFER_MAX_SUBMISSIONS - allocs_used;
 			return allocs_free;
 		}
 
@@ -60,7 +60,7 @@ namespace d3d12
 			g_d3d->upload.fence = d3d12::create_fence(L"Ring Buffer Fence");
 			g_d3d->upload.fence_value = 0ull;
 
-			for (u32 i = 0; i < MAX_UPLOAD_ALLOCATIONS; ++i)
+			for (u32 i = 0; i < UPLOAD_BUFFER_MAX_SUBMISSIONS; ++i)
 			{
 				upload_alloc_t& alloc = g_d3d->upload.allocations[i];
 
@@ -90,7 +90,7 @@ namespace d3d12
 			d3d12::release_object(g_d3d->upload.command_queue_copy);
 			d3d12::release_object(g_d3d->upload.fence);
 
-			for (u32 i = 0; i < MAX_UPLOAD_ALLOCATIONS; ++i)
+			for (u32 i = 0; i < UPLOAD_BUFFER_MAX_SUBMISSIONS; ++i)
 			{
 				upload_alloc_t& alloc = g_d3d->upload.allocations[i];
 
@@ -118,7 +118,7 @@ namespace d3d12
 					ring_buffer_alloc_t ring_buffer_alloc = {};
 					if (ring_buffer::alloc(g_d3d->upload.ring_buffer, byte_count, align, ring_buffer_alloc))
 					{
-						u32 alloc_index = g_d3d->upload.alloc_head % MAX_UPLOAD_ALLOCATIONS;
+						u32 alloc_index = g_d3d->upload.alloc_head % UPLOAD_BUFFER_MAX_SUBMISSIONS;
 
 						alloc = &g_d3d->upload.allocations[alloc_index];
 						alloc->ring_buffer_alloc = ring_buffer_alloc;

@@ -22,6 +22,7 @@ namespace d3d12
 		void init(u64 capacity);
 		void exit();
 
+		// If the requested number of bytes is bigger than the upload buffer, the caller needs to handle uploading in multiple chunks instead
 		upload_alloc_t& begin(u64 byte_count, u64 align = 0);
 		u64 end(upload_alloc_t& alloc);
 		void flush();

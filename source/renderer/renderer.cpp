@@ -517,16 +517,19 @@ namespace renderer
 		bvh_build_args.vertices = mesh_params.vertices;
 		bvh_build_args.index_count = mesh_params.index_count;
 		bvh_build_args.indices = mesh_params.indices;
-		//bvh_build_args.options.interval_count = 8;
-		//bvh_build_args.options.subdivide_single_prim = false;
+		bvh_build_args.options.interval_count = 8;
+		bvh_build_args.options.subdivide_single_prim = false;
 
 		render_mesh_handle_t handle = {};
 
 		ARENA_SCRATCH_SCOPE()
 		{
+			// Build the BVH with a temporary scratch memory arena, to automatically get rid of temporary allocations for the build process
 			bvh_builder_t bvh_builder = {};
 			bvh_builder.build(arena_scratch, bvh_build_args);
 
+			// Extract the final BVH data using the scratch arena as well since we will upload the data to the GPU inside this arena scratch scope
+			// If we wanted to keep the BVH data around on the CPU (maybe do CPU path tracing) we could do so here by using a different arena
 			bvh_t mesh_bvh;
 			u64 mesh_bvh_byte_size;
 			bvh_builder.extract(arena_scratch, mesh_bvh, mesh_bvh_byte_size);

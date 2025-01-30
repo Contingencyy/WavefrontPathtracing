@@ -3,6 +3,8 @@
 #include "core/camera/camera.h"
 #include "core/containers/slotmap.h"
 
+#include "shaders/shared.hlsl.h"
+
 #include "renderer/acceleration_structure/tlas_builder.h"
 
 #include "renderer/d3d12/d3d12_descriptor.h"

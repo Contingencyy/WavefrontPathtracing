@@ -15,16 +15,16 @@ class bvh_builder_t
 public:
 	struct build_options_t
 	{
-		u32 interval_count = 8;
-		b8 subdivide_single_prim = false;
+		u32 interval_count;
+		b8 subdivide_single_prim;
 	};
 
 	struct build_args_t
 	{
-		u32 vertex_count = 0;
-		vertex_t* vertices = nullptr;
-		u32 index_count = 0;
-		u32* indices = nullptr;
+		u32 vertex_count;
+		vertex_t* vertices;
+		u32 index_count;
+		u32* indices;
 
 		build_options_t options;
 	};

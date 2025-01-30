@@ -36,8 +36,10 @@ namespace d3d12
 		void init(u64 resource_capacity, const DXGI_SWAP_CHAIN_DESC1& swapchain_desc);
 		void exit();
 
+		// Used to allocate frame dynamic resources, such as constant buffers
 		frame_alloc_t alloc_resource(u64 byte_size, u64 align = 0);
 		void reset();
 
 	}
+
 }

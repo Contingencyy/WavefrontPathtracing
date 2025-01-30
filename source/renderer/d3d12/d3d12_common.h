@@ -9,10 +9,11 @@ struct memory_arena_t;
 namespace d3d12
 {
 
+	// TODO: Make amount of swap chain back buffers part of renderer init
 	inline constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
-	inline constexpr u32 MAX_UPLOAD_ALLOCATIONS = 32u;
-	inline constexpr u64 UPLOAD_CAPACITY = MB(64);
-	inline constexpr u64 PER_FRAME_RESOURCE_CAPACITY = MB(8);
+	inline constexpr u32 UPLOAD_BUFFER_MAX_SUBMISSIONS = 32u;
+	inline constexpr u64 UPLOAD_BUFFER_CAPACITY = MB(64);
+	inline constexpr u64 FRAME_ALLOCATOR_CAPACITY = MB(8);
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Structs
@@ -77,7 +78,7 @@ namespace d3d12
 			ID3D12Fence* fence;
 			u64 fence_value;
 
-			upload_alloc_t allocations[MAX_UPLOAD_ALLOCATIONS];
+			upload_alloc_t allocations[UPLOAD_BUFFER_MAX_SUBMISSIONS];
 			u32 alloc_head;
 			u32 alloc_tail;
 

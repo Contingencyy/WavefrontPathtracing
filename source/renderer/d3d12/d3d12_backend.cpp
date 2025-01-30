@@ -158,10 +158,10 @@ namespace d3d12
 		descriptor::init();
 
 		// Initialize upload ring buffer
-		upload::init(UPLOAD_CAPACITY);
+		upload::init(UPLOAD_BUFFER_CAPACITY);
 
 		// Initialize per-frame contexts
-		frame::init(PER_FRAME_RESOURCE_CAPACITY, swapchain_desc);
+		frame::init(FRAME_ALLOCATOR_CAPACITY, swapchain_desc);
 
 		// Initialize DXC
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&g_d3d->shader_compiler.dx_compiler));
