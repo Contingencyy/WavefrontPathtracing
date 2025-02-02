@@ -557,46 +557,73 @@ namespace renderer
 			mesh.bvh_max = bvh_root_node->aabb_max;
 
 			// Upload mesh BVH buffer
+			u64 buffer_byte_size = sizeof(bvh_header_t) + mesh_bvh_byte_size;
+			u64 upload_byte_count = buffer_byte_size;
+			u64 upload_offset = 0;
+			b8 upload_header = true;
+
+			// Create BVH buffer
+			mesh.bvh_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh BVH Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
+
+			// Allocate and initialize bvh buffer descriptor
+			mesh.bvh_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			d3d12::create_buffer_srv(mesh.bvh_buffer, mesh.bvh_srv, 0, buffer_byte_size);
+
+			// Do actual data upload
+			while (upload_byte_count > 0)
 			{
 				// CPU to upload copy
-				d3d12::upload_alloc_t& upload = d3d12::upload::begin(sizeof(bvh_header_t) + mesh_bvh_byte_size);
-				// TODO: If the mesh is larger than the ring buffer, need to upload in chunks
-				ASSERT(upload.ring_buffer_alloc.byte_size >= sizeof(bvh_header_t) + mesh_bvh_byte_size);
+				d3d12::upload_alloc_t& upload = d3d12::upload::begin(upload_byte_count);
 
-				memcpy(upload.ptr, &mesh_bvh.header, sizeof(bvh_header_t));
-				memcpy(PTR_OFFSET(upload.ptr, sizeof(bvh_header_t)), mesh_bvh.data, mesh_bvh_byte_size);
+				if (upload_header)
+				{
+					memcpy(upload.ptr, &mesh_bvh.header, sizeof(bvh_header_t));
+					memcpy(PTR_OFFSET(upload.ptr, sizeof(bvh_header_t)), mesh_bvh.data, upload.ring_buffer_alloc.byte_size - sizeof(bvh_header_t));
 
-				// Create GPU buffer and do copy from upload to GPU
-				mesh.bvh_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh BVH Buffer %ls", mesh_params.debug_name).buf, sizeof(bvh_header_t) + mesh_bvh_byte_size);
-				upload.d3d_command_list->CopyBufferRegion(mesh.bvh_buffer, 0, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, sizeof(bvh_header_t) + mesh_bvh_byte_size);
+					upload_header = false;
+				}
+				else
+				{
+					memcpy(upload.ptr, PTR_OFFSET(mesh_bvh.data, upload_offset - sizeof(bvh_header_t)), upload.ring_buffer_alloc.byte_size);
+				}
 
-				// Allocate and initialize bvh buffer descriptor
-				mesh.bvh_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				d3d12::create_buffer_srv(mesh.bvh_buffer, mesh.bvh_srv, 0, sizeof(bvh_header_t) + mesh_bvh_byte_size);
+				// Copy current chunk from upload allocation to final GPU buffer
+				upload.d3d_command_list->CopyBufferRegion(mesh.bvh_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
 
 				// Submit upload
 				d3d12::upload::end(upload);
+
+				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
+				upload_offset += upload.ring_buffer_alloc.byte_size;
 			}
 
 			// Upload mesh triangle buffer
+			buffer_byte_size = mesh_triangles_byte_size;
+			upload_byte_count = buffer_byte_size;
+			upload_offset = 0;
+
+			// Create triangle buffer
+			mesh.triangle_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh Triangle Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
+
+			// Allocate and initialize triangle buffer descriptor
+			mesh.triangle_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			d3d12::create_buffer_srv(mesh.triangle_buffer, mesh.triangle_srv, 0, buffer_byte_size);
+
+			// Do actual data upload
+			while (upload_byte_count > 0)
 			{
 				// CPU to upload copy
-				d3d12::upload_alloc_t& upload = d3d12::upload::begin(mesh_triangles_byte_size);
-				// TODO: If the mesh is larger than the ring buffer, need to upload in chunks
-				ASSERT(upload.ring_buffer_alloc.byte_size >= mesh_triangles_byte_size);
+				d3d12::upload_alloc_t& upload = d3d12::upload::begin(upload_byte_count);
+				memcpy(upload.ptr, PTR_OFFSET(mesh_triangles, upload_offset), upload.ring_buffer_alloc.byte_size);
 
-				memcpy(upload.ptr, mesh_triangles, mesh_triangles_byte_size);
-
-				// Create GPU buffer and do copy from upload to GPU
-				mesh.triangle_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh Triangle Buffer %ls", mesh_params.debug_name).buf, mesh_triangles_byte_size);
-				upload.d3d_command_list->CopyBufferRegion(mesh.triangle_buffer, 0, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, mesh_triangles_byte_size);
-
-				// Allocate and initialize triangle buffer descriptor
-				mesh.triangle_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				d3d12::create_buffer_srv(mesh.triangle_buffer, mesh.triangle_srv, 0, mesh_triangles_byte_size);
+				// Copy current chunk from upload to final GPU buffer
+				upload.d3d_command_list->CopyBufferRegion(mesh.triangle_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
 
 				// Submit upload
 				d3d12::upload::end(upload);
+
+				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
+				upload_offset += upload.ring_buffer_alloc.byte_size;
 			}
 
 			handle = slotmap::add(g_renderer->mesh_slotmap, mesh);

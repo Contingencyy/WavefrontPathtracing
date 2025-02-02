@@ -14,7 +14,7 @@
 #define D3D12_VALIDATE_RESOURCE_VIEWS 1
 #define D3D12_MAP_FULL_RANGE 0xFFFFFFFFFFFFFFFF
 
-static inline void dx_check_hr(i32 Line, const char* File, HRESULT HR)
+inline void dx_check_hr(i32 Line, const char* File, HRESULT HR)
 {
 	if (FAILED(HR))
 		fatal_error(Line, File, "DX12 Backend", get_hr_message(HR));

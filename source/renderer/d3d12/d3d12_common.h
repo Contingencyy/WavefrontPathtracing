@@ -13,7 +13,7 @@ namespace d3d12
 	inline constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
 	inline constexpr u32 UPLOAD_BUFFER_MAX_SUBMISSIONS = 32u;
 	inline constexpr u64 UPLOAD_BUFFER_CAPACITY = MB(64);
-	inline constexpr u64 FRAME_ALLOCATOR_CAPACITY = MB(8);
+	inline constexpr u64 FRAME_ALLOCATOR_CAPACITY = MB(16);
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Structs

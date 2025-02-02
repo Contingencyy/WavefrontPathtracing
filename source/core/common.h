@@ -24,7 +24,7 @@ inline constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 
 #define ALIGN_UP_POW2(value, align) ((intptr_t)(value)+((align)-1) & (-(intptr_t)(align)))
 #define ALIGN_DOWN_POW2(value, align) ((intptr_t)(value) & (-(intptr_t)(align)))
-#define IS_POW2(value) (value & (value - 1) == 0 || value != 0)
+#define IS_POW2(value) (value != 0 && !(value & (value - 1)))
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -33,4 +33,4 @@ inline constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 
 #define IS_BIT_FLAG_SET(flags, bitflag) ((flags & bitflag) == bitflag)
 
-#define PTR_OFFSET(ptr, offset) ((u8*)ptr + offset)
+#define PTR_OFFSET(ptr, offset) ((u8*)ptr + (offset))

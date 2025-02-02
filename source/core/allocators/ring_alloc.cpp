@@ -33,7 +33,6 @@ namespace ring_buffer
 		byte_count = MIN(byte_count, ring_buffer.capacity);
 
 		u64 aligned_head = ALIGN_UP_POW2(ring_buffer.head, align);
-		u64 tail = ring_buffer.tail;
 
 		u64 alloc_begin = (aligned_head) & ring_buffer.mask;
 		u64 alloc_end = (aligned_head + byte_count - 1) & ring_buffer.mask;
@@ -41,27 +40,26 @@ namespace ring_buffer
 		if (alloc_begin >= alloc_end)
 		{
 			aligned_head = ALIGN_UP_POW2(ring_buffer.head, ring_buffer.capacity);
-			// We need to align the ring buffer tail to the capacity as well, otherwise we cannot allocate the entire ring buffer size at once
 			if (ring_buffer.head == ring_buffer.tail)
 			{
-				tail = ALIGN_UP_POW2(ring_buffer.tail, ring_buffer.capacity);
+				ring_buffer.tail = ALIGN_UP_POW2(ring_buffer.tail, ring_buffer.capacity);
 			}
 
 			alloc_begin = (aligned_head) & ring_buffer.mask;
 			alloc_end = (aligned_head + byte_count - 1) & ring_buffer.mask;
 		}
 
-		ASSERT(alloc_begin < alloc_end);
+		ASSERT_MSG(alloc_begin < alloc_end, "Ring buffer allocation requires wrapping but failed");
 
 		// Determine how much space is available based on the aligned head and the ring buffer tail
-		u64 capacity_used = aligned_head - tail;
+		u64 capacity_used = aligned_head - ring_buffer.tail;
 		u64 capacity_free = ring_buffer.capacity - capacity_used;
 
 		if (capacity_free >= byte_count)
 		{
 			out_alloc.byte_offset = alloc_begin;
 			out_alloc.byte_size = byte_count;
-			out_alloc.head = alloc_begin + byte_count;
+			out_alloc.head = aligned_head + out_alloc.byte_size;
 
 			ring_buffer.head = out_alloc.head;
 			return true;

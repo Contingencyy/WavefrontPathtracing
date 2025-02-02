@@ -27,6 +27,7 @@ namespace d3d12
 
 		static void retire_single_allocation()
 		{
+			ASSERT_MSG(get_free_allocations() != UPLOAD_BUFFER_MAX_SUBMISSIONS, "D3D12 Upload tried to retire an allocation while all allocations are already retired");
 			u32 retire_alloc_index = g_d3d->upload.alloc_tail % ARRAY_SIZE(g_d3d->upload.allocations);
 			upload_alloc_t& retired_alloc = g_d3d->upload.allocations[retire_alloc_index];
 

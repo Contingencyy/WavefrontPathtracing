@@ -12,8 +12,6 @@ namespace d3d12
 		DX_CHECK_HR(g_d3d->device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE,
 			&resource_desc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resource)));
 
-		// TODO: Add resource tracking
-
 		resource->SetName(name);
 		return resource;
 	}
