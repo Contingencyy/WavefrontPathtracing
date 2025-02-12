@@ -31,7 +31,7 @@ void scene_t::init()
 	plane_verts[3].position = glm::vec3(-1.0f, 0.0f, -1.0f);
 	plane_verts[0].normal = plane_verts[1].normal = plane_verts[2].normal = plane_verts[3].normal = glm::vec3(0.0f, 1.0f, 0.0f);
 
-	u32 plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
+	uint32_t plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
 	renderer::render_mesh_params_t rmesh_params = {};
 	rmesh_params.vertex_count = ARRAY_SIZE(plane_verts);
 	rmesh_params.vertices = plane_verts;
@@ -78,7 +78,7 @@ void scene_t::destroy()
 	ARENA_RELEASE(&m_arena);
 }
 
-void scene_t::update(f32 DeltaTime)
+void scene_t::update(float DeltaTime)
 {
 	m_camera_controller.update(DeltaTime);
 }
@@ -88,7 +88,7 @@ void scene_t::render()
 	renderer::begin_scene(m_camera_controller.get_camera(), m_hdr_env_texture_asset->render_texture_handle);
 
 	// Submit every object that needs to be rendered
-	for (u32 i = 0; i < m_scene_object_at; ++i)
+	for (uint32_t i = 0; i < m_scene_object_at; ++i)
 	{
 		const scene_object_t* object = &m_scene_objects[i];
 		renderer::submit_render_mesh(object->render_mesh_handle, object->transform_mat, object->material);

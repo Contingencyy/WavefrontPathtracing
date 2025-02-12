@@ -7,15 +7,15 @@ struct memory_arena_t;
 struct memory_arena_marker_t
 {
 	memory_arena_t* arena;
-	u8* ptr;
+	uint8_t* ptr;
 };
 
 struct memory_arena_t
 {
-	u8* ptr_base;
-	u8* ptr_end;
-	u8* ptr_at;
-	u8* ptr_committed;
+	uint8_t* ptr_base;
+	uint8_t* ptr_end;
+	uint8_t* ptr_at;
+	uint8_t* ptr_committed;
 };
 
 namespace memory_arena
@@ -23,20 +23,20 @@ namespace memory_arena
 
 	void init(memory_arena_t* arena);
 
-	void* alloc(memory_arena_t* arena, u64 size, u64 align);
-	void* alloc_zero(memory_arena_t* arena, u64 size, u64 align);
+	void* alloc(memory_arena_t* arena, uint64_t size, uint64_t align);
+	void* alloc_zero(memory_arena_t* arena, uint64_t size, uint64_t align);
 
-	void decommit(memory_arena_t* arena, u8* ptr);
-	void free(memory_arena_t* arena, u8* ptr);
+	void decommit(memory_arena_t* arena, uint8_t* ptr);
+	void free(memory_arena_t* arena, uint8_t* ptr);
 	void clear(memory_arena_t* arena);
 	void release(memory_arena_t* arena);
 
-	u64 total_reserved(memory_arena_t* arena);
-	u64 total_allocated(memory_arena_t* arena);
-	u64 total_free(memory_arena_t* arena);
-	u64 total_committed(memory_arena_t* arena);
+	uint64_t total_reserved(memory_arena_t* arena);
+	uint64_t total_allocated(memory_arena_t* arena);
+	uint64_t total_free(memory_arena_t* arena);
+	uint64_t total_committed(memory_arena_t* arena);
 
-	void* bootstrap_arena(u64 size, u64 align, u64 arena_offset);
+	void* bootstrap_arena(uint64_t size, uint64_t align, uint64_t arena_offset);
 	memory_arena_t* get_scratch();
 
 	string_t printf(memory_arena_t* arena, const char* fmt, ...);
@@ -69,7 +69,7 @@ namespace memory_arena
 #define ARENA_BOOTSTRAP(type, arena_offset) (type *)memory_arena::bootstrap_arena(sizeof(type), alignof(type), arena_offset)
 
 #define ARENA_MEMORY_SCOPE(arena) \
-	for (u8* arena_marker = (arena)->ptr_at; (arena) && arena_marker; ARENA_FREE((arena), arena_marker), arena_marker = nullptr)
+	for (uint8_t* arena_marker = (arena)->ptr_at; (arena) && arena_marker; ARENA_FREE((arena), arena_marker), arena_marker = nullptr)
 #define ARENA_SCRATCH_SCOPE() memory_arena_t* arena_scratch = memory_arena::get_scratch(); ARENA_MEMORY_SCOPE(arena_scratch)
 
 #define ARENA_PRINTF(arena, fmt, ...) memory_arena::printf(arena, fmt, ##__VA_ARGS__)

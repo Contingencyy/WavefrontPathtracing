@@ -18,20 +18,20 @@ namespace input
 		KeyCode_Invalid
 	};
 
-	void on_platform_key_button_state_changed(u64 platformcode, b8 pressed);
-	void on_mousewheel_scrolled(f32 wheel_delta);
+	void on_platform_key_button_state_changed(uint64_t platformcode, bool pressed);
+	void on_mousewheel_scrolled(float wheel_delta);
 	void update_mouse_pos();
 
-	b8 is_key_pressed(keycode_t keycode);
-	f32 get_axis_1D(keycode_t axis_pos, keycode_t axis_neg);
+	bool is_key_pressed(keycode_t keycode);
+	float get_axis_1D(keycode_t axis_pos, keycode_t axis_neg);
 
-	f32 get_mouse_relX();
-	f32 get_mouse_relY();
-	f32 get_mouse_scroll_relY();
+	float get_mouse_relX();
+	float get_mouse_relY();
+	float get_mouse_scroll_relY();
 
-	void set_mouse_capture(b8 capture);
-	b8 is_mouse_captured();
-	void set_window_focus(b8 focus);
+	void set_mouse_capture(bool capture);
+	bool is_mouse_captured();
+	void set_window_focus(bool focus);
 
 	void reset();
 

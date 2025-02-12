@@ -3,9 +3,9 @@
 namespace random
 {
 
-	static u32 s_seed = 0xC977E154;
+	static uint32_t s_seed = 0xC977E154;
 
-	inline u32 wanghash(u32 Seed)
+	inline uint32_t wanghash(uint32_t Seed)
 	{
 		Seed = (Seed ^ 61) ^ (Seed >> 16);
 		Seed *= 9, Seed = Seed ^ (Seed >> 4);
@@ -14,7 +14,7 @@ namespace random
 		return Seed;
 	}
 
-	inline u32 rand_u32()
+	inline uint32_t rand_uint32_t()
 	{
 		s_seed ^= s_seed << 13;
 		s_seed ^= s_seed >> 17;
@@ -22,7 +22,7 @@ namespace random
 		return s_seed;
 	}
 
-	inline u32 rand_u32(u32& custom_seed)
+	inline uint32_t rand_uint32_t(uint32_t& custom_seed)
 	{
 		custom_seed ^= custom_seed << 13;
 		custom_seed ^= custom_seed >> 17;
@@ -30,22 +30,22 @@ namespace random
 		return custom_seed;
 	}
 
-	inline u32 rand_u32_range(u32 min, u32 max)
+	inline uint32_t rand_uint32_t_range(uint32_t min, uint32_t max)
 	{
 		if (max - min == 0)
 			return min;
-		return min + (rand_u32() % ((max + 1) - min));
+		return min + (rand_uint32_t() % ((max + 1) - min));
 	}
 
 	// Range 0..1
-	inline f32 rand_float()
+	inline float rand_float()
 	{
-		return rand_u32() * 2.3283064365387e-10f;
+		return rand_uint32_t() * 2.3283064365387e-10f;
 	}
 
-	inline f32 rand_float_range(f32 min = 0.0f, f32 max = 1.0f)
+	inline float rand_float_range(float min = 0.0f, float max = 1.0f)
 	{
-		return min + (f32() * (max - min));
+		return min + (float() * (max - min));
 	}
 
 }

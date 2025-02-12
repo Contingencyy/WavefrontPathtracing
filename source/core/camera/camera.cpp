@@ -7,7 +7,7 @@ camera_t::camera_t()
 {
 }
 
-camera_t::camera_t(const glm::vec3& eye_pos, const glm::vec3& lookat_pos, f32 vfov_deg)
+camera_t::camera_t(const glm::vec3& eye_pos, const glm::vec3& lookat_pos, float vfov_deg)
 	: vfov_deg(vfov_deg)
 {
 	view_mat = glm::lookAtLH(eye_pos, lookat_pos, DEFAULT_UP_VECTOR);

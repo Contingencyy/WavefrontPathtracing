@@ -11,15 +11,15 @@
 
 #include <chrono>
 
-void create_window(i32 desired_width, i32 desired_height);
-void get_window_client_area(i32& out_window_width, i32& out_window_height);
-void set_window_capture_mouse(b8 capture);
-b8 poll_window_events();
+void create_window(int32_t desired_width, int32_t desired_height);
+void get_window_client_area(int32_t& out_window_width, int32_t& out_window_height);
+void set_window_capture_mouse(bool capture);
+bool poll_window_events();
 
 namespace application
 {
 
-	static b8 s_should_close = false;
+	static bool s_should_close = false;
 
 	struct instance_t
 	{
@@ -27,8 +27,8 @@ namespace application
 
 		scene_t* active_scene;
 
-		std::chrono::duration<f32> delta_time = std::chrono::duration<f32>(0.0f);
-		b8 running = false;
+		std::chrono::duration<float> delta_time = std::chrono::duration<float>(0.0f);
+		bool running = false;
 	} static *inst;
 
 	static void handle_events()
@@ -60,8 +60,8 @@ namespace application
 	{
 		ImGui::Begin("General");
 
-		u32 fps = 1.0f / inst->delta_time.count();
-		f32 frametime_ms = inst->delta_time.count() * 1000.0f;
+		uint32_t fps = 1.0f / inst->delta_time.count();
+		float frametime_ms = inst->delta_time.count() * 1000.0f;
 
 		ImGui::Text("FPS: %u", fps);
 		ImGui::Text("Frametime: %.3f ms", frametime_ms);
@@ -87,7 +87,7 @@ namespace application
 		create_window(cmd_args.window_width, cmd_args.window_height);
 		inst = ARENA_BOOTSTRAP(instance_t, 0);
 
-		i32 client_width = 0, client_height = 0;
+		int32_t client_width = 0, client_height = 0;
 		get_window_client_area(client_width, client_height);
 
 		// We could do one arena per system eventually, but for now everything that needs
@@ -128,7 +128,7 @@ namespace application
 		}
 	}
 
-	b8 should_close()
+	bool should_close()
 	{
 		return s_should_close;
 	}

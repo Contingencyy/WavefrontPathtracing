@@ -21,26 +21,13 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\
 namespace d3d12
 {
 
-	d3d12_instance_t* g_d3d = nullptr;
-
-	static D3D12_RESOURCE_BARRIER transition_barrier(ID3D12Resource* resource, D3D12_RESOURCE_STATES state_before, D3D12_RESOURCE_STATES state_after)
-	{
-		D3D12_RESOURCE_BARRIER barrier = {};
-		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barrier.Transition.pResource = resource;
-		barrier.Transition.Subresource = 0;
-		barrier.Transition.StateBefore = state_before;
-		barrier.Transition.StateAfter = state_after;
-		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-
-		return barrier;
-	}
+	instance_t* g_d3d = nullptr;
 
 	void init(memory_arena_t* arena)
 	{
 		LOG_INFO("D3D12", "Init");
 
-		g_d3d = ARENA_ALLOC_STRUCT_ZERO(arena, d3d12_instance_t);
+		g_d3d = ARENA_ALLOC_STRUCT_ZERO(arena, instance_t);
 		g_d3d->arena = arena;
 
 		// Enable debug layer
@@ -57,7 +44,7 @@ namespace d3d12
 #endif
 #endif
 
-		u32 factory_create_flags = 0;
+		uint32_t factory_create_flags = 0;
 #ifdef _DEBUG
 		factory_create_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
@@ -70,9 +57,9 @@ namespace d3d12
 		D3D_FEATURE_LEVEL d3d_min_feature_level = D3D_FEATURE_LEVEL_12_2;
 
 		IDXGIAdapter1* dxgi_adapter1 = nullptr;
-		u64 max_dedicated_video_mem = 0;
+		uint64_t max_dedicated_video_mem = 0;
 
-		for (u32 adapter_idx = 0; dxgi_factory7->EnumAdapters1(adapter_idx, &dxgi_adapter1) != DXGI_ERROR_NOT_FOUND; ++adapter_idx)
+		for (uint32_t adapter_idx = 0; dxgi_factory7->EnumAdapters1(adapter_idx, &dxgi_adapter1) != DXGI_ERROR_NOT_FOUND; ++adapter_idx)
 		{
 			DXGI_ADAPTER_DESC1 dxgi_adapter_desc = {};
 			DX_CHECK_HR(dxgi_adapter1->GetDesc1(&dxgi_adapter_desc));
@@ -142,11 +129,13 @@ namespace d3d12
 		g_d3d->swapchain.back_buffer_index = g_d3d->swapchain.dxgi_swapchain->GetCurrentBackBufferIndex();
 
 		// Create command allocators and command lists
-		for (u32 i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
+		ARENA_SCRATCH_SCOPE()
 		{
-			g_d3d->frame_ctx[i].command_allocator = create_command_allocator(L"Frame Command Allocator", D3D12_COMMAND_LIST_TYPE_DIRECT);
-			g_d3d->frame_ctx[i].command_list = create_command_list(
-				L"Frame Command List", g_d3d->frame_ctx[i].command_allocator, D3D12_COMMAND_LIST_TYPE_DIRECT);
+			for (uint32_t i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
+			{
+				g_d3d->frame_ctx[i].command_allocator = create_command_allocator(ARENA_WPRINTF(arena_scratch, L"Frame Command Allocator %u", i).buf, D3D12_COMMAND_LIST_TYPE_DIRECT);
+				g_d3d->frame_ctx[i].command_list = create_command_list(ARENA_WPRINTF(arena_scratch, L"Frame Command List %u", i).buf, g_d3d->frame_ctx[i].command_allocator, D3D12_COMMAND_LIST_TYPE_DIRECT);
+			}
 		}
 
 		// Create fence and fence event
@@ -178,7 +167,7 @@ namespace d3d12
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 		// ImGui font descriptor handle is gonna be the very last one of the heap, so application handles can start at 0
-		u32 imgui_desc_handle_offset = g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav - 1;
+		uint32_t imgui_desc_handle_offset = g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav - 1;
 		D3D12_CPU_DESCRIPTOR_HANDLE imgui_cpu_desc_handle = get_descriptor_heap_cpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, imgui_desc_handle_offset);
 		D3D12_GPU_DESCRIPTOR_HANDLE imgui_gpu_desc_handle = get_descriptor_heap_gpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, imgui_desc_handle_offset);
 
@@ -217,20 +206,20 @@ namespace d3d12
 	{
 	}
 
-	void copy_to_back_buffer(ID3D12Resource* src_resource, u32 render_width, u32 render_height)
+	void copy_to_back_buffer(ID3D12Resource* src_resource, uint32_t render_width, uint32_t render_height)
 	{
 		frame_context_t& frame_ctx = get_frame_context();
 
 		{
 			D3D12_RESOURCE_BARRIER barriers[2] =
 			{
-				transition_barrier(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST),
-				transition_barrier(src_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)
+				barrier_transition(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST),
+				barrier_transition(src_resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)
 			};
 			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 		}
 
-		u32 bpp = 4;
+		uint32_t bpp = 4;
 		D3D12_RESOURCE_DESC src_resource_desc = src_resource->GetDesc();
 		D3D12_RESOURCE_DESC dst_resource_desc = frame_ctx.backbuffer->GetDesc();
 
@@ -252,7 +241,7 @@ namespace d3d12
 		{
 			D3D12_RESOURCE_BARRIER barriers[1] =
 			{
-				transition_barrier(src_resource, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON)
+				barrier_transition(src_resource, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON)
 			};
 			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 		}
@@ -263,11 +252,15 @@ namespace d3d12
 		frame_context_t& frame_ctx = get_frame_context();
 
 		// Transition back buffer to render target state for Dear ImGui
-		D3D12_RESOURCE_BARRIER render_target_barrier = transition_barrier(frame_ctx.backbuffer,
-			D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		frame_ctx.command_list->ResourceBarrier(1, &render_target_barrier);
+		{
+			D3D12_RESOURCE_BARRIER barriers[1] =
+			{
+				barrier_transition(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET)
+			};
+			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+		}
 
-		// render Dear ImGui
+		// Render Dear ImGui
 		ImGui::Render();
 
 		D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = get_descriptor_heap_cpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, g_d3d->swapchain.back_buffer_index);
@@ -277,9 +270,13 @@ namespace d3d12
 		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), frame_ctx.command_list);
 
 		// Transition back buffer to present state for presentation
-		D3D12_RESOURCE_BARRIER present_barrier = transition_barrier(frame_ctx.backbuffer,
-			D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-		frame_ctx.command_list->ResourceBarrier(1, &present_barrier);
+		{
+			D3D12_RESOURCE_BARRIER barriers[1] =
+			{
+				barrier_transition(frame_ctx.backbuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT)
+			};
+			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+		}
 
 		// Submit command list for current frame
 		frame_ctx.command_list->Close();
@@ -287,8 +284,8 @@ namespace d3d12
 		g_d3d->command_queue_direct->ExecuteCommandLists(1, command_lists);
 
 		// Present
-		u32 sync_interval = g_d3d->vsync ? 1 : 0;
-		u32 present_flags = g_d3d->swapchain.supports_tearing && !g_d3d->vsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
+		uint32_t sync_interval = g_d3d->vsync ? 1 : 0;
+		uint32_t present_flags = g_d3d->swapchain.supports_tearing && !g_d3d->vsync ? DXGI_PRESENT_ALLOW_TEARING : 0;
 		DX_CHECK_HR(g_d3d->swapchain.dxgi_swapchain->Present(sync_interval, present_flags));
 
 		// Signal fence with the value for the current frame, update next available back buffer index
@@ -338,7 +335,7 @@ namespace d3d12
 		return d3d_command_list;
 	}
 
-	ID3D12Fence* create_fence(const wchar_t* debug_name, u64 initial_fence_value)
+	ID3D12Fence* create_fence(const wchar_t* debug_name, uint64_t initial_fence_value)
 	{
 		ID3D12Fence* d3d_fence = nullptr;
 		DX_CHECK_HR(g_d3d->device->CreateFence(initial_fence_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d_fence)));
@@ -347,7 +344,7 @@ namespace d3d12
 		return d3d_fence;
 	}
 
-	void wait_on_fence(ID3D12Fence* fence, u64 wait_on_fence_value)
+	void wait_on_fence(ID3D12Fence* fence, uint64_t wait_on_fence_value)
 	{
 		ASSERT(fence);
 
@@ -360,7 +357,7 @@ namespace d3d12
 	IDxcBlob* compile_shader(const wchar_t* filepath, const wchar_t* entry_point, const wchar_t* target_profile)
 	{
 		HRESULT hr = 0;
-		u32 codepage = 0;
+		uint32_t codepage = 0;
 
 		IDxcBlobEncoding* shader_source_blob = nullptr;
 		hr = g_d3d->shader_compiler.dxc_utils->LoadFile(filepath, &codepage, &shader_source_blob);
@@ -408,7 +405,7 @@ namespace d3d12
 			IDxcBlobEncoding* compile_error = nullptr;
 			compile_result->GetErrorBuffer(&compile_error);
 
-			FATAL_ERROR("D3D12", reinterpret_cast<char*>(compile_error->GetBufferPointer()));
+			FATAL_ERROR("D3D12", (char*)compile_error->GetBufferPointer());
 
 			DX_RELEASE_OBJECT(compile_error);
 			return nullptr;
@@ -438,7 +435,7 @@ namespace d3d12
 		DX_CHECK_HR(D3D12SerializeVersionedRootSignature(&root_signature_desc, &root_signature_serialized, &error_blob));
 		if (error_blob)
 		{
-			FATAL_ERROR("D3D12", reinterpret_cast<char*>(error_blob->GetBufferPointer()));
+			FATAL_ERROR("D3D12", (char*)error_blob->GetBufferPointer());
 		}
 		DX_RELEASE_OBJECT(error_blob);
 
@@ -467,7 +464,7 @@ namespace d3d12
 		return cs_pipeline_state;
 	}
 
-	void* map_resource(ID3D12Resource* resource, u32 subresource, u64 byte_offset, u64 byte_count)
+	void* map_resource(ID3D12Resource* resource, uint32_t subresource, uint64_t byte_offset, uint64_t byte_count)
 	{
 		ASSERT(resource);
 
@@ -476,17 +473,17 @@ namespace d3d12
 		if (byte_count != D3D12_MAP_FULL_RANGE)
 		{
 			D3D12_RANGE mapped_range = { byte_offset, byte_offset + byte_count };
-			DX_CHECK_HR(resource->Map(subresource, &mapped_range, reinterpret_cast<void**>(&ptr_mapped)));
+			DX_CHECK_HR(resource->Map(subresource, &mapped_range, (void**)&ptr_mapped));
 		}
 		else
 		{
-			DX_CHECK_HR(resource->Map(subresource, nullptr, reinterpret_cast<void**>(&ptr_mapped)));
+			DX_CHECK_HR(resource->Map(subresource, nullptr, (void**)&ptr_mapped));
 		}
 
 		return ptr_mapped;
 	}
 
-	void unmap_resource(ID3D12Resource* resource, u32 subresource, u64 byte_offset, u64 byte_count)
+	void unmap_resource(ID3D12Resource* resource, uint32_t subresource, uint64_t byte_offset, uint64_t byte_count)
 	{
 		ASSERT(resource);
 

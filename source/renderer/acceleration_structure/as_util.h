@@ -4,7 +4,7 @@
 namespace as_util
 {
 
-	inline f32 get_aabb_volume(const glm::vec3& aabb_min, const glm::vec3& aabb_max)
+	inline float get_aabb_volume(const glm::vec3& aabb_min, const glm::vec3& aabb_max)
 	{
 		const glm::vec3 extent = aabb_max - aabb_min;
 		return extent.x * extent.y + extent.y * extent.z + extent.z * extent.x;

@@ -9,5 +9,5 @@ struct texture_asset_t
 struct scene_asset_t
 {
 	render_mesh_handle_t* render_mesh_handles;
-	u32 mesh_handle_count;
+	uint32_t mesh_handle_count;
 };

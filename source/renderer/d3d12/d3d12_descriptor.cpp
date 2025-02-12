@@ -10,8 +10,8 @@ namespace d3d12
 
 		struct descriptor_block_t
 		{
-			u32 offset = 0;
-			u32 count = 0;
+			uint32_t offset = 0;
+			uint32_t count = 0;
 
 			descriptor_block_t* next = nullptr;
 		};
@@ -93,7 +93,7 @@ namespace d3d12
 		{
 		}
 
-		descriptor_allocation_t alloc(D3D12_DESCRIPTOR_HEAP_TYPE type, u32 count)
+		descriptor_allocation_t alloc(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t count)
 		{
 			descriptor_block_t* descriptor_block = get_descriptor_blocks_by_type(type);
 			descriptor_block_t* descriptor_block_prev = nullptr;

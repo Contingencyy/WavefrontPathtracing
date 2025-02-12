@@ -15,7 +15,7 @@ static HWND s_hwnd;
 
 static inline void create_console()
 {
-	b8 result = AllocConsole();
+	bool result = AllocConsole();
 	if (!result)
 		FATAL_ERROR("Console", "Failed to allocate console");
 
@@ -31,7 +31,7 @@ static inline void destroy_console()
 	fclose(fileStdout);
 	fclose(fileStderr);*/
 
-	b8 result = FreeConsole();
+	bool result = FreeConsole();
 	if (!result)
 		FATAL_ERROR("Console", "Failed to free console");
 }
@@ -71,7 +71,7 @@ LRESULT WINAPI window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	} break;
 	case WM_MOUSEWHEEL:
 	{
-		f32 wheel_delta = GET_WHEEL_DELTA_WPARAM(wparam);
+		float wheel_delta = GET_WHEEL_DELTA_WPARAM(wparam);
 		input::on_mousewheel_scrolled(wheel_delta);
 	} break;
 	case WM_SETFOCUS:
@@ -95,7 +95,7 @@ LRESULT WINAPI window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	return 0;
 }
 
-void get_window_client_area(i32& out_window_width, i32& out_window_height)
+void get_window_client_area(int32_t& out_window_width, int32_t& out_window_height)
 {
 	RECT client_rect = {};
 	GetClientRect(s_hwnd, &client_rect);
@@ -104,7 +104,7 @@ void get_window_client_area(i32& out_window_width, i32& out_window_height)
 	out_window_height = client_rect.bottom - client_rect.top;
 }
 
-void get_window_center(i32& out_centerX, i32& out_centerY)
+void get_window_center(int32_t& out_centerX, int32_t& out_centerY)
 {
 	RECT window_rect = {};
 	GetWindowRect(s_hwnd, &window_rect);
@@ -123,12 +123,12 @@ void get_window_center(i32& out_centerX, i32& out_centerY)
 
 void reset_mouse_position_to_center()
 {
-	i32 window_centerX, window_centerY;
+	int32_t window_centerX, window_centerY;
 	get_window_center(window_centerX, window_centerY);
 	SetCursorPos(window_centerX, window_centerY);
 }
 
-void set_window_capture_mouse(b8 capture)
+void set_window_capture_mouse(bool capture)
 {
 	RECT window_rect = {};
 	GetWindowRect(s_hwnd, &window_rect);
@@ -149,7 +149,7 @@ void set_window_capture_mouse(b8 capture)
 	input::set_mouse_capture(capture);
 }
 
-b8 poll_window_events()
+bool poll_window_events()
 {
 	input::reset();
 	input::update_mouse_pos();
@@ -167,10 +167,10 @@ b8 poll_window_events()
 	return true;
 }
 
-void create_window(i32 desired_width, i32 desired_height)
+void create_window(int32_t desired_width, int32_t desired_height)
 {
-	i32 screen_width = GetSystemMetrics(SM_CXFULLSCREEN);
-	i32 screen_height = GetSystemMetrics(SM_CYFULLSCREEN);
+	int32_t screen_width = GetSystemMetrics(SM_CXFULLSCREEN);
+	int32_t screen_height = GetSystemMetrics(SM_CYFULLSCREEN);
 
 	if (desired_width <= 0 || desired_width > screen_width ||
 		desired_height <= 0 || desired_height > screen_height)
@@ -201,11 +201,11 @@ void create_window(i32 desired_width, i32 desired_height)
 	};
 	AdjustWindowRectEx(&window_rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
-	i32 window_width = window_rect.right - window_rect.left;
-	i32 window_height = window_rect.bottom - window_rect.top;
+	int32_t window_width = window_rect.right - window_rect.left;
+	int32_t window_height = window_rect.bottom - window_rect.top;
 
-	i32 windowX = glm::max(0, (screen_width - window_width) / 2);
-	i32 windowY = glm::max(0, (screen_height - window_height) / 2);
+	int32_t windowX = glm::max(0, (screen_width - window_width) / 2);
+	int32_t windowY = glm::max(0, (screen_height - window_height) / 2);
 	
 	s_hwnd = CreateWindowExW(
 		0, L"WavefrontPathtracerWindowClass", L"Wavefront Pathtracer", WS_OVERLAPPEDWINDOW,
@@ -219,7 +219,7 @@ void create_window(i32 desired_width, i32 desired_height)
 	ShowWindow(s_hwnd, TRUE);
 }
 
-void fatal_error_impl(i32 line, const string_t& error_msg)
+void fatal_error_impl(int32_t line, const string_t& error_msg)
 {
 	ARENA_SCRATCH_SCOPE()
 	{
@@ -233,16 +233,16 @@ void fatal_error_impl(i32 line, const string_t& error_msg)
 
 static void parse_next_command_arg(string_t& cmd_line_cur, string_t& arg_str, string_t& param_str)
 {
-	u32 arg_begin = string::find_char(cmd_line_cur, '-');
-	u32 arg_end = string::find_char(cmd_line_cur, ' ');
+	uint32_t arg_begin = string::find_char(cmd_line_cur, '-');
+	uint32_t arg_end = string::find_char(cmd_line_cur, ' ');
 	if (arg_end == STRING_NPOS || arg_begin >= arg_end)
 		FATAL_ERROR("CommandLine", "Malformed command line arguments found: %s", cmd_line_cur);
 
 	arg_str = string::make_view(cmd_line_cur, arg_begin, arg_end - arg_begin);
 	cmd_line_cur = string::make_view(cmd_line_cur, arg_end + 1, cmd_line_cur.count - arg_end - 1);
 
-	u32 param_begin = 0;
-	u32 param_end = string::find_char(cmd_line_cur, ' ');
+	uint32_t param_begin = 0;
+	uint32_t param_end = string::find_char(cmd_line_cur, ' ');
 	if (param_end == STRING_NPOS)
 		param_end = cmd_line_cur.count;
 
@@ -289,7 +289,7 @@ int WINAPI wWinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPWSTR lpCmdLine,
-	_In_ i32 nShowCmd)
+	_In_ int32_t nShowCmd)
 {
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 	create_console();

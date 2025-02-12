@@ -38,7 +38,7 @@ namespace renderer
 		g_renderer->accum_count = 1;
 	}
 
-	void init(u32 render_width, u32 render_height)
+	void init(uint32_t render_width, uint32_t render_height)
 	{
 		LOG_INFO("Renderer", "Init");
 
@@ -46,8 +46,8 @@ namespace renderer
 
 		g_renderer->render_width = render_width;
 		g_renderer->render_height = render_height;
-		g_renderer->inv_render_width = 1.0f / static_cast<f32>(g_renderer->render_width);
-		g_renderer->inv_render_height = 1.0f / static_cast<f32>(g_renderer->render_height);
+		g_renderer->inv_render_width = 1.0f / (float)g_renderer->render_width;
+		g_renderer->inv_render_height = 1.0f / (float)g_renderer->render_height;
 
 		slotmap::init(g_renderer->texture_slotmap, &g_renderer->arena);
 		slotmap::init(g_renderer->mesh_slotmap, &g_renderer->arena);
@@ -127,14 +127,14 @@ namespace renderer
 		// Render target
 		g_renderer->rt_color_accum = d3d12::create_texture_2d(L"Color Accumulator RT", DXGI_FORMAT_R16G16B16A16_FLOAT,
 			g_renderer->render_width, g_renderer->render_height, 1,
-			D3D12_RESOURCE_STATE_COMMON, nullptr, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
 		g_renderer->rt_color_accum_srv_uav = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
 		d3d12::create_texture_2d_srv(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		d3d12::create_texture_2d_uav(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 1);
 
 		g_renderer->rt_final_color = d3d12::create_texture_2d(L"Final Color RT", DXGI_FORMAT_R8G8B8A8_UNORM,
 			g_renderer->render_width, g_renderer->render_height, 1,
-			D3D12_RESOURCE_STATE_COMMON, nullptr, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
 		g_renderer->rt_final_color_uav = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
 		d3d12::create_texture_2d_uav(g_renderer->rt_final_color, g_renderer->rt_final_color_uav, 0);
 
@@ -169,7 +169,7 @@ namespace renderer
 		d3d12::begin_frame();
 
 		g_renderer->cb_render_settings = d3d12::frame::alloc_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-		render_settings_shader_data_t* ptr_settings = reinterpret_cast<render_settings_shader_data_t*>(g_renderer->cb_render_settings.ptr);
+		render_settings_shader_data_t* ptr_settings = (render_settings_shader_data_t*)g_renderer->cb_render_settings.ptr;
 		*ptr_settings = g_renderer->settings;
 	}
 
@@ -197,17 +197,17 @@ namespace renderer
 
 		// Set new camera data for the view constant buffer
 		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(scene_camera.vfov_deg),
-			static_cast<float>(g_renderer->render_width), static_cast<float>(g_renderer->render_height), 0.001f, 10000.0f);
-
+			(float)g_renderer->render_width, (float)g_renderer->render_height, 0.001f, 10000.0f);
+		
 		g_renderer->cb_view = d3d12::frame::alloc_resource(sizeof(view_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-		view_shader_data_t* ptr_view = reinterpret_cast<view_shader_data_t*>(g_renderer->cb_view.ptr);
+		view_shader_data_t* view_cb = (view_shader_data_t*)g_renderer->cb_view.ptr;
 
-		ptr_view->world_to_view = scene_camera.view_mat;
-		ptr_view->view_to_world = glm::inverse(scene_camera.view_mat);
-		ptr_view->view_to_clip = proj_mat;
-		ptr_view->clip_to_view = glm::inverse(proj_mat);
-		ptr_view->render_dim.x = g_renderer->render_width;
-		ptr_view->render_dim.y = g_renderer->render_height;
+		view_cb->world_to_view = scene_camera.view_mat;
+		view_cb->view_to_world = glm::inverse(scene_camera.view_mat);
+		view_cb->view_to_clip = proj_mat;
+		view_cb->clip_to_view = glm::inverse(proj_mat);
+		view_cb->render_dim.x = (float)g_renderer->render_width;
+		view_cb->render_dim.y = (float)g_renderer->render_height;
 	}
 
 	void render()
@@ -222,7 +222,7 @@ namespace renderer
 				// TODO: Do not rebuild the TLAS every single frame
 				tlas_builder_t tlas_builder = {};
 				tlas_builder.build(arena_scratch, g_renderer->bvh_instances, g_renderer->bvh_instances_at);
-				u64 tlas_byte_size = 0;
+				uint64_t tlas_byte_size = 0;
 				tlas_builder.extract(arena_scratch, g_renderer->scene_tlas, tlas_byte_size);
 
 				// Upload TLAS to the GPU
@@ -255,7 +255,7 @@ namespace renderer
 
 			{
 				// Upload instance buffer data
-				u64 byte_size = sizeof(instance_data_t) * g_renderer->bvh_instances_at;
+				uint64_t byte_size = sizeof(instance_data_t) * g_renderer->bvh_instances_at;
 				d3d12::frame_alloc_t upload = d3d12::frame::alloc_resource(byte_size);
 
 				// CPU to upload heap copy
@@ -276,15 +276,11 @@ namespace renderer
 		frame_ctx.command_list->SetComputeRootConstantBufferView(1, g_renderer->cb_view.resource->GetGPUVirtualAddress() + g_renderer->cb_view.byte_offset);
 
 		{
-			D3D12_RESOURCE_BARRIER barrier = {};
-			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			barrier.Transition.pResource = g_renderer->rt_final_color;
-			barrier.Transition.Subresource = 0;
-			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-
-			frame_ctx.command_list->ResourceBarrier(1, &barrier);
+			D3D12_RESOURCE_BARRIER barriers[] =
+			{
+				d3d12::barrier_transition(g_renderer->rt_final_color, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			};
+			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 		}
 
 #if 0
@@ -300,33 +296,33 @@ namespace renderer
 		// Dispatch pathtrace compute shader
 		{
 			// TODO: Define these in a shared hlsl/cpp header, or set these as a define when compiling the shaders/PSO
-			const u32 dispatch_threads_per_block_x = 16;
-			const u32 dispatch_threads_per_block_y = 16;
+			const uint32_t dispatch_threads_per_block_x = 16;
+			const uint32_t dispatch_threads_per_block_y = 16;
 
-			u32 dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
-			u32 dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
+			uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
+			uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
 			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer);
 
 			// Bind shader input constant buffer
 			struct pathtracer_shader_input_t
 			{
-				u32 scene_tlas_index;
-				u32 hdr_env_index;
-				u32 instance_buffer_index;
-				u32 rt_index;
-				u32 sample_count;
-				u32 random_seed;
+				uint32_t scene_tlas_index;
+				uint32_t hdr_env_index;
+				uint32_t instance_buffer_index;
+				uint32_t rt_index;
+				uint32_t sample_count;
+				uint32_t random_seed;
 			};
 
 			d3d12::frame_alloc_t cb_shader = d3d12::frame::alloc_resource(sizeof(pathtracer_shader_input_t), 256);
-			pathtracer_shader_input_t* shader_input = reinterpret_cast<pathtracer_shader_input_t*>(cb_shader.ptr);
+			pathtracer_shader_input_t* shader_input = (pathtracer_shader_input_t*)cb_shader.ptr;
 
 			shader_input->scene_tlas_index = g_renderer->scene_tlas_srv.offset;
 			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
 			shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
 			shader_input->rt_index = g_renderer->rt_color_accum_srv_uav.offset + 1;
-			shader_input->random_seed = random::rand_u32();
+			shader_input->random_seed = random::rand_uint32_t();
 			shader_input->sample_count = g_renderer->accum_count;
 			
 			frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -335,11 +331,11 @@ namespace renderer
 
 		// Dispatch post-process compute shader
 		{
-			const u32 dispatch_threads_per_block_x = 16;
-			const u32 dispatch_threads_per_block_y = 16;
+			const uint32_t dispatch_threads_per_block_x = 16;
+			const uint32_t dispatch_threads_per_block_y = 16;
 
-			u32 dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
-			u32 dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
+			uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
+			uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
 			frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
 			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
@@ -347,12 +343,12 @@ namespace renderer
 			// Bind shader input constant buffer
 			struct post_process_shader_input_t
 			{
-				u32 color_index;
-				u32 rt_index;
+				uint32_t color_index;
+				uint32_t rt_index;
 			};
 
 			d3d12::frame_alloc_t shader_cb = d3d12::frame::alloc_resource(sizeof(post_process_shader_input_t), 256);
-			post_process_shader_input_t* shader_input = reinterpret_cast<post_process_shader_input_t*>(shader_cb.ptr);
+			post_process_shader_input_t* shader_input = (post_process_shader_input_t*)shader_cb.ptr;
 			shader_input->color_index = g_renderer->rt_color_accum_srv_uav.offset;
 			shader_input->rt_index = g_renderer->rt_final_color_uav.offset;
 
@@ -370,7 +366,7 @@ namespace renderer
 	{
 		if (ImGui::Begin("Renderer"))
 		{
-			b8 should_reset_accumulators = false;
+			bool should_reset_accumulators = false;
 
 			//ImGui::Text("render time: %.3f ms", Profiler::GetTimerResult(GlobalProfilingScope_RenderTime).lastElapsed * 1000.0f);
 
@@ -386,9 +382,9 @@ namespace renderer
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", render_view_mode_labels[g_renderer->settings.render_view_mode], ImGuiComboFlags_None))
 				{
-					for (u32 i = 0; i < render_view_mode::count; ++i)
+					for (uint32_t i = 0; i < render_view_mode::count; ++i)
 					{
-						b8 selected = i == g_renderer->settings.render_view_mode;
+						bool selected = i == g_renderer->settings.render_view_mode;
 
 						if (ImGui::Selectable(render_view_mode_labels[i], selected))
 						{
@@ -411,11 +407,11 @@ namespace renderer
 				ImGui::Indent(10.0f);
 
 				// Slider for maximum amount of recursion for each ray
-				if (ImGui::SliderInt("Ray max recursion", reinterpret_cast<i32*>(&g_renderer->settings.ray_max_recursion), 0, 8)) should_reset_accumulators = true;
+				if (ImGui::SliderInt("Ray max recursion",(int32_t*)&g_renderer->settings.ray_max_recursion, 0, 8)) should_reset_accumulators = true;
 				// Toggle accumulation
-				if (ImGui::Checkbox("Accumulate", reinterpret_cast<bool*>(&g_renderer->settings.accumulate))) should_reset_accumulators = true;
+				if (ImGui::Checkbox("Accumulate", (bool*)&g_renderer->settings.accumulate)) should_reset_accumulators = true;
 				// Enable/disable cosine weighted diffuse reflections, uses uniform hemisphere sample if disabled
-				if (ImGui::Checkbox("Cosine weighted diffuse", reinterpret_cast<bool*>(&g_renderer->settings.cosine_weighted_diffuse))) should_reset_accumulators = true;
+				if (ImGui::Checkbox("Cosine weighted diffuse", (bool*)&g_renderer->settings.cosine_weighted_diffuse)) should_reset_accumulators = true;
 
 				ImGui::Unindent(10.0f);
 			}
@@ -432,20 +428,21 @@ namespace renderer
 		// TODO: Support different DXGI formats, figure out format based on texture_params
 		// TODO: Support other texture dimensions than 2D
 		// TODO: Support uploading textures with mips
+		// TODO: Support mip generation
 		
 		ID3D12Resource* d3d_resource = nullptr;
 		ARENA_SCRATCH_SCOPE()
 		{
 			d3d_resource = d3d12::create_texture_2d(ARENA_WPRINTF(arena_scratch, L"Texture Buffer %ls", texture_params.debug_name).buf,
-				DXGI_FORMAT_R32G32B32A32_FLOAT, texture_params.width, texture_params.height, 1, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, D3D12_RESOURCE_FLAG_NONE);
+				DXGI_FORMAT_R32G32B32A32_FLOAT, texture_params.width, texture_params.height, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
 		}
-		u32 src_rowpitch = texture_params.width * texture_params.bytes_per_channel * texture_params.channel_count;
+		uint32_t src_rowpitch = texture_params.width * texture_params.bytes_per_channel * texture_params.channel_count;
 
 		// Prepare texture copy destination
 		D3D12_RESOURCE_DESC dst_desc = d3d_resource->GetDesc();
 		D3D12_SUBRESOURCE_FOOTPRINT dst_footprint = {};
 		dst_footprint.Format = dst_desc.Format;
-		dst_footprint.Width = dst_desc.Width;
+		dst_footprint.Width = (uint32_t)dst_desc.Width;
 		dst_footprint.Height = dst_desc.Height;
 		dst_footprint.Depth = dst_desc.DepthOrArraySize;
 		dst_footprint.RowPitch = ALIGN_UP_POW2(src_rowpitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
@@ -456,26 +453,26 @@ namespace renderer
 		dst_loc.SubresourceIndex = 0;
 
 		// Upload in chunks of rows if the upload ring buffer cannot accomodate the entire texture at once
-		u32 rows_to_copy = dst_desc.Height;
-		u32 row_curr = 0;
+		uint32_t rows_to_copy = dst_desc.Height;
+		uint32_t row_curr = 0;
 
 		while (rows_to_copy > 0)
 		{
 			// Allocate a chunk of CPU writable memory from the upload ring buffer, with a minimum required size of the destination row pitch
-			u64 required_bytes = MAX(rows_to_copy * dst_footprint.RowPitch, dst_footprint.RowPitch);
+			uint64_t required_bytes = MAX(rows_to_copy * dst_footprint.RowPitch, dst_footprint.RowPitch);
 			d3d12::upload_alloc_t& upload = d3d12::upload::begin(required_bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 
 			// Determine how many rows we can copy over with the upload allocation we got back, it might have returned less memory
-			u32 row_count_upload = upload.ring_buffer_alloc.byte_size / dst_footprint.RowPitch;
+			uint32_t row_count_upload = upload.ring_buffer_alloc.byte_size / dst_footprint.RowPitch;
 			ASSERT_MSG(row_count_upload > 0, "Uploading texture failed because upload ring buffer is not large enough to upload a single row"
 				"Texture: %ls, Width: %u, Height: %u, Mips: %u, Bytes per channel: %u, Channels: %u",
 				texture_params.debug_name, texture_params.width, texture_params.height, 1, texture_params.bytes_per_channel, texture_params.channel_count);
 
 			// Copy texture data to the upload allocation
-			u8* ptr_src = texture_params.ptr_data + src_rowpitch * row_curr;
-			u8* ptr_dst = static_cast<u8*>(upload.ptr);
+			uint8_t* ptr_src = texture_params.ptr_data + src_rowpitch * row_curr;
+			uint8_t* ptr_dst = (uint8_t*)upload.ptr;
 
-			for (u32 y = 0; y < row_count_upload; ++y)
+			for (uint32_t y = 0; y < row_count_upload; ++y)
 			{
 				memcpy(ptr_dst, ptr_src, dst_footprint.RowPitch);
 				ptr_src += src_rowpitch;
@@ -531,14 +528,14 @@ namespace renderer
 			// Extract the final BVH data using the scratch arena as well since we will upload the data to the GPU inside this arena scratch scope
 			// If we wanted to keep the BVH data around on the CPU (maybe do CPU path tracing) we could do so here by using a different arena
 			bvh_t mesh_bvh;
-			u64 mesh_bvh_byte_size;
+			uint64_t mesh_bvh_byte_size;
 			bvh_builder.extract(arena_scratch, mesh_bvh, mesh_bvh_byte_size);
 
-			u32 mesh_triangle_count = mesh_params.index_count / 3;
+			uint32_t mesh_triangle_count = mesh_params.index_count / 3;
 			triangle_t* mesh_triangles = ARENA_ALLOC_ARRAY(arena_scratch, triangle_t, mesh_triangle_count);
-			u64 mesh_triangles_byte_size = sizeof(triangle_t) * mesh_triangle_count;
+			uint64_t mesh_triangles_byte_size = sizeof(triangle_t) * mesh_triangle_count;
 
-			for (u32 tri_idx = 0, i = 0; tri_idx < mesh_triangle_count; ++tri_idx, i += 3)
+			for (uint32_t tri_idx = 0, i = 0; tri_idx < mesh_triangle_count; ++tri_idx, i += 3)
 			{
 				mesh_triangles[tri_idx].p0 = mesh_params.vertices[mesh_params.indices[i]].position;
 				mesh_triangles[tri_idx].p1 = mesh_params.vertices[mesh_params.indices[i + 1]].position;
@@ -557,10 +554,10 @@ namespace renderer
 			mesh.bvh_max = bvh_root_node->aabb_max;
 
 			// Upload mesh BVH buffer
-			u64 buffer_byte_size = sizeof(bvh_header_t) + mesh_bvh_byte_size;
-			u64 upload_byte_count = buffer_byte_size;
-			u64 upload_offset = 0;
-			b8 upload_header = true;
+			uint64_t buffer_byte_size = sizeof(bvh_header_t) + mesh_bvh_byte_size;
+			uint64_t upload_byte_count = buffer_byte_size;
+			uint64_t upload_offset = 0;
+			bool upload_header = true;
 
 			// Create BVH buffer
 			mesh.bvh_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh BVH Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
@@ -643,7 +640,7 @@ namespace renderer
 		instance->world_to_local = glm::inverse(transform);
 		instance->bvh_index = mesh->bvh_srv.offset;
 
-		for (u32 i = 0; i < 8; ++i)
+		for (uint32_t i = 0; i < 8; ++i)
 		{
 			glm::vec3 pos_world = transform *
 				glm::vec4(i & 1 ? mesh->bvh_max.x : mesh->bvh_min.x, i & 2 ? mesh->bvh_max.y : mesh->bvh_min.y, i & 4 ? mesh->bvh_max.z : mesh->bvh_min.z, 1.0f);

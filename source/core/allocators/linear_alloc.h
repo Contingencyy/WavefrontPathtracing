@@ -2,18 +2,18 @@
 
 struct linear_alloc_t
 {
-	u64 at;
-	u64 capacity;
+	uint64_t at;
+	uint64_t capacity;
 };
 
 namespace linear_alloc
 {
 
-	void init(linear_alloc_t& allocator, u64 capacity);
+	void init(linear_alloc_t& allocator, uint64_t capacity);
 	void destroy(linear_alloc_t& allocator);
 
-	b8 alloc(linear_alloc_t& allocator, u64& out_offset, u64 byte_count, u64 align = 0);
-	void free(linear_alloc_t& allocator, u64 marker);
+	bool alloc(linear_alloc_t& allocator, uint64_t& out_offset, uint64_t byte_count, uint64_t align = 0);
+	void free(linear_alloc_t& allocator, uint64_t marker);
 	void reset(linear_alloc_t& allocator);
 
 }

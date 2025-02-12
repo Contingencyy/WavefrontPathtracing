@@ -7,7 +7,7 @@ struct material_t;
 namespace renderer
 {
 
-	void init(u32 render_width, u32 render_height);
+	void init(uint32_t render_width, uint32_t render_height);
 	void exit();
 
 	void begin_frame();
@@ -21,11 +21,11 @@ namespace renderer
 
 	struct render_texture_params_t
 	{
-		u32 width;
-		u32 height;
-		u8 bytes_per_channel;
-		u8 channel_count;
-		u8* ptr_data;
+		uint32_t width;
+		uint32_t height;
+		uint8_t bytes_per_channel;
+		uint8_t channel_count;
+		uint8_t* ptr_data;
 
 		const wchar_t* debug_name;
 	};
@@ -33,10 +33,10 @@ namespace renderer
 
 	struct render_mesh_params_t
 	{
-		u32 vertex_count;
+		uint32_t vertex_count;
 		vertex_t* vertices;
-		u32 index_count;
-		u32* indices;
+		uint32_t index_count;
+		uint32_t* indices;
 
 		const wchar_t* debug_name;
 	};

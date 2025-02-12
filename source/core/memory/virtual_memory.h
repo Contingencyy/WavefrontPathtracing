@@ -4,9 +4,9 @@
 namespace virtual_memory
 {
 
-	void* reserve(u64 Size);
-	b8 commit(void* Address, u64 Size);
-	void decommit(void* Address, u64 Size);
+	void* reserve(uint64_t Size);
+	bool commit(void* Address, uint64_t Size);
+	void decommit(void* Address, uint64_t Size);
 	void release(void* Address);
 
 }

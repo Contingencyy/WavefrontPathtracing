@@ -5,14 +5,14 @@
 namespace string
 {
 
-	string_t make(memory_arena_t* arena, u32 size)
+	string_t make(memory_arena_t* arena, uint32_t size)
 	{
 		return { ARENA_ALLOC_ARRAY_ZERO(arena, char, size), size };
 	}
 
 	string_t make(memory_arena_t* arena, const char* c_str)
 	{
-		u32 str_count = strlen(c_str);
+		uint32_t str_count = strlen(c_str);
 		string_t result = make(arena, str_count);
 		memcpy(result.buf, c_str, result.count);
 
@@ -28,7 +28,7 @@ namespace string
 		return result;
 	}
 
-	string_t make_view(const string_t& str, u32 start, u32 count)
+	string_t make_view(const string_t& str, uint32_t start, uint32_t count)
 	{
 		start = MIN(start, str.count);
 		if (count > start - str.count)
@@ -42,9 +42,9 @@ namespace string
 		return result;
 	}
 
-	u32 find_char(const string_t& str, char c)
+	uint32_t find_char(const string_t& str, char c)
 	{
-		for (u32 i = 0; i < str.count; ++i)
+		for (uint32_t i = 0; i < str.count; ++i)
 		{
 			if (str.buf[i] == c)
 				return i;
@@ -53,7 +53,7 @@ namespace string
 		return STRING_NPOS;
 	}
 
-	b8 compare(const string_t& first, const string_t& second)
+	bool compare(const string_t& first, const string_t& second)
 	{
 		if (first.count != second.count)
 			return false;
@@ -66,14 +66,14 @@ namespace string
 namespace wstring
 {
 
-	wstring_t make(memory_arena_t* arena, u32 size)
+	wstring_t make(memory_arena_t* arena, uint32_t size)
 	{
 		return { ARENA_ALLOC_ARRAY_ZERO(arena, wchar_t, size), size };
 	}
 
 	wstring_t make(memory_arena_t* arena, const wchar_t* c_str)
 	{
-		u32 str_count = wcslen(c_str);
+		uint32_t str_count = wcslen(c_str);
 		wstring_t result = make(arena, str_count);
 		memcpy(result.buf, c_str, result.count * sizeof(wchar_t));
 
@@ -89,7 +89,7 @@ namespace wstring
 		return result;
 	}
 
-	wstring_t make_view(const wstring_t& str, u32 start, u32 count)
+	wstring_t make_view(const wstring_t& str, uint32_t start, uint32_t count)
 	{
 		start = MIN(start, str.count);
 		if (count > start - str.count)

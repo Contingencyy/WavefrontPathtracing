@@ -23,9 +23,9 @@
 #define FATAL_ERROR(sender, msg, ...) fatal_error(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
 
 // Platform-specific implementation
-void fatal_error_impl(i32 line, const string_t& error_msg);
+void fatal_error_impl(int32_t line, const string_t& error_msg);
 
-inline void fatal_error(i32 line, const char* file, const char* sender, const char* message, ...)
+inline void fatal_error(int32_t line, const char* file, const char* sender, const char* message, ...)
 {
 	ARENA_SCRATCH_SCOPE()
 	{

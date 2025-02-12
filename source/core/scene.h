@@ -23,7 +23,7 @@ public:
 	void init();
 	void destroy();
 
-	void update(f32 DeltaTime);
+	void update(float DeltaTime);
 	void render();
 
 	void render_ui();
@@ -38,8 +38,8 @@ private:
 	camera_controller_t m_camera_controller;
 
 	// TODO: free-list for scene objects
-	u32 m_scene_object_count;
-	u32 m_scene_object_at;
+	uint32_t m_scene_object_count;
+	uint32_t m_scene_object_at;
 	scene_object_t* m_scene_objects;
 
 	texture_asset_t* m_hdr_env_texture_asset;

@@ -4,8 +4,6 @@
 	STANDARD LIBRARY INCLUDES
 */
 
-// ...
-
 /*
 	EXTERNAL INCLUDES
 */

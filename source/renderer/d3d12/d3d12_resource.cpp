@@ -6,17 +6,19 @@
 namespace d3d12
 {
 
-	static ID3D12Resource* create_resource_internal(const wchar_t* name, const D3D12_HEAP_PROPERTIES& heap_props, const D3D12_RESOURCE_DESC& resource_desc)
+	static ID3D12Resource* create_resource_internal(const wchar_t* name, const D3D12_HEAP_PROPERTIES& heap_props,
+		const D3D12_RESOURCE_DESC& resource_desc, D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON, const D3D12_CLEAR_VALUE* clear_value = nullptr)
 	{
+		// Buffers are always created in COMMON state in D3D12, state will only change when creating texture resources
 		ID3D12Resource* resource = nullptr;
 		DX_CHECK_HR(g_d3d->device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE,
-			&resource_desc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&resource)));
+			&resource_desc, state, clear_value, IID_PPV_ARGS(&resource)));
 
 		resource->SetName(name);
 		return resource;
 	}
 
-	ID3D12Resource* create_buffer(const wchar_t* name, u64 byte_size)
+	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size)
 	{
 		D3D12_HEAP_PROPERTIES heap_props = {};
 		heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -36,7 +38,7 @@ namespace d3d12
 		return create_resource_internal(name, heap_props, resource_desc);
 	}
 
-	ID3D12Resource* create_buffer_upload(const wchar_t* name, u64 byte_size)
+	ID3D12Resource* create_buffer_upload(const wchar_t* name, uint64_t byte_size)
 	{
 		D3D12_HEAP_PROPERTIES heap_props = {};
 		heap_props.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -56,13 +58,13 @@ namespace d3d12
 		return create_resource_internal(name, heap_props, resource_desc);
 	}
 
-	void create_buffer_cbv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, u64 byte_count, u64 byte_offset)
+	void create_buffer_cbv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
 	{
 		ASSERT(resource);
 
 #if D3D12_VALIDATE_RESOURCE_VIEWS
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
-		u64 byte_range_end = byte_offset + byte_count;
+		uint64_t byte_range_end = byte_offset + byte_count;
 		ASSERT(byte_range_end <= resource_desc.Width);
 #endif
 
@@ -73,13 +75,13 @@ namespace d3d12
 		g_d3d->device->CreateConstantBufferView(&cbv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, u64 byte_count, u64 byte_offset)
+	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
 	{
 		ASSERT(resource);
 
 #if D3D12_VALIDATE_RESOURCE_VIEWS
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
-		u64 byte_range_end = byte_offset + byte_count;
+		uint64_t byte_range_end = byte_offset + byte_count;
 		ASSERT(byte_range_end <= resource_desc.Width);
 #endif
 
@@ -96,13 +98,13 @@ namespace d3d12
 		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, u32 element_count, u32 element_stride, u32 element_offset)
+	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t element_count, uint32_t element_stride, uint32_t element_offset)
 	{
 		ASSERT(resource);
 
 #if D3D12_VALIDATE_RESOURCE_VIEWS
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
-		u64 byte_range_end = element_offset * element_stride + element_count * element_stride;
+		uint64_t byte_range_end = element_offset * element_stride + element_count * element_stride;
 		ASSERT(byte_range_end <= resource_desc.Width);
 #endif
 
@@ -120,13 +122,13 @@ namespace d3d12
 		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, u64 byte_count, u64 byte_offset)
+	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
 	{
 		ASSERT(resource);
 
 #if D3D12_VALIDATE_RESOURCE_VIEWS
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
-		u64 byte_range_end = byte_offset + byte_count;
+		uint64_t byte_range_end = byte_offset + byte_count;
 		ASSERT(byte_range_end <= resource_desc.Width);
 #endif
 
@@ -144,13 +146,13 @@ namespace d3d12
 		return g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, u32 element_count, u32 element_stride, u32 element_offset)
+	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t element_count, uint32_t element_stride, uint32_t element_offset)
 	{
 		ASSERT(resource);
 
 #if D3D12_VALIDATE_RESOURCE_VIEWS
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
-		u64 byte_range_end = element_offset * element_stride + element_count * element_stride;
+		uint64_t byte_range_end = element_offset * element_stride + element_count * element_stride;
 		ASSERT(byte_range_end <= resource_desc.Width);
 #endif
 
@@ -168,7 +170,8 @@ namespace d3d12
 		return g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	ID3D12Resource* create_texture_2d(const wchar_t* name, DXGI_FORMAT format, u32 width, u32 height, u32 mips, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clear_value, D3D12_RESOURCE_FLAGS flags)
+	ID3D12Resource* create_texture_2d(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mips,
+		D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clear_value)
 	{
 		D3D12_HEAP_PROPERTIES heap_props = {};
 		heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -181,14 +184,14 @@ namespace d3d12
 		resource_desc.Width = (uint64_t)width;
 		resource_desc.Height = height;
 		resource_desc.DepthOrArraySize = 1;
-		resource_desc.MipLevels = 1;
+		resource_desc.MipLevels = mips;
 		resource_desc.SampleDesc.Count = 1;
 		resource_desc.Flags = flags;
 
-		return create_resource_internal(name, heap_props, resource_desc);
+		return create_resource_internal(name, heap_props, resource_desc, state, clear_value);
 	}
 
-	void create_texture_2d_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, DXGI_FORMAT format, u32 mip_count, u32 mip_bias)
+	void create_texture_2d_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip_count, uint32_t mip_bias)
 	{
 		ASSERT(resource);
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
@@ -215,7 +218,7 @@ namespace d3d12
 		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_texture_2d_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, u32 mip)
+	void create_texture_2d_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t mip)
 	{
 		ASSERT(resource);
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
@@ -234,7 +237,7 @@ namespace d3d12
 		g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_texture_2d_rtv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, DXGI_FORMAT format, u32 mip)
+	void create_texture_2d_rtv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip)
 	{
 		ASSERT(resource);
 
@@ -253,7 +256,7 @@ namespace d3d12
 		g_d3d->device->CreateRenderTargetView(resource, &rtv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
 	}
 
-	void create_texture_2d_dsv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, u32 descriptor_offset, DXGI_FORMAT format, u32 mip)
+	void create_texture_2d_dsv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip)
 	{
 		ASSERT(resource);
 
@@ -271,6 +274,40 @@ namespace d3d12
 		dsv_desc.Flags = D3D12_DSV_FLAG_NONE;
 
 		g_d3d->device->CreateDepthStencilView(resource, &dsv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+	}
+
+	D3D12_RESOURCE_BARRIER barrier_transition(ID3D12Resource* resource, D3D12_RESOURCE_STATES state_before, D3D12_RESOURCE_STATES state_after, uint32_t subresource)
+	{
+		D3D12_RESOURCE_BARRIER barrier = {};
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Transition.pResource = resource;
+		barrier.Transition.StateBefore = state_before;
+		barrier.Transition.StateAfter = state_after;
+		barrier.Transition.Subresource = subresource;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+		return barrier;
+	}
+
+	D3D12_RESOURCE_BARRIER barrier_uav(ID3D12Resource* resource)
+	{
+		D3D12_RESOURCE_BARRIER barrier = {};
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+		barrier.UAV.pResource = resource;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+		return barrier;
+	}
+
+	D3D12_RESOURCE_BARRIER barrier_aliasing(ID3D12Resource* resource_before, ID3D12Resource* resource_after)
+	{
+		D3D12_RESOURCE_BARRIER barrier = {};
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+		barrier.Aliasing.pResourceBefore = resource_before;
+		barrier.Aliasing.pResourceAfter = resource_after;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+		return barrier;
 	}
 
 }

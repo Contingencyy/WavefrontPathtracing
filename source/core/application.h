@@ -4,8 +4,8 @@ struct memory_arena_t;
 
 struct command_line_args_t
 {
-	i32 window_width = 0;
-	i32 window_height = 0;
+	int32_t window_width = 0;
+	int32_t window_height = 0;
 };
 
 namespace application
@@ -15,6 +15,6 @@ namespace application
 	void exit();
 	void run();
 
-	b8 should_close();
+	bool should_close();
 
 }

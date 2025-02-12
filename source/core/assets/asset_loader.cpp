@@ -5,8 +5,8 @@
 
 namespace asset_loader
 {
-	static void* stbi_malloc(u64 Size);
-	static void* stbi_realloc(void* Ptr, u64 OldSize, u64 NewSize);
+	static void* stbi_malloc(uint64_t Size);
+	static void* stbi_realloc(void* Ptr, uint64_t OldSize, uint64_t NewSize);
 }
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -24,12 +24,12 @@ namespace asset_loader
 	// Make stb_image use my arena allocator
 	static memory_arena_t* s_stbi_memory_arena;
 
-	static void* stbi_malloc(u64 size)
+	static void* stbi_malloc(uint64_t size)
 	{
 		return ARENA_ALLOC_ZERO(s_stbi_memory_arena, size, 4);
 	}
 
-	static void* stbi_realloc(void* ptr, u64 old_size, u64 new_size)
+	static void* stbi_realloc(void* ptr, uint64_t old_size, uint64_t new_size)
 	{
 		void* ptr_new = ARENA_ALLOC_ZERO(s_stbi_memory_arena, new_size, 4);
 		memcpy(ptr_new, ptr, old_size);
@@ -43,8 +43,8 @@ namespace asset_loader
 
 		ARENA_MEMORY_SCOPE(arena)
 		{
-			i32 image_width, image_height, channel_count;
-			f32* ptr_image_data = stbi_loadf(filepath, &image_width, &image_height, &channel_count, STBI_rgb_alpha);
+			int32_t image_width, image_height, channel_count;
+			float* ptr_image_data = stbi_loadf(filepath, &image_width, &image_height, &channel_count, STBI_rgb_alpha);
 
 			if (!ptr_image_data)
 			{
@@ -56,7 +56,7 @@ namespace asset_loader
 			rtexture_params.height = image_height;
 			rtexture_params.bytes_per_channel = 4;
 			rtexture_params.channel_count = 4; // Forced to 4 by using STBI_rgb_alpha flag
-			rtexture_params.ptr_data = reinterpret_cast<u8*>(ptr_image_data);
+			rtexture_params.ptr_data = (uint8_t*)ptr_image_data;
 			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath).buf;
 
 			asset->render_texture_handle = renderer::create_render_texture(rtexture_params);
@@ -69,7 +69,7 @@ namespace asset_loader
 	static T* cgltf_get_data_ptr(const cgltf_accessor* accessor)
 	{
 		cgltf_buffer_view* buffer_view = accessor->buffer_view;
-		u8* ptr_base = (u8*)(buffer_view->buffer->data);
+		uint8_t* ptr_base = (uint8_t*)(buffer_view->buffer->data);
 		ptr_base += buffer_view->offset;
 		ptr_base += accessor->offset;
 
@@ -104,8 +104,8 @@ namespace asset_loader
 
 		cgltf_load_buffers(&options, ptr_data, filepath);
 
-		u32 mesh_count = 0;
-		for (u32 mesh_idx = 0; mesh_idx < ptr_data->meshes_count; ++mesh_idx)
+		uint32_t mesh_count = 0;
+		for (uint32_t mesh_idx = 0; mesh_idx < ptr_data->meshes_count; ++mesh_idx)
 		{
 			const cgltf_mesh& mesh_gltf = ptr_data->meshes[mesh_idx];
 			mesh_count += mesh_gltf.primitives_count;
@@ -117,35 +117,35 @@ namespace asset_loader
 		// Use a temporary memory scope here since cpupathtracer::create_mesh is blocking, so we can do the scope inside the loop
 		ARENA_MEMORY_SCOPE(arena)
 		{
-			for (u32 mesh_idx = 0; mesh_idx < ptr_data->meshes_count; ++mesh_idx)
+			for (uint32_t mesh_idx = 0; mesh_idx < ptr_data->meshes_count; ++mesh_idx)
 			{
 				const cgltf_mesh& mesh_gltf = ptr_data->meshes[mesh_idx];
 
-				for (u32 prim_idx = 0; prim_idx < mesh_gltf.primitives_count; ++prim_idx)
+				for (uint32_t prim_idx = 0; prim_idx < mesh_gltf.primitives_count; ++prim_idx)
 				{
 					const cgltf_primitive& prim_gltf = mesh_gltf.primitives[prim_idx];
 
-					u32 index_count = prim_gltf.indices->count;
-					u32 vertex_count = prim_gltf.attributes[0].data->count;
+					uint32_t index_count = prim_gltf.indices->count;
+					uint32_t vertex_count = prim_gltf.attributes[0].data->count;
 
-					u32* indices = ARENA_ALLOC_ARRAY(arena, u32, index_count);
+					uint32_t* indices = ARENA_ALLOC_ARRAY(arena, uint32_t, index_count);
 					vertex_t* vertices = ARENA_ALLOC_ARRAY(arena, vertex_t, vertex_count);
 
 					if (prim_gltf.indices->component_type == cgltf_component_type_r_32u)
 					{
-						memcpy(indices, cgltf_get_data_ptr<u32>(prim_gltf.indices), sizeof(u32) * prim_gltf.indices->count);
+						memcpy(indices, cgltf_get_data_ptr<uint32_t>(prim_gltf.indices), sizeof(uint32_t) * prim_gltf.indices->count);
 					}
 					else if (prim_gltf.indices->component_type == cgltf_component_type_r_16u)
 					{
-						u16* ptr_src = cgltf_get_data_ptr<u16>(prim_gltf.indices);
+						uint16_t* ptr_src = cgltf_get_data_ptr<uint16_t>(prim_gltf.indices);
 
-						for (u32 index = 0; index < prim_gltf.indices->count; ++index)
+						for (uint32_t index = 0; index < prim_gltf.indices->count; ++index)
 						{
 							indices[index] = ptr_src[index];
 						}
 					}
 
-					for (u32 attr_idx = 0; attr_idx < prim_gltf.attributes_count; ++attr_idx)
+					for (uint32_t attr_idx = 0; attr_idx < prim_gltf.attributes_count; ++attr_idx)
 					{
 						const cgltf_attribute& attr_gltf = prim_gltf.attributes[attr_idx];
 						ASSERT(attr_gltf.data->count == vertex_count);
@@ -156,7 +156,7 @@ namespace asset_loader
 						{
 							glm::vec3* ptr_src = cgltf_get_data_ptr<glm::vec3>(attr_gltf.data);
 
-							for (u32 vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
+							for (uint32_t vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
 							{
 								vertices[vert_idx].position = ptr_src[vert_idx];
 							}
@@ -165,7 +165,7 @@ namespace asset_loader
 						{
 							glm::vec3* ptr_src = cgltf_get_data_ptr<glm::vec3>(attr_gltf.data);
 
-							for (u32 vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
+							for (uint32_t vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
 							{
 								vertices[vert_idx].normal = ptr_src[vert_idx];
 							}

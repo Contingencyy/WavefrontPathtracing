@@ -16,9 +16,9 @@ struct bvh_instance_t;
 namespace renderer
 {
 
-	inline constexpr u32 TLAS_MAX_BVH_INSTANCES = 1024;
+	inline constexpr uint32_t TLAS_MAX_BVH_INSTANCES = 1024;
 
-	enum render_view_mode : u32
+	enum render_view_mode : uint32_t
 	{
 		none,
 
@@ -67,16 +67,16 @@ namespace renderer
 	{
 		memory_arena_t arena;
 
-		u32 render_width;
-		u32 render_height;
-		f32 inv_render_width;
-		f32 inv_render_height;
+		uint32_t render_width;
+		uint32_t render_height;
+		float inv_render_width;
+		float inv_render_height;
 
 		slotmap_t<render_texture_handle_t, render_texture_t> texture_slotmap;
 		slotmap_t<render_mesh_handle_t, render_mesh_t> mesh_slotmap;
 
-		u32 bvh_instances_count;
-		u32 bvh_instances_at;
+		uint32_t bvh_instances_count;
+		uint32_t bvh_instances_at;
 		bvh_instance_t* bvh_instances;
 		instance_data_t* instance_data;
 
@@ -91,7 +91,7 @@ namespace renderer
 		render_texture_t* scene_hdr_env_texture;
 
 		render_settings_shader_data_t settings;
-		u64 frame_index;
+		uint64_t frame_index;
 
 		ID3D12RootSignature* root_signature;
 		ID3D12PipelineState* pso_cs_pathtracer;
@@ -99,7 +99,7 @@ namespace renderer
 
 		ID3D12Resource* rt_color_accum;
 		d3d12::descriptor_allocation_t rt_color_accum_srv_uav;
-		u32 accum_count;
+		uint32_t accum_count;
 		ID3D12Resource* rt_final_color;
 		d3d12::descriptor_allocation_t rt_final_color_uav;
 

@@ -4,22 +4,22 @@
 namespace hash
 {
 
-	static inline u32 rotl32(u32 x, i8 r)
+	static inline uint32_t rotl32(uint32_t x, int8_t r)
 	{
 		return (x << r) | (x >> (32 - r));
 	}
 
-	static inline u32 fmix(u32 h)
+	static inline uint32_t fmix(uint32_t h)
 	{
 		h ^= h >> 16; h *= 0x85ebca6b;
 		h ^= h >> 13; h *= 0xc2b2ae35;
 		return h ^= h >> 16;
 	}
 
-	static u32 djb2(const void* in)
+	static uint32_t djb2(const void* in)
 	{
-		u8* data = (u8*)in;
-		u32 hash = 5381;
+		uint8_t* data = (uint8_t*)in;
+		uint32_t hash = 5381;
 		int c;
 
 		while (c = *data++)
@@ -30,17 +30,17 @@ namespace hash
 		return hash;
 	}
 
-	static u32 murmur2_32(const void* in, u32 len, u32 seed)
+	static uint32_t murmur2_32(const void* in, uint32_t len, uint32_t seed)
 	{
-		const u32 m = 0x5bd1e995;
+		const uint32_t m = 0x5bd1e995;
 		const int r = 24;
 
-		u8* data = (u8*)in;
-		u32 hash = seed ^ len;
+		uint8_t* data = (uint8_t*)in;
+		uint32_t hash = seed ^ len;
 
 		while (len >= 4)
 		{
-			u32 k = *(u32*)data;
+			uint32_t k = *(uint32_t*)data;
 
 			k *= m;
 			k ^= k >> r;
@@ -68,18 +68,18 @@ namespace hash
 		return hash;
 	}
 
-	static u32 murmur3_32(const void* in, u32 len, u32 seed)
+	static uint32_t murmur3_32(const void* in, uint32_t len, uint32_t seed)
 	{
-		const u8* tail = (const u8*)in + (len / 4) * 4;
-		u32 c1 = 0xcc9e2d51, c2 = 0x1b873593;
+		const uint8_t* tail = (const uint8_t*)in + (len / 4) * 4;
+		uint32_t c1 = 0xcc9e2d51, c2 = 0x1b873593;
 
-		for (u32* p = (u32*)in; p < (const u32*)tail; p++)
+		for (uint32_t* p = (uint32_t*)in; p < (const uint32_t*)tail; p++)
 		{
-			u32 k1 = *p; k1 *= c1; k1 = rotl32(k1, 15); k1 *= c2; // MUR1
+			uint32_t k1 = *p; k1 *= c1; k1 = rotl32(k1, 15); k1 *= c2; // MUR1
 			seed ^= k1; seed = rotl32(seed, 13); seed = seed * 5 + 0xe6546b64; // MUR2
 		}
 
-		u32 t = 0; // handle up to 3 tail bytes
+		uint32_t t = 0; // handle up to 3 tail bytes
 		switch (len & 3)
 		{
 		case 3: t ^= tail[2] << 16;

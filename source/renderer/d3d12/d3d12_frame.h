@@ -14,30 +14,30 @@ namespace d3d12
 
 		ID3D12Resource* backbuffer;
 		descriptor_allocation_t backbuffer_rtv;
-		u64 fence_value;
+		uint64_t fence_value;
 
 		ID3D12Resource* per_frame_resource;
 		linear_alloc_t per_frame_allocator;
-		u8* per_frame_ptr;
+		uint8_t* per_frame_ptr;
 	};
 
 	struct frame_alloc_t
 	{
 		ID3D12Resource* resource;
-		u64 byte_offset;
-		u64 byte_count;
+		uint64_t byte_offset;
+		uint64_t byte_count;
 
-		u8* ptr;
+		uint8_t* ptr;
 	};
 
 	namespace frame
 	{
 
-		void init(u64 resource_capacity, const DXGI_SWAP_CHAIN_DESC1& swapchain_desc);
+		void init(uint64_t resource_capacity, const DXGI_SWAP_CHAIN_DESC1& swapchain_desc);
 		void exit();
 
 		// Used to allocate frame dynamic resources, such as constant buffers
-		frame_alloc_t alloc_resource(u64 byte_size, u64 align = 0);
+		frame_alloc_t alloc_resource(uint64_t byte_size, uint64_t align = 0);
 		void reset();
 
 	}

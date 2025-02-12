@@ -5,16 +5,16 @@ template<typename TKey, typename TValue>
 class hashmap
 {
 public:
-	static constexpr u64 DEFAULT_CAPACITY = 1000;
+	static constexpr uint64_t DEFAULT_CAPACITY = 1000;
 	static constexpr TKey NODE_UNUSED = 0;
 
 public:
-	void init(memory_arena_t* arena, u64 capacity = DEFAULT_CAPACITY)
+	void init(memory_arena_t* arena, uint64_t capacity = DEFAULT_CAPACITY)
 	{
 		m_capacity = capacity;
 		m_nodes = ARENA_ALLOC_ARRAY_ZERO(arena, node_t, m_capacity);
 
-		for (u32 i = 0; i < m_capacity; ++i)
+		for (uint32_t i = 0; i < m_capacity; ++i)
 		{
 			m_nodes[i].key = NODE_UNUSED;
 		}
@@ -35,7 +35,7 @@ public:
 		temp_node.value = value;
 
 		// hash the key to find the corresponding index
-		u32 node_index = hash_node_index(key);
+		uint32_t node_index = hash_node_index(key);
 
 		// If the current node is already occupied, move on to the next one
 		// TODO: Implement buckets instead of moving on to the next slot
@@ -54,8 +54,8 @@ public:
 
 	void remove(TKey key)
 	{
-		u32 node_index = hash_node_index(key);
-		u32 counter = 0;
+		uint32_t node_index = hash_node_index(key);
+		uint32_t counter = 0;
 
 		// We need to loop here, if the object's hashed index was already occupied it was put further back
 		while (m_nodes[node_index].key != NODE_UNUSED || counter <= m_capacity)
@@ -85,8 +85,8 @@ public:
 	TValue* find(TKey key)
 	{
 		TValue* result = nullptr;
-		u32 node_index = hash_node_index(key);
-		u32 counter = 0;
+		uint32_t node_index = hash_node_index(key);
+		uint32_t counter = 0;
 
 		while (m_nodes[node_index].key != NODE_UNUSED || counter <= m_capacity)
 		{
@@ -106,7 +106,7 @@ public:
 
 	void reset()
 	{
-		for (u32 i = 0; i < m_capacity; ++i)
+		for (uint32_t i = 0; i < m_capacity; ++i)
 		{
 			if (m_nodes[i].key != NODE_UNUSED)
 			{
@@ -123,7 +123,7 @@ public:
 	}
 
 private:
-	u32 hash_node_index(TKey key)
+	uint32_t hash_node_index(TKey key)
 	{
 		return hash::djb2(&key) % m_capacity;
 	}
@@ -137,7 +137,7 @@ private:
 
 	node_t* m_nodes;
 
-	u64 m_size;
-	u64 m_capacity;
+	uint64_t m_size;
+	uint64_t m_capacity;
 
 };

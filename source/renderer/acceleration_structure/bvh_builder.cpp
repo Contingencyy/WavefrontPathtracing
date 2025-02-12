@@ -10,7 +10,7 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 
 	m_triangle_count = build_args.index_count / 3;
 	m_triangles = ARENA_ALLOC_ARRAY_ZERO(arena, bvh_triangle_t, m_triangle_count);
-	m_triangle_indices = ARENA_ALLOC_ARRAY_ZERO(arena, u32, m_triangle_count);
+	m_triangle_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, m_triangle_count);
 	m_triangle_centroids = ARENA_ALLOC_ARRAY_ZERO(arena, glm::vec3, m_triangle_count);
 
 	m_node_count = m_triangle_count * 2;
@@ -18,7 +18,7 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	m_node_at = 0;
 
 	// Make bvh triangles from vertices and indices
-	for (u32 tri_idx = 0, i = 0; tri_idx < m_triangle_count; ++tri_idx, i += 3)
+	for (uint32_t tri_idx = 0, i = 0; tri_idx < m_triangle_count; ++tri_idx, i += 3)
 	{
 		m_triangles[tri_idx].p0 = build_args.vertices[build_args.indices[i]].position;
 		m_triangles[tri_idx].p1 = build_args.vertices[build_args.indices[i + 1]].position;
@@ -26,7 +26,7 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	}
 
 	// Fill all triangle indices with their default value
-	for (u32 i = 0; i < m_triangle_count; ++i)
+	for (uint32_t i = 0; i < m_triangle_count; ++i)
 	{
 		m_triangle_indices[i] = i;
 	}
@@ -50,12 +50,12 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	subdivide_node(arena, root_node, node_centroid_min, node_centroid_max, 0);
 }
 
-void bvh_builder_t::extract(memory_arena_t* arena, bvh_t& out_bvh, u64& out_bvh_byte_size) const
+void bvh_builder_t::extract(memory_arena_t* arena, bvh_t& out_bvh, uint64_t& out_bvh_byte_size) const
 {
-	u32 header_size = sizeof(bvh_header_t);
-	u32 nodes_byte_size = sizeof(bvh_node_t) * m_node_at;
-	u32 triangles_byte_size = sizeof(bvh_triangle_t) * m_triangle_count;
-	u32 triangle_indices_byte_size = sizeof(u32) * m_triangle_count;
+	uint32_t header_size = sizeof(bvh_header_t);
+	uint32_t nodes_byte_size = sizeof(bvh_node_t) * m_node_at;
+	uint32_t triangles_byte_size = sizeof(bvh_triangle_t) * m_triangle_count;
+	uint32_t triangle_indices_byte_size = sizeof(uint32_t) * m_triangle_count;
 
 	out_bvh_byte_size = /*header_size + */nodes_byte_size + triangles_byte_size + triangle_indices_byte_size;
 	out_bvh.data = ARENA_ALLOC(arena, out_bvh_byte_size, alignof(bvh_t));
@@ -76,7 +76,7 @@ void bvh_builder_t::calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_
 	out_centroid_min = glm::vec3(FLT_MAX);
 	out_centroid_max = glm::vec3(-FLT_MAX);
 
-	for (u32 tri_idx = node.left_first; tri_idx < node.left_first + node.prim_count; ++tri_idx)
+	for (uint32_t tri_idx = node.left_first; tri_idx < node.left_first + node.prim_count; ++tri_idx)
 	{
 		const bvh_triangle_t& triangle = m_triangles[m_triangle_indices[tri_idx]];
 
@@ -93,16 +93,16 @@ void bvh_builder_t::calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_
 	}
 }
 
-f32 bvh_builder_t::calc_node_cost(const bvh_node_t& node) const
+float bvh_builder_t::calc_node_cost(const bvh_node_t& node) const
 {
 	return node.prim_count * as_util::get_aabb_volume(node.aabb_min, node.aabb_max);
 }
 
-void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, u32 depth)
+void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, uint32_t depth)
 {
-	u32 split_axis = 0;
-	u32 split_pos = 0.0f;
-	f32 split_cost = find_best_split_plane(arena, node, out_centroid_min, out_centroid_max, split_axis, split_pos);
+	uint32_t split_axis = 0;
+	uint32_t split_pos = 0.0f;
+	float split_cost = find_best_split_plane(arena, node, out_centroid_min, out_centroid_max, split_axis, split_pos);
 
 	// If subdivide_single_prim is enabled in the build options, we always reduce the bvh_t down to a single primitive per leaf-node
 	if (m_build_opts.subdivide_single_prim)
@@ -113,23 +113,23 @@ void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm:
 	// Otherwise we compare the cost of doing the split to the parent node cost, and terminate if a split is not worth it
 	else
 	{
-		f32 parent_node_cost = calc_node_cost(node);
+		float parent_node_cost = calc_node_cost(node);
 		if (split_cost >= parent_node_cost)
 			return;
 	}
 
 	// indices to the first and last triangle indices in this node
-	i32 i = node.left_first;
-	i32 j = i + node.prim_count - 1;
-	f32 bin_scale = m_build_opts.interval_count / (out_centroid_max[split_axis] - out_centroid_min[split_axis]);
+	int32_t i = node.left_first;
+	int32_t j = i + node.prim_count - 1;
+	float bin_scale = m_build_opts.interval_count / (out_centroid_max[split_axis] - out_centroid_min[split_axis]);
 
 	// This will sort the triangles along the axis and split position
 	while (i <= j)
 	{
 		const glm::vec3& tri_centroid = m_triangle_centroids[m_triangle_indices[i]];
 
-		i32 bin_idx = glm::min((i32)m_build_opts.interval_count - 1,
-			(i32)((tri_centroid[split_axis] - out_centroid_min[split_axis]) * bin_scale));
+		int32_t bin_idx = glm::min((int32_t)m_build_opts.interval_count - 1,
+			(int32_t)((tri_centroid[split_axis] - out_centroid_min[split_axis]) * bin_scale));
 
 		if (bin_idx < split_pos)
 			i++;
@@ -138,18 +138,18 @@ void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm:
 	}
 
 	// Determine how many nodes are on the left side of the split axis and position
-	u32 prim_count_left = i - node.left_first;
+	uint32_t prim_count_left = i - node.left_first;
 	// If there is no or all primitives on the left side, we can stop splitting entirely
 	if (prim_count_left == 0 || prim_count_left == node.prim_count)
 		return;
 
 	// Create two child nodes (left & right), and set their triangle start indices and count
-	u32 left_child_node_idx = m_node_at++;
+	uint32_t left_child_node_idx = m_node_at++;
 	bvh_node_t& left_child_node = m_nodes[left_child_node_idx];
 	left_child_node.left_first = node.left_first;
 	left_child_node.prim_count = prim_count_left;
 
-	u32 right_child_node_idx = m_node_at++;
+	uint32_t right_child_node_idx = m_node_at++;
 	bvh_node_t& right_child_node = m_nodes[right_child_node_idx];
 	right_child_node.left_first = i;
 	right_child_node.prim_count = node.prim_count - prim_count_left;
@@ -168,20 +168,20 @@ void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm:
 	subdivide_node(arena, right_child_node, out_centroid_min, out_centroid_max, depth + 1);
 }
 
-f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, u32& out_axis, u32& out_split_pos)
+float bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, uint32_t& out_axis, uint32_t& out_split_pos)
 {
-	f32 cheapest_split_cost = FLT_MAX;
+	float cheapest_split_cost = FLT_MAX;
 
-	for (u32 axis_idx = 0; axis_idx < 3; ++axis_idx)
+	for (uint32_t axis_idx = 0; axis_idx < 3; ++axis_idx)
 	{
-		f32 bounds_min = centroid_min[axis_idx], bounds_max = centroid_max[axis_idx];
+		float bounds_min = centroid_min[axis_idx], bounds_max = centroid_max[axis_idx];
 		if (bounds_min == bounds_max)
 			continue;
 
-		u32 bin_count = m_build_opts.interval_count;
+		uint32_t bin_count = m_build_opts.interval_count;
 		bvh_bin_t* bvh_bins = ARENA_ALLOC_ARRAY_ZERO(arena, bvh_bin_t, bin_count);
 
-		for (u32 i = 0; i < bin_count; ++i)
+		for (uint32_t i = 0; i < bin_count; ++i)
 		{
 			bvh_bin_t* bvh_bin = &bvh_bins[i];
 
@@ -189,16 +189,16 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 			bvh_bin->aabb_max = glm::vec3(-FLT_MAX);
 		}
 
-		f32 bin_scale = bin_count / (bounds_max - bounds_min);
+		float bin_scale = bin_count / (bounds_max - bounds_min);
 
 		// Grow the bins
-		for (u32 tri_idx = node.left_first; tri_idx < node.left_first + node.prim_count; ++tri_idx)
+		for (uint32_t tri_idx = node.left_first; tri_idx < node.left_first + node.prim_count; ++tri_idx)
 		{
 			const bvh_triangle_t& triangle = m_triangles[m_triangle_indices[tri_idx]];
 			const glm::vec3& tri_centroid = m_triangle_centroids[m_triangle_indices[tri_idx]];
 
-			i32 bin_idx = glm::min((i32)bin_count - 1,
-				(i32)((tri_centroid[axis_idx] - bounds_min) * bin_scale));
+			int32_t bin_idx = glm::min((int32_t)bin_count - 1,
+				(int32_t)((tri_centroid[axis_idx] - bounds_min) * bin_scale));
 
 			bvh_bin_t* bvh_bin = &bvh_bins[bin_idx];
 
@@ -209,15 +209,15 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 		}
 
 		// Get all necessary data for the planes between the bins
-		f32* left_area = ARENA_ALLOC_ARRAY_ZERO(arena, f32, bin_count - 1);
-		f32* right_area = ARENA_ALLOC_ARRAY_ZERO(arena, f32, bin_count - 1);
+		float* left_area = ARENA_ALLOC_ARRAY_ZERO(arena, float, bin_count - 1);
+		float* right_area = ARENA_ALLOC_ARRAY_ZERO(arena, float, bin_count - 1);
 
 		glm::vec3 left_aabb_min(FLT_MAX), left_aabb_max(-FLT_MAX);
 		glm::vec3 right_aabb_min(FLT_MAX), right_aabb_max(-FLT_MAX);
 
-		u32 left_sum = 0, right_sum = 0;
+		uint32_t left_sum = 0, right_sum = 0;
 
-		for (u32 bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx)
+		for (uint32_t bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx)
 		{
 			const bvh_bin_t* left_bin = &bvh_bins[bin_idx];
 
@@ -234,9 +234,9 @@ f32 bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node
 		// Evaluate SAH cost for each plane
 		bin_scale = (bounds_max - bounds_min) / bin_count;
 
-		for (u32 bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx)
+		for (uint32_t bin_idx = 0; bin_idx < bin_count - 1; ++bin_idx)
 		{
-			f32 plane_split_cost = left_area[bin_idx] + right_area[bin_idx];
+			float plane_split_cost = left_area[bin_idx] + right_area[bin_idx];
 
 			if (plane_split_cost < cheapest_split_cost)
 			{

@@ -7,7 +7,7 @@
 namespace virtual_memory
 {
 
-	void* reserve(u64 size)
+	void* reserve(uint64_t size)
 	{
 		void* reserved = VirtualAlloc(NULL, size, MEM_RESERVE, PAGE_NOACCESS);
 		ASSERT(reserved);
@@ -15,7 +15,7 @@ namespace virtual_memory
 		return reserved;
 	}
 
-	b8 commit(void* address, u64 size)
+	bool commit(void* address, uint64_t size)
 	{
 		void* committed = VirtualAlloc(address, size, MEM_COMMIT, PAGE_READWRITE);
 		ASSERT(committed);
@@ -23,15 +23,15 @@ namespace virtual_memory
 		return committed;
 	}
 
-	void decommit(void* address, u64 size)
+	void decommit(void* address, uint64_t size)
 	{
-		i32 status = VirtualFree(address, size, MEM_DECOMMIT);
+		int32_t status = VirtualFree(address, size, MEM_DECOMMIT);
 		ASSERT(status > 0);
 	}
 
 	void release(void* address)
 	{
-		i32 status = VirtualFree(address, 0, MEM_RELEASE);
+		int32_t status = VirtualFree(address, 0, MEM_RELEASE);
 		ASSERT(status > 0);
 	}
 

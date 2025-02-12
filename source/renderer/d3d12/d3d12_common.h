@@ -10,15 +10,15 @@ namespace d3d12
 {
 
 	// TODO: Make amount of swap chain back buffers part of renderer init
-	inline constexpr u32 SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
-	inline constexpr u32 UPLOAD_BUFFER_MAX_SUBMISSIONS = 32u;
-	inline constexpr u64 UPLOAD_BUFFER_CAPACITY = MB(64);
-	inline constexpr u64 FRAME_ALLOCATOR_CAPACITY = MB(16);
+	inline constexpr uint32_t SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
+	inline constexpr uint32_t UPLOAD_BUFFER_MAX_SUBMISSIONS = 32u;
+	inline constexpr uint64_t UPLOAD_BUFFER_CAPACITY = MB(64);
+	inline constexpr uint64_t FRAME_ALLOCATOR_CAPACITY = MB(16);
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Structs
 
-	struct d3d12_instance_t
+	struct instance_t
 	{
 		memory_arena_t* arena;
 
@@ -26,22 +26,22 @@ namespace d3d12
 		ID3D12Device8* device;
 		ID3D12CommandQueue* command_queue_direct;
 
-		b8 vsync;
+		bool vsync;
 
 		struct swapchain_t
 		{
 			IDXGISwapChain4* dxgi_swapchain;
-			u32 back_buffer_index;
-			b8 supports_tearing;
+			uint32_t back_buffer_index;
+			bool supports_tearing;
 
-			u32 output_width;
-			u32 output_height;
+			uint32_t output_width;
+			uint32_t output_height;
 		} swapchain;
 
 		struct sync_t
 		{
 			ID3D12Fence* fence;
-			u64 fence_value;
+			uint64_t fence_value;
 		} sync;
 
 		struct descriptor_heaps_t
@@ -51,14 +51,14 @@ namespace d3d12
 
 			struct handle_size_t
 			{
-				u32 rtv;
-				u32 cbv_srv_uav;
+				uint32_t rtv;
+				uint32_t cbv_srv_uav;
 			} handle_sizes;
 
 			struct heap_size_t
 			{
-				u32 rtv;
-				u32 cbv_srv_uav;
+				uint32_t rtv;
+				uint32_t cbv_srv_uav;
 			} heap_sizes;
 		} descriptor_heaps;
 
@@ -76,11 +76,11 @@ namespace d3d12
 
 			ID3D12CommandQueue* command_queue_copy;
 			ID3D12Fence* fence;
-			u64 fence_value;
+			uint64_t fence_value;
 
 			upload_alloc_t allocations[UPLOAD_BUFFER_MAX_SUBMISSIONS];
-			u32 alloc_head;
-			u32 alloc_tail;
+			uint32_t alloc_head;
+			uint32_t alloc_tail;
 
 			ring_buffer_t ring_buffer;
 			mutex_t mutex;
@@ -88,7 +88,7 @@ namespace d3d12
 
 		frame_context_t frame_ctx[SWAP_CHAIN_BACK_BUFFER_COUNT];
 	};
-	extern d3d12_instance_t* g_d3d;
+	extern instance_t* g_d3d;
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Functions
@@ -110,7 +110,7 @@ namespace d3d12
 		return nullptr;
 	}
 
-	inline u32 get_descriptor_handle_size_by_type(D3D12_DESCRIPTOR_HEAP_TYPE type)
+	inline uint32_t get_descriptor_handle_size_by_type(D3D12_DESCRIPTOR_HEAP_TYPE type)
 	{
 		switch (type)
 		{
@@ -122,7 +122,7 @@ namespace d3d12
 		return 0;
 	}
 
-	inline u32 get_descriptor_heap_size_by_type(D3D12_DESCRIPTOR_HEAP_TYPE type)
+	inline uint32_t get_descriptor_heap_size_by_type(D3D12_DESCRIPTOR_HEAP_TYPE type)
 	{
 		switch (type)
 		{
@@ -134,12 +134,12 @@ namespace d3d12
 		return 0;
 	}
 
-	inline D3D12_CPU_DESCRIPTOR_HANDLE get_descriptor_heap_cpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE type, u32 offset)
+	inline D3D12_CPU_DESCRIPTOR_HANDLE get_descriptor_heap_cpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t offset)
 	{
 		return D3D12_CPU_DESCRIPTOR_HANDLE(get_descriptor_heap_by_type(type)->GetCPUDescriptorHandleForHeapStart().ptr + offset * get_descriptor_handle_size_by_type(type));
 	}
 
-	inline D3D12_GPU_DESCRIPTOR_HANDLE get_descriptor_heap_gpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE type, u32 offset)
+	inline D3D12_GPU_DESCRIPTOR_HANDLE get_descriptor_heap_gpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t offset)
 	{
 		// Only CBV_SRV_UAV and SAMPLER descriptor heaps can be shader visible (accessed through descriptor tables)
 		if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV || type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER)

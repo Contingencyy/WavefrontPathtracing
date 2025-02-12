@@ -7,7 +7,7 @@
 namespace ring_buffer
 {
 
-	void init(ring_buffer_t& ring_buffer, u64 capacity)
+	void init(ring_buffer_t& ring_buffer, uint64_t capacity)
 	{
 		ASSERT_MSG(IS_POW2(capacity), "Ring buffer capacity must be a power of 2");
 
@@ -25,17 +25,17 @@ namespace ring_buffer
 		ring_buffer.tail = 0;
 	}
 
-	b8 alloc(ring_buffer_t& ring_buffer, u64 byte_count, u64 align, ring_buffer_alloc_t& out_alloc)
+	bool alloc(ring_buffer_t& ring_buffer, uint64_t byte_count, uint64_t align, ring_buffer_alloc_t& out_alloc)
 	{
 		align = MAX(align, 1);
 		// Caller needs to handle ring buffer allocations that might be smaller than requested
 		// Do this instead of potentially resizing the ring buffer
 		byte_count = MIN(byte_count, ring_buffer.capacity);
 
-		u64 aligned_head = ALIGN_UP_POW2(ring_buffer.head, align);
+		uint64_t aligned_head = ALIGN_UP_POW2(ring_buffer.head, align);
 
-		u64 alloc_begin = (aligned_head) & ring_buffer.mask;
-		u64 alloc_end = (aligned_head + byte_count - 1) & ring_buffer.mask;
+		uint64_t alloc_begin = (aligned_head) & ring_buffer.mask;
+		uint64_t alloc_end = (aligned_head + byte_count - 1) & ring_buffer.mask;
 
 		if (alloc_begin >= alloc_end)
 		{
@@ -52,8 +52,8 @@ namespace ring_buffer
 		ASSERT_MSG(alloc_begin < alloc_end, "Ring buffer allocation requires wrapping but failed");
 
 		// Determine how much space is available based on the aligned head and the ring buffer tail
-		u64 capacity_used = aligned_head - ring_buffer.tail;
-		u64 capacity_free = ring_buffer.capacity - capacity_used;
+		uint64_t capacity_used = aligned_head - ring_buffer.tail;
+		uint64_t capacity_free = ring_buffer.capacity - capacity_used;
 
 		if (capacity_free >= byte_count)
 		{

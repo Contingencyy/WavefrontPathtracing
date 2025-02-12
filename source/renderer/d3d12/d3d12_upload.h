@@ -10,7 +10,7 @@ namespace d3d12
 		ID3D12Resource* d3d_resource;
 		ID3D12CommandAllocator* d3d_command_allocator;
 		ID3D12GraphicsCommandList6* d3d_command_list;
-		u64 fence_value;
+		uint64_t fence_value;
 		void* ptr;
 
 		ring_buffer_alloc_t ring_buffer_alloc;
@@ -19,12 +19,12 @@ namespace d3d12
 	namespace upload
 	{
 
-		void init(u64 capacity);
+		void init(uint64_t capacity);
 		void exit();
 
 		// If the requested number of bytes is bigger than the upload buffer, the caller needs to handle uploading in multiple chunks instead
-		upload_alloc_t& begin(u64 byte_count, u64 align = 0);
-		u64 end(upload_alloc_t& alloc);
+		upload_alloc_t& begin(uint64_t byte_count, uint64_t align = 0);
+		uint64_t end(upload_alloc_t& alloc);
 		void flush();
 
 	}

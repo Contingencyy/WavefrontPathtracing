@@ -10,12 +10,12 @@
 #endif
 
 #if CPLUSPLUS
-#define int i32
-#define uint u32
+#define int int32_t
+#define uint uint32_t
 #define uint2 glm::uvec2
 #define uint3 glm::uvec3
 #define uint4 glm::uvec4
-#define float f32
+#define float float
 #define float2 glm::vec2
 #define float3 glm::vec3
 #define float4 glm::vec4

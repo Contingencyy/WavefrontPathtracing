@@ -3,8 +3,8 @@
 template<typename T>
 struct slotmap_slot_t
 {
-	u32 next_free;
-	u32 version;
+	uint32_t next_free;
+	uint32_t version;
 
 	T value;
 };
@@ -12,23 +12,23 @@ struct slotmap_slot_t
 template<typename THandle, typename TValue>
 struct slotmap_t
 {
-	u32 count;
+	uint32_t count;
 	slotmap_slot_t<TValue>* slots;
 };
 
 namespace slotmap
 {
 
-	inline constexpr u32 SLOTMAP_DEFAULT_CAPACITY = 1024u;
-	inline constexpr u32 SLOTMAP_INVALID_SLOT_INDEX = ~0u;
+	inline constexpr uint32_t SLOTMAP_DEFAULT_CAPACITY = 1024u;
+	inline constexpr uint32_t SLOTMAP_INVALID_SLOT_INDEX = ~0u;
 
 	template<typename THandle, typename TValue>
-	void init(slotmap_t<THandle, TValue>& slotmap, memory_arena_t* arena, u32 capacity = SLOTMAP_DEFAULT_CAPACITY)
+	void init(slotmap_t<THandle, TValue>& slotmap, memory_arena_t* arena, uint32_t capacity = SLOTMAP_DEFAULT_CAPACITY)
 	{
 		slotmap.count = capacity;
 		slotmap.slots = ARENA_ALLOC_ARRAY_ZERO(arena, slotmap_slot_t<TValue>, slotmap.count);
 
-		for (u32 i = 0; i < slotmap.count - 1; ++i)
+		for (uint32_t i = 0; i < slotmap.count - 1; ++i)
 		{
 			slotmap.slots[i].next_free = i + 1;
 			slotmap.slots[i].version = 0;
@@ -50,7 +50,7 @@ namespace slotmap
 
 		if (sentinel->next_free != SLOTMAP_INVALID_SLOT_INDEX)
 		{
-			u32 index = sentinel->next_free;
+			uint32_t index = sentinel->next_free;
 			slotmap_slot_t<TValue>* slot = &slotmap.slots[index];
 
 			sentinel->next_free = slot->next_free;
