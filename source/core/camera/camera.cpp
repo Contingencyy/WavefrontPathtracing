@@ -2,14 +2,26 @@
 #include "camera.h"
 #include "core/common.h"
 
-camera_t::camera_t()
-	: camera_t(glm::vec3(), glm::vec3(0.0f, 0.0f, 1.0f), 60.0f)
+namespace camera
 {
-}
 
-camera_t::camera_t(const glm::vec3& eye_pos, const glm::vec3& lookat_pos, float vfov_deg)
-	: vfov_deg(vfov_deg)
-{
-	view_mat = glm::lookAtLH(eye_pos, lookat_pos, DEFAULT_UP_VECTOR);
-	transform_mat = glm::inverse(view_mat);
+	void create(camera_t& camera, const glm::vec3& view_origin, const glm::vec3& target_pos, float vfov_deg)
+	{
+		camera.vfov_deg = vfov_deg;
+		camera.yaw = 0.0f;
+		camera.pitch = 0.0f;
+
+		camera.view_matrix = glm::lookAtLH(view_origin, target_pos, DEFAULT_UP_VECTOR);
+		camera.inv_view_matrix = glm::inverse(camera.view_matrix);
+	}
+
+	void destroy(camera_t& camera)
+	{
+		camera.vfov_deg = 0.0f;
+		camera.yaw = 0.0f;
+		camera.pitch = 0.0f;
+		camera.view_matrix = glm::identity<glm::mat4>();
+		camera.inv_view_matrix = glm::identity<glm::mat4>();
+	}
+
 }

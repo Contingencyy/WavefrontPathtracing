@@ -1,6 +1,6 @@
 #pragma once
-#include "core/common.h"
 #include "core/camera/camera_controller.h"
+#include "camera/camera.h"
 
 #include "renderer/renderer_fwd.h"
 #include "renderer/material.h"
@@ -15,34 +15,30 @@ struct scene_object_t
 	material_t material;
 };
 
-class scene_t
+struct scene_t
 {
-public:
-	/*static void CreateAndInit();
-	static void DestroyAndDeinit();*/
-	void init();
-	void destroy();
+	memory_arena_t arena;
+	
+	camera_controller_t camera_controller;
+	texture_asset_t* hdr_env;
+	scene_asset_t* dragon_mesh;
 
-	void update(float DeltaTime);
-	void render();
+	camera_t camera;
 
-	void render_ui();
+	uint32_t scene_object_count;
+	uint32_t scene_object_at;
+	scene_object_t* scene_objects;
+};
 
-private:
-	void create_scene_object(render_mesh_handle_t render_mesh_handle, const material_t& material,
-		const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale);
+namespace scene
+{
 
-private:
-	memory_arena_t m_arena;
+	void create(scene_t& scene);
+	void destroy(scene_t& scene);
 
-	camera_controller_t m_camera_controller;
+	void update(scene_t& scene, float dt);
+	void render(scene_t& scene);
 
-	// TODO: free-list for scene objects
-	uint32_t m_scene_object_count;
-	uint32_t m_scene_object_at;
-	scene_object_t* m_scene_objects;
-
-	texture_asset_t* m_hdr_env_texture_asset;
-	scene_asset_t* m_dragon_scene_asset;
+	void render_ui(scene_t& scene);
 
 };

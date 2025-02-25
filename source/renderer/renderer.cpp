@@ -53,7 +53,10 @@ namespace renderer
 		slotmap::init(g_renderer->mesh_slotmap, &g_renderer->arena);
 
 		// The d3d12 backend use the same arena as the front-end renderer since the renderer initializes the backend and they have the same lifetimes
-		d3d12::init(&g_renderer->arena);
+		d3d12::backend_init_params backend_params = {};
+		backend_params.arena = &g_renderer->arena;
+		backend_params.back_buffer_count = 2u;
+		d3d12::init(backend_params);
 
 		g_renderer->bvh_instances_count = TLAS_MAX_BVH_INSTANCES;
 		g_renderer->bvh_instances_at = 0;
@@ -128,20 +131,20 @@ namespace renderer
 		g_renderer->rt_color_accum = d3d12::create_texture_2d(L"Color Accumulator RT", DXGI_FORMAT_R16G16B16A16_FLOAT,
 			g_renderer->render_width, g_renderer->render_height, 1,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
-		g_renderer->rt_color_accum_srv_uav = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+		g_renderer->rt_color_accum_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
 		d3d12::create_texture_2d_srv(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		d3d12::create_texture_2d_uav(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 1);
 
 		g_renderer->rt_final_color = d3d12::create_texture_2d(L"Final Color RT", DXGI_FORMAT_R8G8B8A8_UNORM,
 			g_renderer->render_width, g_renderer->render_height, 1,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
-		g_renderer->rt_final_color_uav = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+		g_renderer->rt_final_color_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
 		d3d12::create_texture_2d_uav(g_renderer->rt_final_color, g_renderer->rt_final_color_uav, 0);
 
 		// Create instance buffer
 		g_renderer->instance_data = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, instance_data_t, g_renderer->bvh_instances_count);
 		g_renderer->instance_buffer = d3d12::create_buffer(L"Instance Buffer", sizeof(instance_data_t) * TLAS_MAX_BVH_INSTANCES);
-		g_renderer->instance_buffer_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		g_renderer->instance_buffer_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		d3d12::create_buffer_srv(g_renderer->instance_buffer, g_renderer->instance_buffer_srv, 0, sizeof(instance_data_t) * TLAS_MAX_BVH_INSTANCES);
 	}
 
@@ -152,7 +155,7 @@ namespace renderer
 
 		// Wait for all potential in-flight frames to finish operations on the GPU
 		d3d12::wait_on_fence(d3d12::g_d3d->sync.fence, d3d12::g_d3d->sync.fence_value);
-		d3d12::upload::flush();
+		d3d12::flush_uploads();
 
 		DX_RELEASE_OBJECT(g_renderer->rt_color_accum);
 		DX_RELEASE_OBJECT(g_renderer->rt_final_color);
@@ -168,7 +171,7 @@ namespace renderer
 	{
 		d3d12::begin_frame();
 
-		g_renderer->cb_render_settings = d3d12::frame::alloc_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 		render_settings_shader_data_t* ptr_settings = (render_settings_shader_data_t*)g_renderer->cb_render_settings.ptr;
 		*ptr_settings = g_renderer->settings;
 	}
@@ -186,7 +189,7 @@ namespace renderer
 
 	void begin_scene(const camera_t& scene_camera, render_texture_handle_t env_render_texture_handle)
 	{
-		if (g_renderer->scene_camera.view_mat != scene_camera.view_mat)
+		if (g_renderer->scene_camera.view_matrix != scene_camera.view_matrix)
 		{
 			reset_color_accumulator();
 		}
@@ -196,14 +199,14 @@ namespace renderer
 		ASSERT(g_renderer->scene_hdr_env_texture);
 
 		// Set new camera data for the view constant buffer
-		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(scene_camera.vfov_deg),
+		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(g_renderer->scene_camera.vfov_deg),
 			(float)g_renderer->render_width, (float)g_renderer->render_height, 0.001f, 10000.0f);
 		
-		g_renderer->cb_view = d3d12::frame::alloc_resource(sizeof(view_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		g_renderer->cb_view = d3d12::allocate_frame_resource(sizeof(view_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 		view_shader_data_t* view_cb = (view_shader_data_t*)g_renderer->cb_view.ptr;
 
-		view_cb->world_to_view = scene_camera.view_mat;
-		view_cb->view_to_world = glm::inverse(scene_camera.view_mat);
+		view_cb->world_to_view = g_renderer->scene_camera.view_matrix;
+		view_cb->view_to_world = glm::inverse(g_renderer->scene_camera.view_matrix);
 		view_cb->view_to_clip = proj_mat;
 		view_cb->clip_to_view = glm::inverse(proj_mat);
 		view_cb->render_dim.x = (float)g_renderer->render_width;
@@ -227,7 +230,7 @@ namespace renderer
 
 				// Upload TLAS to the GPU
 				// Copy TLAS data from CPU to upload buffer allocation
-				d3d12::frame_alloc_t upload = d3d12::frame::alloc_resource(sizeof(tlas_header_t) + tlas_byte_size);
+				d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(sizeof(tlas_header_t) + tlas_byte_size);
 
 				memcpy(upload.ptr, &g_renderer->scene_tlas.header, sizeof(tlas_header_t));
 				memcpy(PTR_OFFSET(upload.ptr, sizeof(tlas_header_t)), g_renderer->scene_tlas.data, tlas_byte_size);
@@ -240,9 +243,9 @@ namespace renderer
 					g_renderer->scene_tlas_resource = d3d12::create_buffer(L"Scene TLAS Buffer", sizeof(bvh_header_t) + tlas_byte_size);
 
 					// Allocate SRV for the scene TLAS, if there is none yet
-					if (!d3d12::descriptor::is_valid(g_renderer->scene_tlas_srv))
+					if (!d3d12::is_valid_descriptor(g_renderer->scene_tlas_srv))
 					{
-						g_renderer->scene_tlas_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+						g_renderer->scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 					}
 					// Update the scene TLAS descriptor
 					d3d12::create_buffer_srv(g_renderer->scene_tlas_resource, g_renderer->scene_tlas_srv, 0, sizeof(bvh_header_t) + tlas_byte_size);
@@ -256,7 +259,7 @@ namespace renderer
 			{
 				// Upload instance buffer data
 				uint64_t byte_size = sizeof(instance_data_t) * g_renderer->bvh_instances_at;
-				d3d12::frame_alloc_t upload = d3d12::frame::alloc_resource(byte_size);
+				d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(byte_size);
 
 				// CPU to upload heap copy
 				memcpy(upload.ptr, g_renderer->instance_data, byte_size);
@@ -305,7 +308,7 @@ namespace renderer
 			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer);
 
 			// Bind shader input constant buffer
-			struct pathtracer_shader_input_t
+			struct shader_input_t
 			{
 				uint32_t scene_tlas_index;
 				uint32_t hdr_env_index;
@@ -315,14 +318,14 @@ namespace renderer
 				uint32_t random_seed;
 			};
 
-			d3d12::frame_alloc_t cb_shader = d3d12::frame::alloc_resource(sizeof(pathtracer_shader_input_t), 256);
-			pathtracer_shader_input_t* shader_input = (pathtracer_shader_input_t*)cb_shader.ptr;
+			d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+			shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 
 			shader_input->scene_tlas_index = g_renderer->scene_tlas_srv.offset;
 			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
 			shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
 			shader_input->rt_index = g_renderer->rt_color_accum_srv_uav.offset + 1;
-			shader_input->random_seed = random::rand_uint32_t();
+			shader_input->random_seed = random::rand_uint32();
 			shader_input->sample_count = g_renderer->accum_count;
 			
 			frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -341,14 +344,14 @@ namespace renderer
 			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
 
 			// Bind shader input constant buffer
-			struct post_process_shader_input_t
+			struct shader_input_t
 			{
 				uint32_t color_index;
 				uint32_t rt_index;
 			};
 
-			d3d12::frame_alloc_t shader_cb = d3d12::frame::alloc_resource(sizeof(post_process_shader_input_t), 256);
-			post_process_shader_input_t* shader_input = (post_process_shader_input_t*)shader_cb.ptr;
+			d3d12::frame_resource_t shader_cb = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+			shader_input_t* shader_input = (shader_input_t*)shader_cb.ptr;
 			shader_input->color_index = g_renderer->rt_color_accum_srv_uav.offset;
 			shader_input->rt_index = g_renderer->rt_final_color_uav.offset;
 
@@ -460,7 +463,7 @@ namespace renderer
 		{
 			// Allocate a chunk of CPU writable memory from the upload ring buffer, with a minimum required size of the destination row pitch
 			uint64_t required_bytes = MAX(rows_to_copy * dst_footprint.RowPitch, dst_footprint.RowPitch);
-			d3d12::upload_alloc_t& upload = d3d12::upload::begin(required_bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+			d3d12::upload_alloc_t& upload = d3d12::begin_upload(required_bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 
 			// Determine how many rows we can copy over with the upload allocation we got back, it might have returned less memory
 			uint32_t row_count_upload = upload.ring_buffer_alloc.byte_size / dst_footprint.RowPitch;
@@ -491,7 +494,7 @@ namespace renderer
 			src_loc.PlacedFootprint = src_footprint;
 
 			upload.d3d_command_list->CopyTextureRegion(&dst_loc, 0, row_curr, 0, &src_loc, nullptr);
-			d3d12::upload::end(upload);
+			d3d12::end_upload(upload);
 
 			// Update rows that are left to upload
 			rows_to_copy -= row_count_upload;
@@ -500,7 +503,7 @@ namespace renderer
 
 		render_texture_t render_texture = {};
 		render_texture.texture_buffer = d3d_resource;
-		render_texture.texture_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		render_texture.texture_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		d3d12::create_texture_2d_srv(render_texture.texture_buffer, render_texture.texture_srv, 0, DXGI_FORMAT_R32G32B32A32_FLOAT);
 
 		render_texture_handle_t handle = slotmap::add(g_renderer->texture_slotmap, render_texture);
@@ -563,14 +566,14 @@ namespace renderer
 			mesh.bvh_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh BVH Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
 
 			// Allocate and initialize bvh buffer descriptor
-			mesh.bvh_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			mesh.bvh_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			d3d12::create_buffer_srv(mesh.bvh_buffer, mesh.bvh_srv, 0, buffer_byte_size);
 
 			// Do actual data upload
 			while (upload_byte_count > 0)
 			{
 				// CPU to upload copy
-				d3d12::upload_alloc_t& upload = d3d12::upload::begin(upload_byte_count);
+				d3d12::upload_alloc_t& upload = d3d12::begin_upload(upload_byte_count);
 
 				if (upload_header)
 				{
@@ -588,7 +591,7 @@ namespace renderer
 				upload.d3d_command_list->CopyBufferRegion(mesh.bvh_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
 
 				// Submit upload
-				d3d12::upload::end(upload);
+				d3d12::end_upload(upload);
 
 				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
 				upload_offset += upload.ring_buffer_alloc.byte_size;
@@ -603,21 +606,21 @@ namespace renderer
 			mesh.triangle_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh Triangle Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
 
 			// Allocate and initialize triangle buffer descriptor
-			mesh.triangle_srv = d3d12::descriptor::alloc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			mesh.triangle_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			d3d12::create_buffer_srv(mesh.triangle_buffer, mesh.triangle_srv, 0, buffer_byte_size);
 
 			// Do actual data upload
 			while (upload_byte_count > 0)
 			{
 				// CPU to upload copy
-				d3d12::upload_alloc_t& upload = d3d12::upload::begin(upload_byte_count);
+				d3d12::upload_alloc_t& upload = d3d12::begin_upload(upload_byte_count);
 				memcpy(upload.ptr, PTR_OFFSET(mesh_triangles, upload_offset), upload.ring_buffer_alloc.byte_size);
 
 				// Copy current chunk from upload to final GPU buffer
 				upload.d3d_command_list->CopyBufferRegion(mesh.triangle_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
 
 				// Submit upload
-				d3d12::upload::end(upload);
+				d3d12::end_upload(upload);
 
 				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
 				upload_offset += upload.ring_buffer_alloc.byte_size;

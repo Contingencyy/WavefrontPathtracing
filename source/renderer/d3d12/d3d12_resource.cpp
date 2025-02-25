@@ -72,7 +72,7 @@ namespace d3d12
 		cbv_desc.BufferLocation = resource->GetGPUVirtualAddress() + byte_offset;
 		cbv_desc.SizeInBytes = byte_count;
 
-		g_d3d->device->CreateConstantBufferView(&cbv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateConstantBufferView(&cbv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
@@ -95,7 +95,7 @@ namespace d3d12
 		srv_desc.Buffer.FirstElement = byte_offset;
 		srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 
-		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t element_count, uint32_t element_stride, uint32_t element_offset)
@@ -119,7 +119,7 @@ namespace d3d12
 		srv_desc.Buffer.StructureByteStride = element_stride;
 		srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
-		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
@@ -143,7 +143,7 @@ namespace d3d12
 		uav_desc.Buffer.CounterOffsetInBytes = 0;
 		uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
 
-		return g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		return g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t element_count, uint32_t element_stride, uint32_t element_offset)
@@ -167,7 +167,7 @@ namespace d3d12
 		uav_desc.Buffer.CounterOffsetInBytes = 0;
 		uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
-		return g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		return g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	ID3D12Resource* create_texture_2d(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mips,
@@ -215,7 +215,7 @@ namespace d3d12
 		srv_desc.Texture2D.PlaneSlice = 0;
 		srv_desc.Texture2D.ResourceMinLODClamp = 0;
 
-		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_texture_2d_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t mip)
@@ -234,7 +234,7 @@ namespace d3d12
 		uav_desc.Texture2D.MipSlice = mip;
 		uav_desc.Texture2D.PlaneSlice = 0;
 
-		g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateUnorderedAccessView(resource, nullptr, &uav_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_texture_2d_rtv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip)
@@ -253,7 +253,7 @@ namespace d3d12
 		rtv_desc.Texture2D.MipSlice = mip;
 		rtv_desc.Texture2D.PlaneSlice = 0;
 
-		g_d3d->device->CreateRenderTargetView(resource, &rtv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateRenderTargetView(resource, &rtv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_texture_2d_dsv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip)
@@ -273,7 +273,7 @@ namespace d3d12
 		// TODO: Determine only depth or only stencil based on format
 		dsv_desc.Flags = D3D12_DSV_FLAG_NONE;
 
-		g_d3d->device->CreateDepthStencilView(resource, &dsv_desc, descriptor::get_cpu_handle(descriptor, descriptor_offset));
+		g_d3d->device->CreateDepthStencilView(resource, &dsv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	D3D12_RESOURCE_BARRIER barrier_transition(ID3D12Resource* resource, D3D12_RESOURCE_STATES state_before, D3D12_RESOURCE_STATES state_after, uint32_t subresource)

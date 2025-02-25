@@ -14,21 +14,21 @@
 #include "imgui/imgui_impl_dx12.h"
 
 // Specify the D3D12 agility SDK version and path
-// This will help the D3D12.dll loader pick the right D3D12Core.dll (either the system g_d3dalled or provided agility)
+// This will help the D3D12.dll loader pick the right D3D12Core.dll (either the system d3d12core.dll or provided agility dll)
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 715; }
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
 
 namespace d3d12
 {
 
-	instance_t* g_d3d = nullptr;
+	d3d12_instance_t* g_d3d = nullptr;
 
-	void init(memory_arena_t* arena)
+	void init(const backend_init_params& init_params)
 	{
 		LOG_INFO("D3D12", "Init");
 
-		g_d3d = ARENA_ALLOC_STRUCT_ZERO(arena, instance_t);
-		g_d3d->arena = arena;
+		g_d3d = ARENA_ALLOC_STRUCT_ZERO(init_params.arena, d3d12_instance_t);
+		g_d3d->arena = init_params.arena;
 
 		// Enable debug layer
 #ifdef _DEBUG
@@ -108,6 +108,7 @@ namespace d3d12
 
 		g_d3d->swapchain.output_width = window_rect.right - window_rect.left;
 		g_d3d->swapchain.output_height = window_rect.bottom - window_rect.top;
+		g_d3d->swapchain.back_buffer_count = init_params.back_buffer_count;
 
 		DXGI_SWAP_CHAIN_DESC1 swapchain_desc = {};
 		swapchain_desc.Width = g_d3d->swapchain.output_width;
@@ -116,7 +117,7 @@ namespace d3d12
 		swapchain_desc.Stereo = FALSE;
 		swapchain_desc.SampleDesc = { 1, 0 };
 		swapchain_desc.BufferUsage = DXGI_USAGE_BACK_BUFFER;
-		swapchain_desc.BufferCount = SWAP_CHAIN_BACK_BUFFER_COUNT;
+		swapchain_desc.BufferCount = g_d3d->swapchain.back_buffer_count;
 		swapchain_desc.Scaling = DXGI_SCALING_STRETCH;
 		swapchain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 		swapchain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
@@ -128,29 +129,19 @@ namespace d3d12
 		DX_CHECK_HR(dxgi_factory7->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
 		g_d3d->swapchain.back_buffer_index = g_d3d->swapchain.dxgi_swapchain->GetCurrentBackBufferIndex();
 
-		// Create command allocators and command lists
-		ARENA_SCRATCH_SCOPE()
-		{
-			for (uint32_t i = 0; i < SWAP_CHAIN_BACK_BUFFER_COUNT; ++i)
-			{
-				g_d3d->frame_ctx[i].command_allocator = create_command_allocator(ARENA_WPRINTF(arena_scratch, L"Frame Command Allocator %u", i).buf, D3D12_COMMAND_LIST_TYPE_DIRECT);
-				g_d3d->frame_ctx[i].command_list = create_command_list(ARENA_WPRINTF(arena_scratch, L"Frame Command List %u", i).buf, g_d3d->frame_ctx[i].command_allocator, D3D12_COMMAND_LIST_TYPE_DIRECT);
-			}
-		}
-
 		// Create fence and fence event
 		g_d3d->sync.fence = create_fence(L"Frame Fence");
 
 		// Initialize descriptor heaps, descriptor allocation
-		g_d3d->descriptor_heaps.heap_sizes.rtv = SWAP_CHAIN_BACK_BUFFER_COUNT;
+		g_d3d->descriptor_heaps.heap_sizes.rtv = g_d3d->swapchain.back_buffer_count;
 		g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav = 1024;
-		descriptor::init();
+		init_descriptors();
 
 		// Initialize upload ring buffer
-		upload::init(UPLOAD_BUFFER_CAPACITY);
+		init_upload_context(UPLOAD_BUFFER_DEFAULT_CAPACITY);
 
 		// Initialize per-frame contexts
-		frame::init(FRAME_ALLOCATOR_CAPACITY, swapchain_desc);
+		init_frame_contexts(FRAME_ALLOCATOR_DEFAULT_CAPACITY, swapchain_desc);
 
 		// Initialize DXC
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&g_d3d->shader_compiler.dx_compiler));
@@ -172,7 +163,7 @@ namespace d3d12
 		D3D12_GPU_DESCRIPTOR_HANDLE imgui_gpu_desc_handle = get_descriptor_heap_gpu_handle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, imgui_desc_handle_offset);
 
 		ImGui_ImplWin32_Init(hwnd);
-		ImGui_ImplDX12_Init(g_d3d->device, SWAP_CHAIN_BACK_BUFFER_COUNT, swapchain_desc.Format,
+		ImGui_ImplDX12_Init(g_d3d->device, g_d3d->swapchain.back_buffer_count, swapchain_desc.Format,
 			g_d3d->descriptor_heaps.cbv_srv_uav, imgui_cpu_desc_handle, imgui_gpu_desc_handle);
 	}
 
@@ -180,9 +171,9 @@ namespace d3d12
 	{
 		LOG_INFO("D3D12", "Exit");
 
-		frame::exit();
-		upload::exit();
-		descriptor::exit();
+		destroy_frame_contexts();
+		destroy_upload_context();
+		exit_descriptors();
 
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
@@ -195,7 +186,7 @@ namespace d3d12
 
 		// Wait for in-flight frame for the current back buffer
 		wait_on_fence(g_d3d->sync.fence, frame_ctx.fence_value);
-		frame::reset();
+		reset_frame_context();
 
 		ImGui_ImplWin32_NewFrame();
 		ImGui_ImplDX12_NewFrame();

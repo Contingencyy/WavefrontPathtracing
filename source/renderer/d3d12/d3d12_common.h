@@ -9,16 +9,10 @@ struct memory_arena_t;
 namespace d3d12
 {
 
-	// TODO: Make amount of swap chain back buffers part of renderer init
-	inline constexpr uint32_t SWAP_CHAIN_BACK_BUFFER_COUNT = 2u;
-	inline constexpr uint32_t UPLOAD_BUFFER_MAX_SUBMISSIONS = 32u;
-	inline constexpr uint64_t UPLOAD_BUFFER_CAPACITY = MB(64);
-	inline constexpr uint64_t FRAME_ALLOCATOR_CAPACITY = MB(16);
-
 	// -----------------------------------------------------------------------------------------
 	// ---------- Structs
 
-	struct instance_t
+	struct d3d12_instance_t
 	{
 		memory_arena_t* arena;
 
@@ -32,6 +26,7 @@ namespace d3d12
 		{
 			IDXGISwapChain4* dxgi_swapchain;
 			uint32_t back_buffer_index;
+			uint32_t back_buffer_count;
 			bool supports_tearing;
 
 			uint32_t output_width;
@@ -69,26 +64,10 @@ namespace d3d12
 			IDxcIncludeHandler* dxc_include_handler;
 		} shader_compiler;
 
-		struct upload_t
-		{
-			ID3D12Resource* buffer;
-			void* buffer_ptr;
-
-			ID3D12CommandQueue* command_queue_copy;
-			ID3D12Fence* fence;
-			uint64_t fence_value;
-
-			upload_alloc_t allocations[UPLOAD_BUFFER_MAX_SUBMISSIONS];
-			uint32_t alloc_head;
-			uint32_t alloc_tail;
-
-			ring_buffer_t ring_buffer;
-			mutex_t mutex;
-		} upload;
-
-		frame_context_t frame_ctx[SWAP_CHAIN_BACK_BUFFER_COUNT];
+		upload_context_t upload_ctx;
+		frame_context_t* frame_ctx;
 	};
-	extern instance_t* g_d3d;
+	extern d3d12_instance_t* g_d3d;
 
 	// -----------------------------------------------------------------------------------------
 	// ---------- Functions

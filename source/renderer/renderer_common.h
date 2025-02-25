@@ -103,8 +103,8 @@ namespace renderer
 		ID3D12Resource* rt_final_color;
 		d3d12::descriptor_allocation_t rt_final_color_uav;
 
-		d3d12::frame_alloc_t cb_render_settings;
-		d3d12::frame_alloc_t cb_view;
+		d3d12::frame_resource_t cb_render_settings;
+		d3d12::frame_resource_t cb_view;
 	};
 	extern renderer_inst_t* g_renderer;
 

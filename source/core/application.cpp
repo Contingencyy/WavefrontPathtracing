@@ -53,7 +53,7 @@ namespace application
 
 	static void update()
 	{
-		inst->active_scene->update(inst->delta_time.count());
+		scene::update(*inst->active_scene, inst->delta_time.count());
 	}
 
 	static void render_ui()
@@ -68,15 +68,17 @@ namespace application
 
 		ImGui::End();
 
-		inst->active_scene->render_ui();
+		scene::render_ui(*inst->active_scene);
 		renderer::render_ui();
 	}
 
 	static void render()
 	{
 		renderer::begin_frame();
-		inst->active_scene->render();
+		scene::render(*inst->active_scene);
+
 		render_ui();
+
 		renderer::end_frame();
 	}
 
@@ -95,7 +97,7 @@ namespace application
 		renderer::init(client_width, client_height);
 
 		inst->active_scene = ARENA_ALLOC_STRUCT_ZERO(&inst->arena, scene_t);
-		inst->active_scene->init();
+		scene::create(*inst->active_scene);
 
 		inst->running = true;
 	}
@@ -105,8 +107,9 @@ namespace application
 		LOG_INFO("Application", "Exit");
 
 		renderer::exit();
+		scene::destroy(*inst->active_scene);
+		inst->active_scene = nullptr;
 
-		inst->active_scene->destroy();
 		ARENA_RELEASE(&inst->arena);
 	}
 
