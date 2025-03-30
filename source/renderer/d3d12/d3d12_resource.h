@@ -11,12 +11,20 @@ namespace d3d12
 
 	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size);
 	ID3D12Resource* create_buffer_upload(const wchar_t* name, uint64_t byte_size);
+	void create_buffer_blas(const wchar_t* name, ID3D12GraphicsCommandList10* command_list,
+		ID3D12Resource* triangle_resource, uint64_t triangle_count, uint32_t triangle_stride,
+		ID3D12Resource** out_blas_scratch, ID3D12Resource** out_blas);
+	void create_buffer_tlas(const wchar_t* name, ID3D12GraphicsCommandList10* command_list,
+		ID3D12Resource* instance_resource, uint32_t instance_count,
+		ID3D12Resource** out_tlas_scratch, ID3D12Resource** out_tlas);
 
 	void create_buffer_cbv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset = 0);
 	// Used for creating a ByteAddressBuffer view
 	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset = 0);
 	// Used for creating a StructuredBuffer view
 	void create_buffer_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t element_count, uint32_t element_stride, uint32_t element_offset = 0);
+	// Used for creating a RaytracingAccelerationStructure view
+	void create_as_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset);
 	// Used for creating a RWByteAddressBuffer view
 	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset = 0);
 	// Used for creating a RWStructuredBuffer view

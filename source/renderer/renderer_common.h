@@ -16,23 +16,28 @@ struct bvh_instance_t;
 namespace renderer
 {
 
-	inline constexpr uint32_t TLAS_MAX_BVH_INSTANCES = 1024;
+	inline constexpr uint32_t MAX_INSTANCES = 1024;
 
 	enum render_view_mode : uint32_t
 	{
 		none,
 
-		hit_albedo,
-		hit_normal,
-		hit_barycentrics,
-		hit_spec_refract,
-		hit_absorption,
-		hit_emissive,
+		geometry_instance,
+		geometry_primitive,
+		geometry_barycentrics,
+		geometry_normal,
 
-		depth,
-		ray_recursion_depth,
-		russian_roulette_kill_depth,
-		acceleration_struct_depth,
+		material_albedo,
+		material_normal,
+		material_spec_refract,
+		material_absorption,
+		material_emissive,
+
+		world_normal,
+		world_tangent,
+		world_bitangent,
+
+		render_target_depth,
 
 		count
 	};
@@ -40,9 +45,10 @@ namespace renderer
 	static const char* render_view_mode_labels[render_view_mode::count] =
 	{
 		"None",
-		"Hit albedo", "Hit normal", "Hit barycentrics", "Hit spec refract", "Hit absorption", "Hit emissive_color",
-		"Depth",
-		"ray_t recursion depth", "Russian roulette kill depth", "Acceleration structure depth"
+		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics", "Geometry Normal",
+		"Material Albedo", "Material Normal", "Material Spec Refract", "Material Absorption", "Material Emissive",
+		"World Normal", "World Tangent", "World Bitangent",
+		"RenderTarget Depth"
 	};
 	static_assert(render_view_mode::count == ARRAY_SIZE(render_view_mode_labels));
 
@@ -50,17 +56,30 @@ namespace renderer
 	{
 		ID3D12Resource* texture_buffer;
 		d3d12::descriptor_allocation_t texture_srv;
+
+		wstring_t debug_name;
 	};
 
 	struct render_mesh_t
 	{
-		ID3D12Resource* bvh_buffer;
-		d3d12::descriptor_allocation_t bvh_srv;
-		glm::vec3 bvh_min;
-		glm::vec3 bvh_max;
+		glm::vec3 blas_min;
+		glm::vec3 blas_max;
+		ID3D12Resource* blas_buffer;
+		d3d12::descriptor_allocation_t blas_srv;
 
+		triangle_t* triangles;
+		uint32_t triangle_count;
 		ID3D12Resource* triangle_buffer;
 		d3d12::descriptor_allocation_t triangle_srv;
+
+		wstring_t debug_name;
+	};
+
+	struct frame_context_t
+	{
+		ID3D12Resource* scene_tlas_scratch_resource;
+		ID3D12Resource* scene_tlas_resource;
+		d3d12::descriptor_allocation_t scene_tlas_srv;
 	};
 
 	struct renderer_inst_t
@@ -75,17 +94,25 @@ namespace renderer
 		slotmap_t<render_texture_handle_t, render_texture_t> texture_slotmap;
 		slotmap_t<render_mesh_handle_t, render_mesh_t> mesh_slotmap;
 
-		uint32_t bvh_instances_count;
-		uint32_t bvh_instances_at;
-		bvh_instance_t* bvh_instances;
-		instance_data_t* instance_data;
+		bool change_raytracing_mode;
 
+		// Only used for software raytracing
+		bvh_instance_t* tlas_instance_data_software;
 		tlas_t scene_tlas;
-		ID3D12Resource* scene_tlas_resource;
-		d3d12::descriptor_allocation_t scene_tlas_srv;
 
+		// Only used for hardware raytracing
+		D3D12_RAYTRACING_INSTANCE_DESC* tlas_instance_data_hardware;
+		ID3D12Resource* tlas_instance_data_buffer;
+
+		// Instance data not used for raytracing AS builds
+		uint32_t instance_data_capacity;
+		uint32_t instance_data_at;
+		instance_data_t* instance_data;
 		ID3D12Resource* instance_buffer;
 		d3d12::descriptor_allocation_t instance_buffer_srv;
+
+		// Scene TLAS resource
+		frame_context_t* frame_ctx;
 
 		camera_t scene_camera;
 		render_texture_t* scene_hdr_env_texture;
@@ -94,7 +121,8 @@ namespace renderer
 		uint64_t frame_index;
 
 		ID3D12RootSignature* root_signature;
-		ID3D12PipelineState* pso_cs_pathtracer;
+		ID3D12PipelineState* pso_cs_pathtracer_software;
+		ID3D12PipelineState* pso_cs_pathtracer_hardware;
 		ID3D12PipelineState* pso_cs_post_process;
 
 		ID3D12Resource* rt_color_accum;

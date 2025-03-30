@@ -12,7 +12,7 @@ struct slotmap_slot_t
 template<typename THandle, typename TValue>
 struct slotmap_t
 {
-	uint32_t count;
+	uint32_t capacity;
 	slotmap_slot_t<TValue>* slots;
 };
 
@@ -25,10 +25,10 @@ namespace slotmap
 	template<typename THandle, typename TValue>
 	void init(slotmap_t<THandle, TValue>& slotmap, memory_arena_t* arena, uint32_t capacity = SLOTMAP_DEFAULT_CAPACITY)
 	{
-		slotmap.count = capacity;
-		slotmap.slots = ARENA_ALLOC_ARRAY_ZERO(arena, slotmap_slot_t<TValue>, slotmap.count);
+		slotmap.capacity = capacity;
+		slotmap.slots = ARENA_ALLOC_ARRAY_ZERO(arena, slotmap_slot_t<TValue>, slotmap.capacity);
 
-		for (uint32_t i = 0; i < slotmap.count - 1; ++i)
+		for (uint32_t i = 0; i < slotmap.capacity - 1; ++i)
 		{
 			slotmap.slots[i].next_free = i + 1;
 			slotmap.slots[i].version = 0;
@@ -38,7 +38,7 @@ namespace slotmap
 	template<typename THandle, typename TValue>
 	void destroy(slotmap_t<THandle, TValue>& slotmap)
 	{
-		slotmap.count = 0;
+		slotmap.capacity = 0;
 		slotmap.slots = nullptr;
 	}
 

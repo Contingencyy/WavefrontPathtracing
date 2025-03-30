@@ -2,6 +2,7 @@
 #include "common.hlsl"
 #include "intersect.hlsl"
 
+#if RAYTRACING_MODE_SOFTWARE
 bvh_header_t bvh_get_header(ByteAddressBuffer buffer)
 {
     bvh_header_t header = buffer.Load<bvh_header_t>(0);
@@ -136,11 +137,11 @@ bool trace_ray_bvh_instance(bvh_instance_t instance, inout ray_t ray, inout hit_
     // Create a new ray that will be in local/object space of the bvh we want to intersect here
     // Same thing as if we transformed the BVH triangles to world space, but much more convenient
     ray_t ray_local = ray;
-    ray_local.origin = mul(float4(ray.origin, 1.0f), instance.world_to_local).xyz;
-    ray_local.dir = mul(float4(ray.dir, 0.0f), instance.world_to_local).xyz;
-    ray_local.inv_dir = 1.0f / ray_local.dir;
+    ray_local.Origin = mul(float4(ray.Origin, 1.0f), instance.world_to_local).xyz;
+    ray_local.Direction = mul(float4(ray.Direction, 0.0f), instance.world_to_local).xyz;
+    ray_local.inv_dir = 1.0f / ray_local.Direction;
     
-    ByteAddressBuffer bvh_buffer = ResourceDescriptorHeap[NonUniformResourceIndex(instance.bvh_index)];
+    ByteAddressBuffer bvh_buffer = get_resource<ByteAddressBuffer>(instance.bvh_index);
     has_hit = trace_ray_bvh_local(bvh_buffer, ray_local, hit);
     ray.t = ray_local.t;
     
@@ -168,8 +169,8 @@ void trace_ray_tlas(ByteAddressBuffer buffer, inout ray_t ray, inout hit_result_
             
             if (intersected)
             {
-                hit.tri_buffer_idx = instance.bvh_index + 1;
                 hit.instance_idx = node.instance_idx;
+                hit.t = ray.t;
             }
             
             if (stack_at == 0)
@@ -215,3 +216,37 @@ void trace_ray_tlas(ByteAddressBuffer buffer, inout ray_t ray, inout hit_result_
         }
     }
 }
+#else
+void trace_ray_tlas(RaytracingAccelerationStructure scene_tlas, RayDesc ray, inout hit_result_t hit)
+{
+#if TRIANGLE_BACKFACE_CULLING
+    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES>ray_query;
+    ray_query.TraceRayInline(scene_tlas, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0u, ray);
+#else
+    RayQuery<RAY_FLAG_NONE> ray_query; // For shadow rays, use RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH (https://learn.microsoft.com/en-us/windows/win32/direct3d12/ray_flag)
+    ray_query.TraceRayInline(scene_tlas, RAY_FLAG_NONE, ~0u, ray);
+#endif
+    
+    while (ray_query.Proceed())
+    {
+        switch (ray_query.CandidateType())
+        {
+            case CANDIDATE_NON_OPAQUE_TRIANGLE:
+            {
+                ray_query.CommitNonOpaqueTriangleHit();
+            } break;
+        }
+    }
+
+    switch (ray_query.CommittedStatus())
+    {
+        case COMMITTED_TRIANGLE_HIT:
+        {
+            hit.instance_idx = ray_query.CommittedInstanceIndex();
+            hit.primitive_idx = ray_query.CommittedPrimitiveIndex();
+            hit.bary = ray_query.CommittedTriangleBarycentrics();
+            hit.t = ray_query.CommittedRayT();
+        } break;
+    }
+}
+#endif

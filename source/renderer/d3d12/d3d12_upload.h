@@ -14,10 +14,10 @@ namespace d3d12
 	{
 		ID3D12Resource* d3d_resource;
 		ID3D12CommandAllocator* d3d_command_allocator;
-		ID3D12GraphicsCommandList6* d3d_command_list;
+		ID3D12GraphicsCommandList10* d3d_command_list;
 		uint64_t fence_value;
 		void* ptr;
-
+		
 		ring_buffer_alloc_t ring_buffer_alloc;
 	};
 

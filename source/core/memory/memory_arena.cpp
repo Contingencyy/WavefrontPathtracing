@@ -212,3 +212,40 @@ wstring_t memory_arena::char_to_wide(memory_arena_t* arena, const char* str)
 
 	return wstr;
 }
+
+void memory_arena::string_copy(memory_arena_t* arena, const string_t& src, string_t& dst)
+{
+	string_copy_sub(arena, src, 0, src.count, dst);
+}
+
+void memory_arena::string_copy_sub(memory_arena_t* arena, const string_t& src, uint32_t offset, uint32_t count, string_t& dst)
+{
+	ASSERT_MSG(src.buf, "Tried to copy string but source string is nullptr");
+	ASSERT_MSG(src.count <= offset + count, "Tried to copy a substring but range exceeded source string");
+
+	if (!dst.buf)
+	{
+		dst.buf = ARENA_ALLOC_ARRAY(arena, char, offset + count);
+	}
+
+	memcpy(dst.buf, src.buf + offset + count, src.count * sizeof(char));
+}
+
+void memory_arena::wstring_copy(memory_arena_t* arena, const wstring_t& src, wstring_t& dst)
+{
+	wstring_copy_sub(arena, src, 0, src.count, dst);
+}
+
+void memory_arena::wstring_copy_sub(memory_arena_t* arena, const wstring_t& src, uint32_t offset, uint32_t count, wstring_t& dst)
+{
+	ASSERT_MSG(src.buf, "Tried to copy string but source string is nullptr");
+	ASSERT_MSG(src.count <= offset + count, "Tried to copy a substring but range exceeded source string");
+
+	if (!dst.buf)
+	{
+		dst.buf = ARENA_ALLOC_ARRAY(arena, wchar_t, count);
+	}
+
+	dst.count = count;
+	memcpy(dst.buf, src.buf + offset, src.count * sizeof(wchar_t));
+}

@@ -3,6 +3,7 @@
 
 struct camera_t;
 struct material_t;
+struct vertex_t;
 
 namespace renderer
 {
@@ -27,7 +28,7 @@ namespace renderer
 		uint8_t channel_count;
 		uint8_t* ptr_data;
 
-		const wchar_t* debug_name;
+		wstring_t debug_name;
 	};
 	render_texture_handle_t create_render_texture(const render_texture_params_t& texture_params);
 
@@ -38,7 +39,7 @@ namespace renderer
 		uint32_t index_count;
 		uint32_t* indices;
 
-		const wchar_t* debug_name;
+		wstring_t debug_name;
 	};
 	render_mesh_handle_t create_render_mesh(const render_mesh_params_t& mesh_params);
 	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material);

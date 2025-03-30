@@ -46,6 +46,11 @@ namespace memory_arena
 	string_t wide_to_char(memory_arena_t* arena, const wchar_t* wide);
 	wstring_t char_to_wide(memory_arena_t* arena, const char* str);
 
+	void string_copy(memory_arena_t* arena, const string_t& src, string_t& dst);
+	void string_copy_sub(memory_arena_t* arena, const string_t& src, uint32_t offset, uint32_t count, string_t& dst);
+	void wstring_copy(memory_arena_t* arena, const wstring_t& src, wstring_t& dst);
+	void wstring_copy_sub(memory_arena_t* arena, const wstring_t& src, uint32_t offset, uint32_t count, wstring_t& dst);
+
 #define ARENA_ALLOC(arena, size, align) memory_arena::alloc(arena, size, align)
 #define ARENA_ALLOC_ZERO(arena, size, align) memory_arena::alloc_zero(arena, size, align)
 #define ARENA_ALLOC_ARRAY(arena, type, count) (type *)memory_arena::alloc((arena), sizeof(type) * (count), alignof(type))
@@ -78,5 +83,9 @@ namespace memory_arena
 #define ARENA_WPRINTF_ARGS(arena, fmt, args) memory_arena::wprintf_args(arena, fmt, args)
 #define ARENA_WIDE_TO_CHAR(arena, wide) memory_arena::wide_to_char(arena, wide)
 #define ARENA_CHAR_TO_WIDE(arena, str) memory_arena::char_to_wide(arena, str)
+#define ARENA_COPY_STR(arena, src, dst) memory_arena::string_copy(arena, src, dst)
+#define ARENA_COPY_STR_SUB(arena, src, offset, count, dst) memory_arena::string_copy_sub(arena, src, offset, count, dst)
+#define ARENA_COPY_WSTR(arena, src, dst) memory_arena::wstring_copy(arena, src, dst)
+#define ARENA_COPY_WSTR_SUB(arena, src, offset, count, dst) memory_arena::wstring_copy_sub(arena, src, offset, count, dst)
 
 }

@@ -12,7 +12,7 @@ namespace d3d12
 	struct frame_context_t
 	{
 		ID3D12CommandAllocator* command_allocator;
-		ID3D12GraphicsCommandList6* command_list;
+		ID3D12GraphicsCommandList10* command_list;
 
 		ID3D12Resource* backbuffer;
 		descriptor_allocation_t backbuffer_rtv;

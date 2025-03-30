@@ -5,10 +5,10 @@
     Global defines
 */
 
+#define RAY_MIN_T 0.001f
 #define RAY_MAX_T 3.402823466e+38F
 #define RAY_NUDGE_MULTIPLIER 0.001f
 
-#define TRI_BUFFER_IDX_INVALID 0xFFFFFFFF
 #define INSTANCE_IDX_INVALID 0xFFFFFFFF
 #define PRIMITIVE_IDX_INVALID 0xFFFFFFFF
 
@@ -18,8 +18,17 @@
 #define INV_TWO_PI (1.0f / TWO_PI)
 #define INV_ATAN float2(0.1591f, 0.3183f)
 
+// Define for SW/HW raytracing is set in shader compiler, if its not default to hardware
+#ifndef RAYTRACING_MODE_SOFTWARE
+#define RAYTRACING_MODE_SOFTWARE 0
+#define RAYTRACING_MODE_HARDWARE !RAYTRACING_MODE_SOFTWARE
+#endif
+
 #define RANDOM_USE_WANG_HASH 1
 #define RANDOM_USE_XOR_SHIFT !RANDOM_USE_WANG_HASH
+
+#define INTERSECT_EPSILON 1e-8
+#define TRIANGLE_BACKFACE_CULLING 1
 
 /*
     Global constant buffers
@@ -27,6 +36,22 @@
 
 ConstantBuffer<render_settings_shader_data_t> cb_render_settings : register(b0, space0);
 ConstantBuffer<view_shader_data_t> cb_view : register(b1, space0);
+
+/*
+    Resource access
+*/
+
+template<typename T>
+T get_resource(uint index)
+{
+    return ResourceDescriptorHeap[NonUniformResourceIndex(index)];
+}
+
+template<typename T>
+T get_resource_uniform(uint index)
+{
+    return ResourceDescriptorHeap[index];
+}
 
 /*
     Random
@@ -81,25 +106,26 @@ instance_data_t load_instance(ByteAddressBuffer buffer, uint instance_idx)
 }
 
 template<typename T>
-T triangle_interpolate(T v0, T v1, T v2, float3 bary)
+T triangle_interpolate(T v0, T v1, T v2, float2 bary)
 {
-    return v0 * bary.x + v1 * bary.y + v2 * bary.z;
+    return v0 + bary.x * (v1 - v0) + bary.y * (v2 - v0);
 }
 
 struct hit_result_t
 {
-    float3 bary;
-    uint tri_buffer_idx;
-    uint primitive_idx;
     uint instance_idx;
+    uint primitive_idx;
+    float t;
+    float2 bary;
 };
 
 hit_result_t make_hit_result()
 {
     hit_result_t hit = (hit_result_t)0;
-    hit.tri_buffer_idx = TRI_BUFFER_IDX_INVALID;
-    hit.primitive_idx = PRIMITIVE_IDX_INVALID;
     hit.instance_idx = INSTANCE_IDX_INVALID;
+    hit.primitive_idx = PRIMITIVE_IDX_INVALID;
+    hit.t = RAY_MAX_T;
+    hit.bary = (float2) 0;
     
     return hit;
 }
@@ -107,7 +133,6 @@ hit_result_t make_hit_result()
 bool has_hit_geometry(hit_result_t hit)
 {
     return (
-        hit.tri_buffer_idx != TRI_BUFFER_IDX_INVALID &&
         hit.instance_idx != INSTANCE_IDX_INVALID &&
         hit.primitive_idx != PRIMITIVE_IDX_INVALID
     );
@@ -115,17 +140,18 @@ bool has_hit_geometry(hit_result_t hit)
 
 struct ray_t
 {
-    float3 origin;
-    float3 dir;
+    float3 Origin;
+    float3 Direction;
     float3 inv_dir;
     float t;
 };
 
+#if RAYTRACING_MODE_SOFTWARE
 ray_t make_ray(float3 origin, float3 dir)
 {
     ray_t ray = (ray_t) 0;
-    ray.origin = origin;
-    ray.dir = dir;
+    ray.Origin = origin + dir * RAY_MIN_T;
+    ray.Direction = dir;
     ray.inv_dir = 1.0f / dir;
     ray.t = RAY_MAX_T;
     
@@ -146,29 +172,33 @@ ray_t make_primary_ray(uint2 pixel_pos, float2 render_dim)
     ray_t ray = make_ray(camera_origin_world, camera_to_pixel_world);
     return ray;
 }
+#else
+RayDesc make_ray(float3 origin, float3 dir)
+{
+    RayDesc ray = (RayDesc)0;
+    ray.Origin = origin;
+    ray.Direction = dir;
+    ray.TMin = RAY_MIN_T;
+    ray.TMax = RAY_MAX_T;
 
-//ray_t make_primary_ray(uint2 pixel_pos, float tan_fov, float aspect_ratio, float2 render_dim)
-//{
-//    float2 uv = (pixel_pos + 0.5f) / render_dim.x;
-//    //uv.y = 1.0f - uv.y;
+    return ray;
+}
+
+RayDesc make_primary_ray(uint2 pixel_pos, float2 render_dim)
+{
+    float2 uv = (pixel_pos + 0.5f) / render_dim;
+    uv.y = 1.0f - uv.y;
     
-//    float2 pixel_pos_view = float2(2.0f * uv.x - 1.0f, 1.0f - 2.0f * uv.y);
+    float2 pixel_pos_clip = float2(2.0f * uv - 1.0f);
     
-//    pixel_pos_view.x *= aspect_ratio;
-//    pixel_pos_view *= tan_fov;
-    
-//    float3 camera_origin_world = mul(cb_view.world_to_view, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
-//    float3 camera_to_pixel_world = mul(cb_view.world_to_view, float4(pixel_pos_view, 1.0f, 0.0f)).xzy;
-//    camera_to_pixel_world = normalize(camera_to_pixel_world);
-    
-//    ray_t ray = (ray_t) 0;
-//    ray.origin = camera_origin_world;
-//    ray.dir = camera_to_pixel_world;
-//    ray.inv_dir = 1.0f / ray.dir;
-//    ray.t = RAY_MAX_T;
-    
-//    return ray;
-//}
+    float3 camera_to_pixel_view = normalize(mul(float4(pixel_pos_clip, 1.0f, 1.0f), cb_view.clip_to_view).xyz);
+    float3 camera_to_pixel_world = mul(float4(camera_to_pixel_view, 0.0f), cb_view.view_to_world).xyz;
+    float3 camera_origin_world = mul(float4(0.0f, 0.0f, 0.0f, 1.0f), cb_view.view_to_world).xyz;
+
+    RayDesc ray = make_ray(camera_origin_world, camera_to_pixel_world);
+    return ray;
+}
+#endif
 
 /*
     Misc

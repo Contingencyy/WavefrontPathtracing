@@ -12,7 +12,7 @@
 #include "core/assertion.h"
 
 #define D3D12_VALIDATE_RESOURCE_VIEWS 1
-#define D3D12_MAP_FULL_RANGE 0xFFFFFFFFFFFFFFFF
+#define D3D12_MAP_FULL_RANGE ~0ull
 
 inline void dx_check_hr(int32_t Line, const char* File, HRESULT HR)
 {

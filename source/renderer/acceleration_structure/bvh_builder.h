@@ -2,7 +2,7 @@
 #include "renderer/shaders/shared.hlsl.h"
 
 struct memory_arena_t;
-struct vertex_t;
+struct triangle_t;
 
 struct bvh_t
 {
@@ -21,10 +21,8 @@ public:
 
 	struct build_args_t
 	{
-		uint32_t vertex_count;
-		vertex_t* vertices;
-		uint32_t index_count;
-		uint32_t* indices;
+		const triangle_t* triangles;
+		uint32_t triangle_count;
 
 		build_options_t options;
 	};

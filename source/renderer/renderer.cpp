@@ -24,6 +24,7 @@ namespace renderer
 	static render_settings_shader_data_t get_default_render_settings()
 	{
 		render_settings_shader_data_t defaults = {};
+		defaults.use_software_rt = false;
 		defaults.render_view_mode = render_view_mode::none;
 		defaults.ray_max_recursion = 3;
 		defaults.accumulate = true;
@@ -36,6 +37,175 @@ namespace renderer
 	{
 		// TODO: Clear accumulator UAV render target
 		g_renderer->accum_count = 1;
+	}
+
+	static void create_mesh_triangle_buffer_internal(render_mesh_t& out_mesh)
+	{
+		ARENA_SCRATCH_SCOPE()
+		{
+			// Upload mesh triangle buffer
+			uint64_t buffer_byte_size = sizeof(triangle_t) * out_mesh.triangle_count;
+			uint64_t upload_byte_count = buffer_byte_size;
+			uint64_t upload_offset = 0;
+			
+			// Create triangle buffer
+			out_mesh.triangle_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh Triangle Buffer %.*ls", STRING_EXPAND(out_mesh.debug_name)).buf, buffer_byte_size);
+
+			// Allocate and initialize triangle buffer descriptor
+			out_mesh.triangle_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			d3d12::create_buffer_srv(out_mesh.triangle_buffer, out_mesh.triangle_srv, 0, buffer_byte_size);
+
+			// Do actual data upload
+			while (upload_byte_count > 0)
+			{
+				// CPU to upload copy
+				d3d12::upload_alloc_t& upload = d3d12::begin_upload(upload_byte_count);
+				memcpy(upload.ptr, PTR_OFFSET(out_mesh.triangles, upload_offset), upload.ring_buffer_alloc.byte_size);
+
+				// Copy current chunk from upload to final GPU buffer
+				upload.d3d_command_list->CopyBufferRegion(out_mesh.triangle_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
+
+				// Submit upload
+				d3d12::end_upload(upload);
+
+				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
+				upload_offset += upload.ring_buffer_alloc.byte_size;
+			}
+		}
+	}
+
+	static void create_mesh_software_blas_buffer_internal(render_mesh_t& out_mesh)
+	{
+		ARENA_SCRATCH_SCOPE()
+		{
+			bvh_builder_t::build_args_t bvh_build_args = {};
+			bvh_build_args.triangles = out_mesh.triangles;
+			bvh_build_args.triangle_count = out_mesh.triangle_count;
+			bvh_build_args.options.interval_count = 8;
+			bvh_build_args.options.subdivide_single_prim = false;
+
+			// Build the BVH with a temporary scratch memory arena, to automatically get rid of temporary allocations for the build process
+			bvh_builder_t bvh_builder = {};
+			bvh_builder.build(arena_scratch, bvh_build_args);
+
+			// Extract the final BVH data using the scratch arena as well since we will upload the data to the GPU inside this arena scratch scope
+			// If we wanted to keep the BVH data around on the CPU (maybe do CPU path tracing) we could do so here by using a different arena
+			bvh_t mesh_bvh;
+			uint64_t mesh_bvh_byte_size;
+			bvh_builder.extract(arena_scratch, mesh_bvh, mesh_bvh_byte_size);
+
+			// Keep the BVH local bounds around for creating BVH instances later when building the TLAS
+			bvh_node_t* bvh_root_node = (bvh_node_t*)mesh_bvh.data;
+			out_mesh.blas_min = bvh_root_node->aabb_min;
+			out_mesh.blas_max = bvh_root_node->aabb_max;
+
+			// Upload mesh BVH buffer
+			uint64_t buffer_byte_size = sizeof(bvh_header_t) + mesh_bvh_byte_size;
+			uint64_t upload_byte_count = buffer_byte_size;
+			uint64_t upload_offset = 0;
+			bool upload_header = true;
+
+			// Create BVH buffer
+			out_mesh.blas_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh BLAS(SW) %.*ls", STRING_EXPAND(out_mesh.debug_name)).buf, buffer_byte_size);
+
+			// Allocate and initialize bvh buffer descriptor
+			if (!d3d12::is_valid_descriptor(out_mesh.blas_srv))
+			{
+				out_mesh.blas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			}
+			d3d12::create_buffer_srv(out_mesh.blas_buffer, out_mesh.blas_srv, 0, buffer_byte_size);
+
+			// Do actual data upload
+			while (upload_byte_count > 0)
+			{
+				// CPU to upload copy
+				d3d12::upload_alloc_t& upload = d3d12::begin_upload(upload_byte_count);
+
+				if (upload_header)
+				{
+					memcpy(upload.ptr, &mesh_bvh.header, sizeof(bvh_header_t));
+					memcpy(PTR_OFFSET(upload.ptr, sizeof(bvh_header_t)), mesh_bvh.data, upload.ring_buffer_alloc.byte_size - sizeof(bvh_header_t));
+
+					upload_header = false;
+				}
+				else
+				{
+					memcpy(upload.ptr, PTR_OFFSET(mesh_bvh.data, upload_offset - sizeof(bvh_header_t)), upload.ring_buffer_alloc.byte_size);
+				}
+
+				// Copy current chunk from upload allocation to final GPU buffer
+				upload.d3d_command_list->CopyBufferRegion(out_mesh.blas_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
+
+				// Submit upload
+				d3d12::end_upload(upload);
+
+				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
+				upload_offset += upload.ring_buffer_alloc.byte_size;
+			}
+		}
+	}
+
+	static void create_mesh_hardware_blas_buffer_internal(render_mesh_t& out_mesh)
+	{
+		ARENA_SCRATCH_SCOPE()
+		{
+			ID3D12GraphicsCommandList10* command_list = d3d12::get_immediate_command_list();
+
+			ID3D12Resource* blas_scratch = nullptr;
+			d3d12::create_buffer_blas(ARENA_WPRINTF(arena_scratch, L"Mesh BLAS(HW) %.*ls", STRING_EXPAND(out_mesh.debug_name)).buf,
+				command_list, out_mesh.triangle_buffer, out_mesh.triangle_count, sizeof(triangle_t), &blas_scratch, &out_mesh.blas_buffer);
+
+			d3d12::execute_immediate_command_list(command_list, true);
+			DX_RELEASE_OBJECT(blas_scratch);
+		}
+	}
+
+	static void change_raytracing_mode()
+	{
+		g_renderer->change_raytracing_mode = false;
+
+		// Flush GPU to prevent destruction of any potential in-flight resources
+		d3d12::flush();
+
+		// Switch instance buffers to correct raytracing mode
+		// HW to SW
+		if (g_renderer->settings.use_software_rt)
+		{
+			d3d12::unmap_resource(g_renderer->tlas_instance_data_buffer);
+			DX_RELEASE_OBJECT(g_renderer->tlas_instance_data_buffer);
+			g_renderer->tlas_instance_data_hardware = nullptr;
+		}
+		// SW to HW
+		else
+		{
+			g_renderer->tlas_instance_data_buffer = d3d12::create_buffer_upload(L"HW Raytracing Instance Desc Buffer", g_renderer->instance_data_capacity * sizeof(D3D12_RAYTRACING_INSTANCE_DESC));
+			g_renderer->tlas_instance_data_hardware = (D3D12_RAYTRACING_INSTANCE_DESC*)d3d12::map_resource(g_renderer->tlas_instance_data_buffer);
+		}
+
+		// Recreate every BLAS resource
+		for (uint32_t i = 0; i < g_renderer->mesh_slotmap.capacity; ++i)
+		{
+			render_mesh_t& mesh = g_renderer->mesh_slotmap.slots[i].value;
+
+			if (!mesh.blas_buffer)
+				continue;
+
+			DX_RELEASE_OBJECT(mesh.blas_buffer);
+
+			// HW to SW
+			if (g_renderer->settings.use_software_rt)
+			{
+				create_mesh_software_blas_buffer_internal(mesh);
+				ASSERT_MSG(d3d12::is_valid_descriptor(mesh.blas_srv), "Tried creating a render mesh but bvh buffer SRV is invalid");
+			}
+			// SW to HW
+			else
+			{
+				create_mesh_hardware_blas_buffer_internal(mesh);
+			}
+
+			ASSERT_MSG(mesh.blas_buffer, "Tried creating a render mesh but bvh buffer is null");
+		}
 	}
 
 	void init(uint32_t render_width, uint32_t render_height)
@@ -58,9 +228,31 @@ namespace renderer
 		backend_params.back_buffer_count = 2u;
 		d3d12::init(backend_params);
 
-		g_renderer->bvh_instances_count = TLAS_MAX_BVH_INSTANCES;
-		g_renderer->bvh_instances_at = 0;
-		g_renderer->bvh_instances = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, bvh_instance_t, g_renderer->bvh_instances_count);
+		// Create instance buffer
+		// TODO: Make the instance buffer resize automatically when required, treating the MAX_INSTANCES as the theoretically highest possible instance count instead
+		g_renderer->instance_data_capacity = MAX_INSTANCES;
+		g_renderer->instance_data_at = 0;
+		g_renderer->instance_data = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, instance_data_t, g_renderer->instance_data_capacity);
+		g_renderer->instance_buffer = d3d12::create_buffer(L"Instance Buffer", sizeof(instance_data_t) * MAX_INSTANCES);
+		g_renderer->instance_buffer_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		d3d12::create_buffer_srv(g_renderer->instance_buffer, g_renderer->instance_buffer_srv, 0, sizeof(instance_data_t) * MAX_INSTANCES);
+
+		// Software raytracing
+		//if (g_renderer->settings.use_software_rt)
+		{
+			// We always allocate the CPU side data for software TLAS instances
+			// TODO: Make this allocate from per-frame arena, then it can resize to required instance count
+			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, bvh_instance_t, g_renderer->instance_data_capacity);
+		}
+		// Hardware raytracing
+		if (!g_renderer->settings.use_software_rt)
+		{
+			// TODO: Make the instance buffer resize automatically when required, treating the MAX_INSTANCES as the theoretically highest possible instance count instead
+			g_renderer->tlas_instance_data_buffer = d3d12::create_buffer_upload(L"HW Raytracing Instance Desc Buffer", g_renderer->instance_data_capacity * sizeof(D3D12_RAYTRACING_INSTANCE_DESC));
+			g_renderer->tlas_instance_data_hardware = (D3D12_RAYTRACING_INSTANCE_DESC*)d3d12::map_resource(g_renderer->tlas_instance_data_buffer);
+		}
+
+		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY(&g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
@@ -119,9 +311,25 @@ namespace renderer
 		// Root signature and PSOs
 		g_renderer->root_signature = d3d12::create_root_signature(root_signature_desc);
 
-		IDxcBlob* cs_binary_pathtracer = d3d12::compile_shader(L"shaders/pathtracer.hlsl", L"main", L"cs_6_7");
-		g_renderer->pso_cs_pathtracer = d3d12::create_pso_cs(cs_binary_pathtracer, g_renderer->root_signature);
-		//DX_RELEASE_OBJECT(cs_binary_pathtracer);
+		{
+			DxcDefine defines[] =
+			{
+				DxcDefine{.Name = L"RAYTRACING_MODE_SOFTWARE", .Value = L"1" }
+			};
+			IDxcBlob* cs_binary_pathtracer_software = d3d12::compile_shader(L"shaders/pathtracer.hlsl", L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->pso_cs_pathtracer_software = d3d12::create_pso_cs(cs_binary_pathtracer_software, g_renderer->root_signature);
+		}
+
+		{
+			DxcDefine defines[] =
+			{
+				DxcDefine{ .Name = L"RAYTRACING_MODE_SOFTWARE", .Value = L"0" }
+			};
+			IDxcBlob* cs_binary_pathtracer_hardware = d3d12::compile_shader(L"shaders/pathtracer.hlsl", L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->pso_cs_pathtracer_hardware = d3d12::create_pso_cs(cs_binary_pathtracer_hardware, g_renderer->root_signature);
+		}
+		//DX_RELEASE_OBJECT(cs_binary_pathtracer_software);
+		//DX_RELEASE_OBJECT(cs_binary_pathtracer_hardware);
 
 		IDxcBlob* cs_binary_post_process = d3d12::compile_shader(L"shaders/post_process.hlsl", L"main", L"cs_6_7");
 		g_renderer->pso_cs_post_process = d3d12::create_pso_cs(cs_binary_post_process, g_renderer->root_signature);
@@ -140,12 +348,6 @@ namespace renderer
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
 		g_renderer->rt_final_color_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
 		d3d12::create_texture_2d_uav(g_renderer->rt_final_color, g_renderer->rt_final_color_uav, 0);
-
-		// Create instance buffer
-		g_renderer->instance_data = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, instance_data_t, g_renderer->bvh_instances_count);
-		g_renderer->instance_buffer = d3d12::create_buffer(L"Instance Buffer", sizeof(instance_data_t) * TLAS_MAX_BVH_INSTANCES);
-		g_renderer->instance_buffer_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		d3d12::create_buffer_srv(g_renderer->instance_buffer, g_renderer->instance_buffer_srv, 0, sizeof(instance_data_t) * TLAS_MAX_BVH_INSTANCES);
 	}
 
 	void exit()
@@ -161,7 +363,8 @@ namespace renderer
 		DX_RELEASE_OBJECT(g_renderer->rt_final_color);
 
 		DX_RELEASE_OBJECT(g_renderer->root_signature);
-		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer);
+		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer_software);
+		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer_hardware);
 		DX_RELEASE_OBJECT(g_renderer->pso_cs_post_process);
 
 		d3d12::exit();
@@ -170,6 +373,11 @@ namespace renderer
 	void begin_frame()
 	{
 		d3d12::begin_frame();
+
+		if (g_renderer->change_raytracing_mode)
+		{
+			change_raytracing_mode();
+		}
 
 		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 		render_settings_shader_data_t* ptr_settings = (render_settings_shader_data_t*)g_renderer->cb_render_settings.ptr;
@@ -215,75 +423,92 @@ namespace renderer
 
 	void render()
 	{
-		d3d12::frame_context_t& frame_ctx = d3d12::get_frame_context();
+		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
+		frame_context_t& frame_ctx = g_renderer->frame_ctx[g_renderer->frame_index % 2];
 
-		if (g_renderer->bvh_instances_at > 0)
+		if (g_renderer->instance_data_at > 0)
 		{
-			ARENA_SCRATCH_SCOPE()
+			if (g_renderer->settings.use_software_rt)
 			{
-				// Build the TLAS
-				// TODO: Do not rebuild the TLAS every single frame
-				tlas_builder_t tlas_builder = {};
-				tlas_builder.build(arena_scratch, g_renderer->bvh_instances, g_renderer->bvh_instances_at);
-				uint64_t tlas_byte_size = 0;
-				tlas_builder.extract(arena_scratch, g_renderer->scene_tlas, tlas_byte_size);
-
-				// Upload TLAS to the GPU
-				// Copy TLAS data from CPU to upload buffer allocation
-				d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(sizeof(tlas_header_t) + tlas_byte_size);
-
-				memcpy(upload.ptr, &g_renderer->scene_tlas.header, sizeof(tlas_header_t));
-				memcpy(PTR_OFFSET(upload.ptr, sizeof(tlas_header_t)), g_renderer->scene_tlas.data, tlas_byte_size);
-
-				// Create/resize TLAS buffer if required
-				if (!g_renderer->scene_tlas_resource || g_renderer->scene_tlas_resource->GetDesc().Width < sizeof(bvh_header_t) + tlas_byte_size)
+				ARENA_SCRATCH_SCOPE()
 				{
-					// Release old TLAS resource and create a replacement with the right size
-					DX_RELEASE_OBJECT(g_renderer->scene_tlas_resource);
-					g_renderer->scene_tlas_resource = d3d12::create_buffer(L"Scene TLAS Buffer", sizeof(bvh_header_t) + tlas_byte_size);
+					// Build the TLAS
+					// TODO: Do not rebuild the TLAS every single frame
+					tlas_builder_t tlas_builder = {};
+					tlas_builder.build(arena_scratch, g_renderer->tlas_instance_data_software, g_renderer->instance_data_at);
+					uint64_t tlas_byte_size = 0;
+					tlas_builder.extract(arena_scratch, g_renderer->scene_tlas, tlas_byte_size);
+
+					// Upload TLAS to the GPU
+					// Copy TLAS data from CPU to upload buffer allocation
+					d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(sizeof(tlas_header_t) + tlas_byte_size);
+
+					memcpy(upload.ptr, &g_renderer->scene_tlas.header, sizeof(tlas_header_t));
+					memcpy(PTR_OFFSET(upload.ptr, sizeof(tlas_header_t)), g_renderer->scene_tlas.data, tlas_byte_size);
+
+					// Create TLAS buffer
+					DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
+					frame_ctx.scene_tlas_resource = d3d12::create_buffer(L"Scene TLAS Buffer (SW)", sizeof(bvh_header_t) + tlas_byte_size);
 
 					// Allocate SRV for the scene TLAS, if there is none yet
-					if (!d3d12::is_valid_descriptor(g_renderer->scene_tlas_srv))
+					if (!d3d12::is_valid_descriptor(frame_ctx.scene_tlas_srv))
 					{
-						g_renderer->scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+						frame_ctx.scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 					}
 					// Update the scene TLAS descriptor
-					d3d12::create_buffer_srv(g_renderer->scene_tlas_resource, g_renderer->scene_tlas_srv, 0, sizeof(bvh_header_t) + tlas_byte_size);
-				}
+					d3d12::create_buffer_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0, sizeof(bvh_header_t) + tlas_byte_size);
 
-				// Copy TLAS data from upload buffer to final buffer
-				frame_ctx.command_list->CopyBufferRegion(g_renderer->scene_tlas_resource, 0,
-					upload.resource, upload.byte_offset, sizeof(tlas_header_t) + tlas_byte_size);
+					// Copy TLAS data from upload buffer to final buffer
+					d3d_frame_ctx.command_list->CopyBufferRegion(frame_ctx.scene_tlas_resource, 0,
+						upload.resource, upload.byte_offset, sizeof(tlas_header_t) + tlas_byte_size);
+				}
+			}
+			else
+			{
+				// TODO: If the buffer size is sufficient, do not release it
+				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_scratch_resource);
+				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
+				d3d12::create_buffer_tlas(L"Scene TLAS Buffer (HW)", d3d_frame_ctx.command_list,
+					g_renderer->tlas_instance_data_buffer, g_renderer->instance_data_at,
+					&frame_ctx.scene_tlas_scratch_resource, &frame_ctx.scene_tlas_resource);
+
+				// Allocate SRV for the scene TLAS, if there is none yet
+				if (!d3d12::is_valid_descriptor(frame_ctx.scene_tlas_srv))
+				{
+					frame_ctx.scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				}
+				// Update the scene TLAS descriptor
+				d3d12::create_as_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0);
 			}
 
 			{
 				// Upload instance buffer data
-				uint64_t byte_size = sizeof(instance_data_t) * g_renderer->bvh_instances_at;
+				uint64_t byte_size = sizeof(instance_data_t) * g_renderer->instance_data_at;
 				d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(byte_size);
 
 				// CPU to upload heap copy
 				memcpy(upload.ptr, g_renderer->instance_data, byte_size);
 
 				// Upload heap to default heap copy
-				frame_ctx.command_list->CopyBufferRegion(g_renderer->instance_buffer, 0, upload.resource, upload.byte_offset, byte_size);
+				d3d_frame_ctx.command_list->CopyBufferRegion(g_renderer->instance_buffer, 0, upload.resource, upload.byte_offset, byte_size);
 			}
 		}
 
 		// Set descriptor heap, needs to happen before clearing UAVs
 		ID3D12DescriptorHeap* descriptor_heaps[1] = { d3d12::g_d3d->descriptor_heaps.cbv_srv_uav };
-		frame_ctx.command_list->SetDescriptorHeaps(ARRAY_SIZE(descriptor_heaps), descriptor_heaps);
+		d3d_frame_ctx.command_list->SetDescriptorHeaps(ARRAY_SIZE(descriptor_heaps), descriptor_heaps);
 
 		// Bind root signature and global constant buffers
-		frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
-		frame_ctx.command_list->SetComputeRootConstantBufferView(0, g_renderer->cb_render_settings.resource->GetGPUVirtualAddress() + g_renderer->cb_render_settings.byte_offset);
-		frame_ctx.command_list->SetComputeRootConstantBufferView(1, g_renderer->cb_view.resource->GetGPUVirtualAddress() + g_renderer->cb_view.byte_offset);
+		d3d_frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
+		d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(0, g_renderer->cb_render_settings.resource->GetGPUVirtualAddress() + g_renderer->cb_render_settings.byte_offset);
+		d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(1, g_renderer->cb_view.resource->GetGPUVirtualAddress() + g_renderer->cb_view.byte_offset);
 
 		{
 			D3D12_RESOURCE_BARRIER barriers[] =
 			{
 				d3d12::barrier_transition(g_renderer->rt_final_color, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 			};
-			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 		}
 
 #if 0
@@ -305,7 +530,14 @@ namespace renderer
 			uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
 			uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
-			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer);
+			if (g_renderer->settings.use_software_rt)
+			{
+				d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer_software);
+			}
+			else
+			{
+				d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer_hardware);
+			}
 
 			// Bind shader input constant buffer
 			struct shader_input_t
@@ -321,15 +553,15 @@ namespace renderer
 			d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 			shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 
-			shader_input->scene_tlas_index = g_renderer->scene_tlas_srv.offset;
+			shader_input->scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
 			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
 			shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
 			shader_input->rt_index = g_renderer->rt_color_accum_srv_uav.offset + 1;
 			shader_input->random_seed = random::rand_uint32();
 			shader_input->sample_count = g_renderer->accum_count;
 			
-			frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
-			frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 		}
 
 		// Dispatch post-process compute shader
@@ -340,8 +572,8 @@ namespace renderer
 			uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
 			uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
-			frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
-			frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
+			d3d_frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
+			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
 
 			// Bind shader input constant buffer
 			struct shader_input_t
@@ -355,14 +587,14 @@ namespace renderer
 			shader_input->color_index = g_renderer->rt_color_accum_srv_uav.offset;
 			shader_input->rt_index = g_renderer->rt_final_color_uav.offset;
 
-			frame_ctx.command_list->SetComputeRootConstantBufferView(2, shader_cb.resource->GetGPUVirtualAddress() + shader_cb.byte_offset);
-			frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, shader_cb.resource->GetGPUVirtualAddress() + shader_cb.byte_offset);
+			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 		}
 	}
 
 	void end_scene()
 	{
-		g_renderer->bvh_instances_at = 0;
+		g_renderer->instance_data_at = 0;
 	}
 
 	void render_ui()
@@ -409,6 +641,14 @@ namespace renderer
 			{
 				ImGui::Indent(10.0f);
 
+				// Software/Hardware raytracing
+				if (ImGui::Checkbox("Use software raytracing", (bool*)&g_renderer->settings.use_software_rt))
+				{
+					g_renderer->change_raytracing_mode = true;
+				}
+				ImGui::SetItemTooltip("When this is enabled the raytracing will use software raytracing with custom acceleration structures instead of hardware raytracing."
+					"This might take a while because it will rebuild all bottom level acceleration structures of all meshes.");
+
 				// Slider for maximum amount of recursion for each ray
 				if (ImGui::SliderInt("Ray max recursion",(int32_t*)&g_renderer->settings.ray_max_recursion, 0, 8)) should_reset_accumulators = true;
 				// Toggle accumulation
@@ -432,6 +672,7 @@ namespace renderer
 		// TODO: Support other texture dimensions than 2D
 		// TODO: Support uploading textures with mips
 		// TODO: Support mip generation
+		// TODO: Support compressed textures
 		
 		ID3D12Resource* d3d_resource = nullptr;
 		ARENA_SCRATCH_SCOPE()
@@ -512,123 +753,38 @@ namespace renderer
 
 	render_mesh_handle_t create_render_mesh(const render_mesh_params_t& mesh_params)
 	{
-		bvh_builder_t::build_args_t bvh_build_args = {};
-		bvh_build_args.vertex_count = mesh_params.vertex_count;
-		bvh_build_args.vertices = mesh_params.vertices;
-		bvh_build_args.index_count = mesh_params.index_count;
-		bvh_build_args.indices = mesh_params.indices;
-		bvh_build_args.options.interval_count = 8;
-		bvh_build_args.options.subdivide_single_prim = false;
-
-		render_mesh_handle_t handle = {};
+		render_mesh_t mesh = {};
+		// Need to copy the string buffer since mesh_params.debug_name is temporary
+		ARENA_COPY_WSTR(&g_renderer->arena, mesh_params.debug_name, mesh.debug_name);
+		mesh.triangle_count = mesh_params.index_count / 3;
+		mesh.triangles = ARENA_ALLOC_ARRAY(&g_renderer->arena, triangle_t, mesh.triangle_count);
+		for (uint32_t tri_idx = 0, i = 0; tri_idx < mesh.triangle_count; ++tri_idx, i += 3)
+		{
+			mesh.triangles[tri_idx].v0 = mesh_params.vertices[mesh_params.indices[i]];
+			mesh.triangles[tri_idx].v1 = mesh_params.vertices[mesh_params.indices[i + 1]];
+			mesh.triangles[tri_idx].v2 = mesh_params.vertices[mesh_params.indices[i + 2]];
+		}
 
 		ARENA_SCRATCH_SCOPE()
 		{
-			// Build the BVH with a temporary scratch memory arena, to automatically get rid of temporary allocations for the build process
-			bvh_builder_t bvh_builder = {};
-			bvh_builder.build(arena_scratch, bvh_build_args);
+			create_mesh_triangle_buffer_internal(mesh);
+			ASSERT_MSG(mesh.triangle_buffer, "Tried creating a render mesh but triangle buffer is null");
+			ASSERT_MSG(d3d12::is_valid_descriptor(mesh.triangle_srv), "Tried creating a render mesh but triangle buffer SRV is invalid");
 
-			// Extract the final BVH data using the scratch arena as well since we will upload the data to the GPU inside this arena scratch scope
-			// If we wanted to keep the BVH data around on the CPU (maybe do CPU path tracing) we could do so here by using a different arena
-			bvh_t mesh_bvh;
-			uint64_t mesh_bvh_byte_size;
-			bvh_builder.extract(arena_scratch, mesh_bvh, mesh_bvh_byte_size);
-
-			uint32_t mesh_triangle_count = mesh_params.index_count / 3;
-			triangle_t* mesh_triangles = ARENA_ALLOC_ARRAY(arena_scratch, triangle_t, mesh_triangle_count);
-			uint64_t mesh_triangles_byte_size = sizeof(triangle_t) * mesh_triangle_count;
-
-			for (uint32_t tri_idx = 0, i = 0; tri_idx < mesh_triangle_count; ++tri_idx, i += 3)
+			if (g_renderer->settings.use_software_rt)
 			{
-				mesh_triangles[tri_idx].p0 = mesh_params.vertices[mesh_params.indices[i]].position;
-				mesh_triangles[tri_idx].p1 = mesh_params.vertices[mesh_params.indices[i + 1]].position;
-				mesh_triangles[tri_idx].p2 = mesh_params.vertices[mesh_params.indices[i + 2]].position;
-
-				mesh_triangles[tri_idx].n0 = mesh_params.vertices[mesh_params.indices[i]].normal;
-				mesh_triangles[tri_idx].n1 = mesh_params.vertices[mesh_params.indices[i + 1]].normal;
-				mesh_triangles[tri_idx].n2 = mesh_params.vertices[mesh_params.indices[i + 2]].normal;
+				create_mesh_software_blas_buffer_internal(mesh);
+				ASSERT_MSG(d3d12::is_valid_descriptor(mesh.blas_srv), "Tried creating a render mesh but bvh buffer SRV is invalid");
+			}
+			else
+			{
+				create_mesh_hardware_blas_buffer_internal(mesh);
 			}
 
-			render_mesh_t mesh = {};
-
-			// Keep the BVH local bounds around for creating BVH instances later when building the TLAS
-			bvh_node_t* bvh_root_node = (bvh_node_t*)mesh_bvh.data;
-			mesh.bvh_min = bvh_root_node->aabb_min;
-			mesh.bvh_max = bvh_root_node->aabb_max;
-
-			// Upload mesh BVH buffer
-			uint64_t buffer_byte_size = sizeof(bvh_header_t) + mesh_bvh_byte_size;
-			uint64_t upload_byte_count = buffer_byte_size;
-			uint64_t upload_offset = 0;
-			bool upload_header = true;
-
-			// Create BVH buffer
-			mesh.bvh_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh BVH Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
-
-			// Allocate and initialize bvh buffer descriptor
-			mesh.bvh_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			d3d12::create_buffer_srv(mesh.bvh_buffer, mesh.bvh_srv, 0, buffer_byte_size);
-
-			// Do actual data upload
-			while (upload_byte_count > 0)
-			{
-				// CPU to upload copy
-				d3d12::upload_alloc_t& upload = d3d12::begin_upload(upload_byte_count);
-
-				if (upload_header)
-				{
-					memcpy(upload.ptr, &mesh_bvh.header, sizeof(bvh_header_t));
-					memcpy(PTR_OFFSET(upload.ptr, sizeof(bvh_header_t)), mesh_bvh.data, upload.ring_buffer_alloc.byte_size - sizeof(bvh_header_t));
-
-					upload_header = false;
-				}
-				else
-				{
-					memcpy(upload.ptr, PTR_OFFSET(mesh_bvh.data, upload_offset - sizeof(bvh_header_t)), upload.ring_buffer_alloc.byte_size);
-				}
-
-				// Copy current chunk from upload allocation to final GPU buffer
-				upload.d3d_command_list->CopyBufferRegion(mesh.bvh_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
-
-				// Submit upload
-				d3d12::end_upload(upload);
-
-				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
-				upload_offset += upload.ring_buffer_alloc.byte_size;
-			}
-
-			// Upload mesh triangle buffer
-			buffer_byte_size = mesh_triangles_byte_size;
-			upload_byte_count = buffer_byte_size;
-			upload_offset = 0;
-
-			// Create triangle buffer
-			mesh.triangle_buffer = d3d12::create_buffer(ARENA_WPRINTF(arena_scratch, L"Mesh Triangle Buffer %ls", mesh_params.debug_name).buf, buffer_byte_size);
-
-			// Allocate and initialize triangle buffer descriptor
-			mesh.triangle_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			d3d12::create_buffer_srv(mesh.triangle_buffer, mesh.triangle_srv, 0, buffer_byte_size);
-
-			// Do actual data upload
-			while (upload_byte_count > 0)
-			{
-				// CPU to upload copy
-				d3d12::upload_alloc_t& upload = d3d12::begin_upload(upload_byte_count);
-				memcpy(upload.ptr, PTR_OFFSET(mesh_triangles, upload_offset), upload.ring_buffer_alloc.byte_size);
-
-				// Copy current chunk from upload to final GPU buffer
-				upload.d3d_command_list->CopyBufferRegion(mesh.triangle_buffer, upload_offset, upload.d3d_resource, upload.ring_buffer_alloc.byte_offset, upload.ring_buffer_alloc.byte_size);
-
-				// Submit upload
-				d3d12::end_upload(upload);
-
-				upload_byte_count -= upload.ring_buffer_alloc.byte_size;
-				upload_offset += upload.ring_buffer_alloc.byte_size;
-			}
-
-			handle = slotmap::add(g_renderer->mesh_slotmap, mesh);
+			ASSERT_MSG(mesh.blas_buffer, "Tried creating a render mesh but bvh buffer is null");
 		}
 
+		render_mesh_handle_t handle = slotmap::add(g_renderer->mesh_slotmap, mesh);
 		return handle;
 	}
 
@@ -637,25 +793,41 @@ namespace renderer
 		const render_mesh_t* mesh = slotmap::find(g_renderer->mesh_slotmap, render_mesh_handle);
 
 		ASSERT_MSG(mesh, "Mesh with render mesh handle { index: %u, version: %u } was not valid", render_mesh_handle.index, render_mesh_handle.version);
-		ASSERT_MSG(g_renderer->bvh_instances_at < g_renderer->bvh_instances_count, "Exceeded maximum amount of BVH instances");
-
-		bvh_instance_t* instance = &g_renderer->bvh_instances[g_renderer->bvh_instances_at];
-		instance->world_to_local = glm::inverse(transform);
-		instance->bvh_index = mesh->bvh_srv.offset;
-
-		for (uint32_t i = 0; i < 8; ++i)
-		{
-			glm::vec3 pos_world = transform *
-				glm::vec4(i & 1 ? mesh->bvh_max.x : mesh->bvh_min.x, i & 2 ? mesh->bvh_max.y : mesh->bvh_min.y, i & 4 ? mesh->bvh_max.z : mesh->bvh_min.z, 1.0f);
-			as_util::grow_aabb(instance->aabb_min, instance->aabb_max, pos_world);
-		}
+		ASSERT_MSG(g_renderer->instance_data_at < g_renderer->instance_data_capacity, "Exceeded capacity of instances");
 
 		// Write instance to instance buffer
-		g_renderer->instance_data[g_renderer->bvh_instances_at].local_to_world = transform;
-		g_renderer->instance_data[g_renderer->bvh_instances_at].world_to_local = instance->world_to_local;
-		g_renderer->instance_data[g_renderer->bvh_instances_at].material = material;
+		instance_data_t& instance_data = g_renderer->instance_data[g_renderer->instance_data_at];
+		instance_data.local_to_world = transform;
+		instance_data.world_to_local = glm::inverse(transform);
+		instance_data.material = material;
+		instance_data.triangle_buffer_idx = mesh->triangle_srv.offset;
 
-		g_renderer->bvh_instances_at++;
+		if (g_renderer->settings.use_software_rt)
+		{
+			bvh_instance_t* tlas_instance_software = &g_renderer->tlas_instance_data_software[g_renderer->instance_data_at];
+			tlas_instance_software->world_to_local = instance_data.world_to_local;
+			tlas_instance_software->bvh_index = mesh->blas_srv.offset;
+
+			for (uint32_t i = 0; i < 8; ++i)
+			{
+				glm::vec3 pos_world = transform *
+					glm::vec4(i & 1 ? mesh->blas_max.x : mesh->blas_min.x, i & 2 ? mesh->blas_max.y : mesh->blas_min.y, i & 4 ? mesh->blas_max.z : mesh->blas_min.z, 1.0f);
+				as_util::grow_aabb(tlas_instance_software->aabb_min, tlas_instance_software->aabb_max, pos_world);
+			}
+		}
+		else
+		{
+			D3D12_RAYTRACING_INSTANCE_DESC& tlas_instance_hardware = g_renderer->tlas_instance_data_hardware[g_renderer->instance_data_at];
+			glm::mat4 temp = glm::transpose(transform);
+			memcpy(tlas_instance_hardware.Transform, &temp, sizeof(float) * 12);
+			tlas_instance_hardware.InstanceID = g_renderer->instance_data_at;
+			tlas_instance_hardware.InstanceMask = 1;
+			tlas_instance_hardware.InstanceContributionToHitGroupIndex = 0;
+			tlas_instance_hardware.AccelerationStructure = mesh->blas_buffer->GetGPUVirtualAddress();
+			tlas_instance_hardware.Flags = 0; // D3D12_RAYTRACING_INSTANCE_FLAGS
+		}
+
+		g_renderer->instance_data_at++;
 	}
 
 }

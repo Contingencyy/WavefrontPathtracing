@@ -17,7 +17,7 @@ namespace d3d12
 		memory_arena_t* arena;
 
 		IDXGIAdapter4* dxgi_adapter;
-		ID3D12Device8* device;
+		ID3D12Device14* device;
 		ID3D12CommandQueue* command_queue_direct;
 
 		bool vsync;
@@ -43,7 +43,7 @@ namespace d3d12
 		{
 			ID3D12DescriptorHeap* rtv;
 			ID3D12DescriptorHeap* cbv_srv_uav;
-
+			
 			struct handle_size_t
 			{
 				uint32_t rtv;
@@ -63,6 +63,14 @@ namespace d3d12
 			IDxcUtils* dxc_utils;
 			IDxcIncludeHandler* dxc_include_handler;
 		} shader_compiler;
+
+		struct immediate_t
+		{
+			ID3D12CommandAllocator* command_allocator;
+			ID3D12GraphicsCommandList10* command_list;
+			ID3D12Fence* fence;
+			uint64_t fence_value;
+		} immediate;
 
 		upload_context_t upload_ctx;
 		frame_context_t* frame_ctx;

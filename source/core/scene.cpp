@@ -53,7 +53,7 @@ namespace scene
 		rmesh_params.vertices = plane_verts;
 		rmesh_params.index_count = ARRAY_SIZE(plane_indices);
 		rmesh_params.indices = plane_indices;
-		rmesh_params.debug_name = L"Plane Mesh";
+		rmesh_params.debug_name = WSTRING_LITERAL(L"Plane Mesh");
 
 		render_mesh_handle_t render_mesh_handle_plane = renderer::create_render_mesh(rmesh_params);
 

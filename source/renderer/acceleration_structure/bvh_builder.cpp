@@ -2,13 +2,13 @@
 #include "bvh_builder.h"
 #include "as_util.h"
 
-#include "renderer/renderer_fwd.h"
+#include "renderer/shaders/shared.hlsl.h"
 
 void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 {
 	m_build_opts = build_args.options;
 
-	m_triangle_count = build_args.index_count / 3;
+	m_triangle_count = build_args.triangle_count;
 	m_triangles = ARENA_ALLOC_ARRAY_ZERO(arena, bvh_triangle_t, m_triangle_count);
 	m_triangle_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, m_triangle_count);
 	m_triangle_centroids = ARENA_ALLOC_ARRAY_ZERO(arena, glm::vec3, m_triangle_count);
@@ -20,9 +20,9 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	// Make bvh triangles from vertices and indices
 	for (uint32_t tri_idx = 0, i = 0; tri_idx < m_triangle_count; ++tri_idx, i += 3)
 	{
-		m_triangles[tri_idx].p0 = build_args.vertices[build_args.indices[i]].position;
-		m_triangles[tri_idx].p1 = build_args.vertices[build_args.indices[i + 1]].position;
-		m_triangles[tri_idx].p2 = build_args.vertices[build_args.indices[i + 2]].position;
+		m_triangles[tri_idx].p0 = build_args.triangles[tri_idx].v0.position;
+		m_triangles[tri_idx].p1 = build_args.triangles[tri_idx].v1.position;
+		m_triangles[tri_idx].p2 = build_args.triangles[tri_idx].v2.position;
 	}
 
 	// Fill all triangle indices with their default value

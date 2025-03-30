@@ -58,6 +58,122 @@ namespace d3d12
 		return create_resource_internal(name, heap_props, resource_desc);
 	}
 
+	static ID3D12Resource* create_buffer_as_scratch_internal(const wchar_t* name, uint64_t byte_size)
+	{
+		D3D12_HEAP_PROPERTIES heap_props = {};
+		heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+		D3D12_RESOURCE_DESC resource_desc = {};
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resource_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+		resource_desc.Format = DXGI_FORMAT_UNKNOWN;
+		resource_desc.Width = byte_size;
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = 1;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+		return create_resource_internal(name, heap_props, resource_desc);
+	}
+
+	static ID3D12Resource* create_buffer_as_internal(const wchar_t* name, uint64_t byte_size)
+	{
+		D3D12_HEAP_PROPERTIES heap_props = {};
+		heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+		D3D12_RESOURCE_DESC resource_desc = {};
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resource_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+		resource_desc.Format = DXGI_FORMAT_UNKNOWN;
+		resource_desc.Width = byte_size;
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = 1;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE;
+
+		return create_resource_internal(name, heap_props, resource_desc, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+	}
+
+	void create_buffer_blas(const wchar_t* name, ID3D12GraphicsCommandList10* command_list,
+		ID3D12Resource* triangle_resource, uint64_t triangle_count, uint32_t triangle_stride,
+		ID3D12Resource** out_blas_scratch, ID3D12Resource** out_blas)
+	{
+		// Triangles are storing vertex0, vertex1, vertex2, with each vertex having a position, normal, etc., so the vertex stride is the triangle stride divided by 3
+		const uint64_t vertex_stride = triangle_stride / 3;
+		const uint32_t vertex_count = triangle_count * 3;
+
+		D3D12_RAYTRACING_GEOMETRY_DESC rt_geometry_desc = {};
+		rt_geometry_desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+		rt_geometry_desc.Triangles.VertexBuffer.StartAddress = triangle_resource->GetGPUVirtualAddress();
+		rt_geometry_desc.Triangles.VertexBuffer.StrideInBytes = vertex_stride;
+		rt_geometry_desc.Triangles.VertexCount = vertex_count;
+		rt_geometry_desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+		rt_geometry_desc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS as_build_inputs = {};
+		as_build_inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+		as_build_inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+		as_build_inputs.pGeometryDescs = &rt_geometry_desc;
+		as_build_inputs.NumDescs = 1;
+		as_build_inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO as_prebuild_info = {};
+		g_d3d->device->GetRaytracingAccelerationStructurePrebuildInfo(&as_build_inputs, &as_prebuild_info);
+
+		as_prebuild_info.ScratchDataSizeInBytes = ALIGN_UP_POW2(as_prebuild_info.ScratchDataSizeInBytes, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
+		as_prebuild_info.ResultDataMaxSizeInBytes = ALIGN_UP_POW2(as_prebuild_info.ResultDataMaxSizeInBytes, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
+
+		*out_blas_scratch = create_buffer_as_scratch_internal(name, as_prebuild_info.ScratchDataSizeInBytes);
+		*out_blas = create_buffer_as_internal(name, as_prebuild_info.ResultDataMaxSizeInBytes);
+
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC as_build_desc = {};
+		as_build_desc.Inputs = as_build_inputs;
+		as_build_desc.ScratchAccelerationStructureData = (*out_blas_scratch)->GetGPUVirtualAddress();
+		as_build_desc.DestAccelerationStructureData = (*out_blas)->GetGPUVirtualAddress();
+
+		command_list->BuildRaytracingAccelerationStructure(&as_build_desc, 0, nullptr);
+
+		{
+			D3D12_RESOURCE_BARRIER barrier = barrier_uav(*out_blas);
+			command_list->ResourceBarrier(1, &barrier);
+		}
+	}
+
+	void create_buffer_tlas(const wchar_t* name, ID3D12GraphicsCommandList10* command_list,
+		ID3D12Resource* instance_resource, uint32_t instance_count,
+		ID3D12Resource** out_tlas_scratch, ID3D12Resource** out_tlas)
+	{
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS as_build_inputs = {};
+		as_build_inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+		as_build_inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+		as_build_inputs.InstanceDescs = instance_resource->GetGPUVirtualAddress();
+		as_build_inputs.NumDescs = instance_count;
+		as_build_inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+		
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO as_prebuild_info = {};
+		g_d3d->device->GetRaytracingAccelerationStructurePrebuildInfo(&as_build_inputs, &as_prebuild_info);
+
+		as_prebuild_info.ScratchDataSizeInBytes = ALIGN_UP_POW2(as_prebuild_info.ScratchDataSizeInBytes, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
+		as_prebuild_info.ResultDataMaxSizeInBytes = ALIGN_UP_POW2(as_prebuild_info.ResultDataMaxSizeInBytes, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
+
+		*out_tlas_scratch = create_buffer_as_scratch_internal(name, as_prebuild_info.ScratchDataSizeInBytes);
+		*out_tlas = create_buffer_as_internal(name, as_prebuild_info.ResultDataMaxSizeInBytes);
+
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC as_build_desc = {};
+		as_build_desc.Inputs = as_build_inputs;
+		as_build_desc.ScratchAccelerationStructureData = (*out_tlas_scratch)->GetGPUVirtualAddress();
+		as_build_desc.DestAccelerationStructureData = (*out_tlas)->GetGPUVirtualAddress();
+
+		command_list->BuildRaytracingAccelerationStructure(&as_build_desc, 0, nullptr);
+
+		D3D12_RESOURCE_BARRIER barrier = barrier_uav(*out_tlas);
+		command_list->ResourceBarrier(1, &barrier);
+	}
+
 	void create_buffer_cbv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
 	{
 		ASSERT(resource);
@@ -90,7 +206,7 @@ namespace d3d12
 		srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
 		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-
+		
 		srv_desc.Buffer.NumElements = byte_count / 4;
 		srv_desc.Buffer.FirstElement = byte_offset;
 		srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
@@ -120,6 +236,20 @@ namespace d3d12
 		srv_desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
 		g_d3d->device->CreateShaderResourceView(resource, &srv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
+	}
+
+	void create_as_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset)
+	{
+		ASSERT(resource);
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+		srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+		srv_desc.RaytracingAccelerationStructure.Location = resource->GetGPUVirtualAddress();
+
+		g_d3d->device->CreateShaderResourceView(nullptr, &srv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));
 	}
 
 	void create_buffer_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint64_t byte_count, uint64_t byte_offset)
@@ -270,7 +400,7 @@ namespace d3d12
 		dsv_desc.Format = format;
 		dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 		dsv_desc.Texture2D.MipSlice = mip;
-		// TODO: Determine only depth or only stencil based on format
+		// TODO: Determine only depth or only stencil based on format and based on usage
 		dsv_desc.Flags = D3D12_DSV_FLAG_NONE;
 
 		g_d3d->device->CreateDepthStencilView(resource, &dsv_desc, get_cpu_descriptor_handle(descriptor, descriptor_offset));

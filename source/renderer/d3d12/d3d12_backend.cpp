@@ -12,6 +12,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_win32.h"
 #include "imgui/imgui_impl_dx12.h"
+#include "implot/implot.h"
+#include "imguizmo/ImGuizmo.h"
 
 // Specify the D3D12 agility SDK version and path
 // This will help the D3D12.dll loader pick the right D3D12Core.dll (either the system d3d12core.dll or provided agility dll)
@@ -77,11 +79,19 @@ namespace d3d12
 		DX_CHECK_HR(D3D12CreateDevice(g_d3d->dxgi_adapter, d3d_min_feature_level, IID_PPV_ARGS(&g_d3d->device)));
 
 		// Check if additional required features are supported
-		D3D12_FEATURE_DATA_D3D12_OPTIONS12 d3d_options12 = {};
-		DX_CHECK_HR(g_d3d->device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &d3d_options12, sizeof(d3d_options12)));
+		{
+			D3D12_FEATURE_DATA_D3D12_OPTIONS5 d3d_options5 = {};
+			DX_CHECK_HR(g_d3d->device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &d3d_options5, sizeof(d3d_options5)));
 
-		if (!d3d_options12.EnhancedBarriersSupported)
-			FATAL_ERROR("D3D12", "DirectX 12 Feature not supported: Enhanced Barriers");
+			if (d3d_options5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0)
+				FATAL_ERROR("D3D12", "DirectX 12 Feature not supported: D3D12 Raytracing Tier 1.0");
+
+			D3D12_FEATURE_DATA_D3D12_OPTIONS12 d3d_options12 = {};
+			DX_CHECK_HR(g_d3d->device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS12, &d3d_options12, sizeof(d3d_options12)));
+
+			if (!d3d_options12.EnhancedBarriersSupported)
+				FATAL_ERROR("D3D12", "DirectX 12 Feature not supported: Enhanced Barriers");
+		}
 
 #ifdef _DEBUG
 		// Set info queue behavior and filters
@@ -131,11 +141,17 @@ namespace d3d12
 
 		// Create fence and fence event
 		g_d3d->sync.fence = create_fence(L"Frame Fence");
+		g_d3d->sync.fence_value = 0ull;
 
 		// Initialize descriptor heaps, descriptor allocation
 		g_d3d->descriptor_heaps.heap_sizes.rtv = g_d3d->swapchain.back_buffer_count;
 		g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav = 1024;
 		init_descriptors();
+
+		g_d3d->immediate.command_allocator = create_command_allocator(L"Immediate Command Allocator", D3D12_COMMAND_LIST_TYPE_DIRECT);
+		g_d3d->immediate.command_list = create_command_list(L"Immediate Command List", g_d3d->immediate.command_allocator, D3D12_COMMAND_LIST_TYPE_DIRECT);
+		g_d3d->immediate.fence = create_fence(L"Immediate Fence");
+		g_d3d->immediate.fence_value = 0ull;
 
 		// Initialize upload ring buffer
 		init_upload_context(UPLOAD_BUFFER_DEFAULT_CAPACITY);
@@ -151,6 +167,7 @@ namespace d3d12
 		// Initialize Dear ImGui
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
+		ImPlot::CreateContext();
 		ImGui::StyleColorsDark();
 
 		ImGuiIO& io = ImGui::GetIO();
@@ -177,6 +194,7 @@ namespace d3d12
 
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
+		ImPlot::DestroyContext();
 		ImGui::DestroyContext();
 	}
 
@@ -191,6 +209,7 @@ namespace d3d12
 		ImGui_ImplWin32_NewFrame();
 		ImGui_ImplDX12_NewFrame();
 		ImGui::NewFrame();
+		ImGuizmo::BeginFrame();
 	}
 
 	void end_frame()
@@ -285,6 +304,32 @@ namespace d3d12
 		g_d3d->swapchain.back_buffer_index = g_d3d->swapchain.dxgi_swapchain->GetCurrentBackBufferIndex();
 	}
 
+	void flush()
+	{
+		// Wait on in-flight frames to finish execution
+		if (g_d3d->sync.fence->GetCompletedValue() < g_d3d->sync.fence_value)
+		{
+			wait_on_fence(g_d3d->sync.fence, g_d3d->sync.fence_value);
+		}
+
+		for (uint32_t i = 0; i < g_d3d->swapchain.back_buffer_count; ++i)
+		{
+			if (g_d3d->sync.fence->GetCompletedValue() < g_d3d->frame_ctx[i].fence_value)
+			{
+				wait_on_fence(g_d3d->sync.fence, g_d3d->frame_ctx[i].fence_value);
+			}
+		}
+
+		// Wait on immediate command lists to finish execution
+		if (g_d3d->immediate.fence->GetCompletedValue() < g_d3d->immediate.fence_value)
+		{
+			wait_on_fence(g_d3d->immediate.fence, g_d3d->immediate.fence_value);
+		}
+
+		// Flush in-flight uploads
+		flush_uploads();
+	}
+
 	void release_object(ID3D12Object* object)
 	{
 		DX_RELEASE_OBJECT(object);
@@ -315,11 +360,11 @@ namespace d3d12
 		return d3d_command_allocator;
 	}
 
-	ID3D12GraphicsCommandList6* create_command_list(const wchar_t* debug_name, ID3D12CommandAllocator* d3d_command_allocator, D3D12_COMMAND_LIST_TYPE type)
+	ID3D12GraphicsCommandList10* create_command_list(const wchar_t* debug_name, ID3D12CommandAllocator* d3d_command_allocator, D3D12_COMMAND_LIST_TYPE type)
 	{
 		ASSERT(d3d_command_allocator);
 
-		ID3D12GraphicsCommandList6* d3d_command_list = nullptr;
+		ID3D12GraphicsCommandList10* d3d_command_list = nullptr;
 		DX_CHECK_HR(g_d3d->device->CreateCommandList(0, type, d3d_command_allocator, nullptr, IID_PPV_ARGS(&d3d_command_list)));
 		DX_CHECK_HR(d3d_command_list->SetName(debug_name));
 
@@ -345,7 +390,8 @@ namespace d3d12
 		}
 	}
 
-	IDxcBlob* compile_shader(const wchar_t* filepath, const wchar_t* entry_point, const wchar_t* target_profile)
+	IDxcBlob* compile_shader(const wchar_t* filepath, const wchar_t* entry_point, const wchar_t* target_profile,
+		uint32_t define_count, const DxcDefine* defines)
 	{
 		HRESULT hr = 0;
 		uint32_t codepage = 0;
@@ -364,29 +410,28 @@ namespace d3d12
 		shader_source_buffer.Ptr = shader_source_blob->GetBufferPointer();
 		shader_source_buffer.Size = shader_source_blob->GetBufferSize();
 
-		// TODO: Use string builder, add dynamic macros
-		const wchar_t* compile_args[] =
+		IDxcCompilerArgs* compiler_args = nullptr;
+		const wchar_t* args[] =
 		{
-			filepath, // Filepath
-			L"-E", entry_point, // Entry point
-			L"-T", target_profile, // Target profile
-			L"-HV 2021", // Compile with HLSL 2021
-			//L"-D <macro>", Defines a macro, macros with values can be defined like this: -D MacroName=MacroValue
-			//L"-enable-16bit-types"
+			filepath,
+			L"-E", entry_point,
+			L"-T", target_profile,
+			L"-HV 2021", //L"-enable-16bit-types",
 			DXC_ARG_WARNINGS_ARE_ERRORS,
 			DXC_ARG_OPTIMIZATION_LEVEL3,
 			DXC_ARG_PACK_MATRIX_ROW_MAJOR,
-#ifdef _DEBUG
+		#ifdef _DEBUG
 			DXC_ARG_DEBUG,
 			DXC_ARG_SKIP_OPTIMIZATIONS,
 			// Embed PDB inside the shader binary
 			L"-Qembed_debug"
-#endif
+		#endif
 		};
+		g_d3d->shader_compiler.dxc_utils->BuildArguments(filepath, entry_point, target_profile, args, ARRAY_SIZE(args), defines, define_count, &compiler_args);
 
 		IDxcResult* compile_result = nullptr;
 		DX_CHECK_HR(g_d3d->shader_compiler.dx_compiler->Compile(
-			&shader_source_buffer, compile_args, ARRAY_SIZE(compile_args),
+			&shader_source_buffer, compiler_args->GetArguments(), compiler_args->GetCount(),
 			g_d3d->shader_compiler.dxc_include_handler, IID_PPV_ARGS(&compile_result))
 		);
 		DX_CHECK_HR(compile_result->GetStatus(&hr));
@@ -396,7 +441,8 @@ namespace d3d12
 			IDxcBlobEncoding* compile_error = nullptr;
 			compile_result->GetErrorBuffer(&compile_error);
 
-			FATAL_ERROR("D3D12", (char*)compile_error->GetBufferPointer());
+			FATAL_ERROR("D3D12", "Tried to compile shader %s (entry: %ls, target: %ls) with args %ls",
+				(char*)compile_error->GetBufferPointer(), entry_point, target_profile, compiler_args->GetArguments());
 
 			DX_RELEASE_OBJECT(compile_error);
 			return nullptr;
@@ -487,6 +533,42 @@ namespace d3d12
 		{
 			resource->Unmap(subresource, nullptr);
 		}
+	}
+
+	ID3D12GraphicsCommandList10* get_immediate_command_list()
+	{
+		if (g_d3d->immediate.fence->GetCompletedValue() < g_d3d->immediate.fence_value)
+		{
+			wait_on_fence(g_d3d->immediate.fence, g_d3d->immediate.fence_value);
+		}
+
+		if (g_d3d->immediate.fence_value > 0)
+		{
+			g_d3d->immediate.command_allocator->Reset();
+			g_d3d->immediate.command_list->Reset(g_d3d->immediate.command_allocator, nullptr);
+		}
+
+		return g_d3d->immediate.command_list;
+	}
+
+	uint64_t execute_immediate_command_list(ID3D12GraphicsCommandList10* command_list, bool wait_on_finish)
+	{
+		ASSERT_MSG(g_d3d->immediate.command_list == command_list, "Command list passed into function is not an immediate command list");
+
+		// Do the actual stuff
+		command_list->Close();
+		ID3D12CommandList* const command_lists[] = { command_list };
+		g_d3d->command_queue_direct->ExecuteCommandLists(1, command_lists);
+
+		g_d3d->immediate.fence_value++;
+		DX_CHECK_HR(g_d3d->command_queue_direct->Signal(g_d3d->immediate.fence, g_d3d->immediate.fence_value));
+
+		if (wait_on_finish)
+		{
+			wait_on_fence(g_d3d->immediate.fence, g_d3d->immediate.fence_value);
+		}
+
+		return g_d3d->immediate.fence_value;
 	}
 
 }

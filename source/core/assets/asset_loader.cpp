@@ -2,6 +2,7 @@
 #include "asset_loader.h"
 
 #include "renderer/renderer.h"
+#include "renderer/shaders/shared.hlsl.h"
 
 namespace asset_loader
 {
@@ -57,7 +58,7 @@ namespace asset_loader
 			rtexture_params.bytes_per_channel = 4;
 			rtexture_params.channel_count = 4; // Forced to 4 by using STBI_rgb_alpha flag
 			rtexture_params.ptr_data = (uint8_t*)ptr_image_data;
-			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath).buf;
+			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
 
 			asset->render_texture_handle = renderer::create_render_texture(rtexture_params);
 		}
@@ -179,7 +180,7 @@ namespace asset_loader
 					rmesh_params.vertices = vertices;
 					rmesh_params.index_count = index_count;
 					rmesh_params.indices = indices;
-					rmesh_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath).buf;
+					rmesh_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
 
 					asset->render_mesh_handles[asset->mesh_handle_count] = renderer::create_render_mesh(rmesh_params);
 					asset->mesh_handle_count++;
