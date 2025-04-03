@@ -10,6 +10,10 @@ inline constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 #define MB(x) ((x) << 20ull)
 #define GB(x) ((x) << 30ull)
 
+#define TO_KB(x) ((x) >> 10ull)
+#define TO_MB(x) ((x) >> 20ull)
+#define TO_GB(x) ((x) >> 30ull)
+
 #define ALIGN_UP_POW2(value, align) ((intptr_t)(value)+((align)-1) & (-(intptr_t)(align)))
 #define ALIGN_DOWN_POW2(value, align) ((intptr_t)(value) & (-(intptr_t)(align)))
 #define IS_POW2(value) (value != 0 && !(value & (value - 1)))

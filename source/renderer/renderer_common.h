@@ -2,6 +2,7 @@
 
 #include "core/camera/camera.h"
 #include "core/containers/slotmap.h"
+#include "core/containers/hashmap.h"
 
 #include "shaders/shared.hlsl.h"
 
@@ -57,6 +58,10 @@ namespace renderer
 		ID3D12Resource* texture_buffer;
 		d3d12::descriptor_allocation_t texture_srv;
 
+		uint32_t width;
+		uint32_t height;
+		uint32_t depth;
+
 		wstring_t debug_name;
 	};
 
@@ -75,16 +80,32 @@ namespace renderer
 		wstring_t debug_name;
 	};
 
+	struct gpu_timer_query_t
+	{
+		uint32_t timer_begin_query_index;
+		uint32_t timer_end_query_index;
+	};
+
+	struct gpu_timer_result_t
+	{
+		uint64_t begin_timestamp;
+		uint64_t end_timestamp;
+	};
+
 	struct frame_context_t
 	{
 		ID3D12Resource* scene_tlas_scratch_resource;
 		ID3D12Resource* scene_tlas_resource;
 		d3d12::descriptor_allocation_t scene_tlas_srv;
+
+		hashmap_t<string_t, gpu_timer_query_t> gpu_timer_queries;
+		hashmap_t<string_t, gpu_timer_query_t> gpu_timer_queries_copy_queue;
 	};
 
 	struct renderer_inst_t
 	{
 		memory_arena_t arena;
+		memory_arena_t frame_arena;
 
 		uint32_t render_width;
 		uint32_t render_height;
@@ -133,6 +154,9 @@ namespace renderer
 
 		d3d12::frame_resource_t cb_render_settings;
 		d3d12::frame_resource_t cb_view;
+		
+		hashmap_t<string_t, gpu_timer_result_t> gpu_timer_results;
+		hashmap_t<string_t, gpu_timer_result_t> gpu_timer_results_copy_queue;
 	};
 	extern renderer_inst_t* g_renderer;
 

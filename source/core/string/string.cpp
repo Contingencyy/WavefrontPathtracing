@@ -207,3 +207,15 @@ namespace wstring
 //	}
 //
 //}
+
+bool string_t::operator==(const string_t& other) const
+{
+	return (this->count == other.count &&
+		memcmp(this->buf, other.buf, this->count * sizeof(char)) == 0);
+}
+
+bool wstring_t::operator==(const wstring_t& other) const
+{
+	return (this->count == other.count &&
+		memcmp(this->buf, other.buf, this->count * sizeof(wchar_t)) == 0);
+}

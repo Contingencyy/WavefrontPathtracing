@@ -278,8 +278,16 @@
     <ClInclude Include="extern\imguizmo\ImZoomSlider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="source\renderer\shaders\shared.hlsl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\renderer\shaders\pathtracer.hlsl" />
+    <FxCompile Include="source\renderer\shaders\accelstruct.hlsl" />
+    <FxCompile Include="source\renderer\shaders\common.hlsl" />
+    <FxCompile Include="source\renderer\shaders\intersect.hlsl" />
+    <FxCompile Include="source\renderer\shaders\post_process.hlsl" />
+    <FxCompile Include="source\renderer\shaders\sample.hlsl" />
   </ItemGroup>
 </Project>

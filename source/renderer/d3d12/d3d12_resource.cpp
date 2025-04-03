@@ -58,6 +58,26 @@ namespace d3d12
 		return create_resource_internal(name, heap_props, resource_desc);
 	}
 
+	ID3D12Resource* create_buffer_readback(const wchar_t* name, uint64_t byte_size)
+	{
+		D3D12_HEAP_PROPERTIES heap_props = {};
+		heap_props.Type = D3D12_HEAP_TYPE_READBACK;
+
+		D3D12_RESOURCE_DESC resource_desc = {};
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resource_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+		resource_desc.Format = DXGI_FORMAT_UNKNOWN;
+		resource_desc.Width = byte_size;
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = 1;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+		return create_resource_internal(name, heap_props, resource_desc);
+	}
+
 	static ID3D12Resource* create_buffer_as_scratch_internal(const wchar_t* name, uint64_t byte_size)
 	{
 		D3D12_HEAP_PROPERTIES heap_props = {};

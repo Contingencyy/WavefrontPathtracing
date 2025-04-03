@@ -1,6 +1,6 @@
 #pragma once
 #include "d3d12_include.h"
-#include"core/allocators/ring_alloc.h"
+#include "core/allocators/ring_alloc.h"
 
 #include "core/api_types.h"
 
@@ -17,6 +17,7 @@ namespace d3d12
 		ID3D12GraphicsCommandList10* d3d_command_list;
 		uint64_t fence_value;
 		void* ptr;
+
 		
 		ring_buffer_alloc_t ring_buffer_alloc;
 	};

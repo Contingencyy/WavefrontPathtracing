@@ -15,6 +15,7 @@ struct shader_input_t
 {
     uint scene_tlas_index;
     uint hdr_env_index;
+    uint2 hdr_env_dimensions;
     uint instance_buffer_index;
     uint rt_index;
     uint sample_count;
@@ -23,10 +24,10 @@ struct shader_input_t
 
 ConstantBuffer<shader_input_t> g_input : register(b2, space0);
 
-float4 sample_hdr_env(float3 dir)
+float4 sample_hdr_env(float3 dir, float2 texture_resolution)
 {
     Texture2D<float4> env_texture = get_resource<Texture2D>(g_input.hdr_env_index);
-    uint2 sample_pos = direction_to_equirect_uv(dir) * float2(4096.0f, 2048.0f);
+    uint2 sample_pos = direction_to_equirect_uv(dir) * texture_resolution;
     
     return env_texture[sample_pos];
 }
@@ -58,7 +59,7 @@ float4 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, 
         // We have missed the scene entirely, so we treat the HDR environment texture as a light source and stop tracing
         if (!has_hit_geometry(hit))
         {
-            energy += sample_hdr_env(ray.Direction).xyz * throughput;
+            energy += sample_hdr_env(ray.Direction, float2(g_input.hdr_env_dimensions)).xyz * throughput;
             break;
         }
         

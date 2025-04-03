@@ -72,6 +72,16 @@ namespace d3d12
 			uint64_t fence_value;
 		} immediate;
 
+		struct queries_t
+		{
+			uint32_t timestamp_query_capacity;
+			uint32_t timestamp_query_at;
+			uint32_t copy_queue_timestamp_query_at;
+			
+			ID3D12QueryHeap* timestamp_heap;
+			ID3D12QueryHeap* copy_queue_timestamp_heap;
+		} queries;
+
 		upload_context_t upload_ctx;
 		frame_context_t* frame_ctx;
 	};

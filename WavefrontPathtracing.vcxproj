@@ -228,9 +228,9 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp" />
     <ClCompile Include="source\renderer\acceleration_structure\tlas_builder.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_backend.cpp" />
-    <ClCompile Include="source\renderer\d3d12\d3d12_command.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_descriptor.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_frame.cpp" />
+    <ClCompile Include="source\renderer\d3d12\d3d12_query.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_resource.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_upload.cpp" />
     <ClCompile Include="source\renderer\material.cpp" />
@@ -275,11 +275,11 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\acceleration_structure\as_util.h" />
     <ClInclude Include="source\renderer\acceleration_structure\tlas_builder.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_backend.h" />
-    <ClInclude Include="source\renderer\d3d12\d3d12_command.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_common.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_descriptor.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_frame.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_include.h" />
+    <ClInclude Include="source\renderer\d3d12\d3d12_query.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_resource.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_upload.h" />
     <ClInclude Include="source\renderer\material.h" />
@@ -288,9 +288,33 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\renderer_fwd.h" />
     <ClInclude Include="source\core\allocators\ring_alloc.h" />
     <ClInclude Include="source\core\containers\slotmap.h" />
+    <ClInclude Include="source\renderer\shaders\shared.hlsl.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="source\renderer\shaders\accelstruct.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="source\renderer\shaders\common.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="source\renderer\shaders\intersect.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="source\renderer\shaders\pathtracer.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="source\renderer\shaders\post_process.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="source\renderer\shaders\sample.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>

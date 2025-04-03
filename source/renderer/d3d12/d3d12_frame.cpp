@@ -12,26 +12,28 @@ namespace d3d12
 		// Create render target views for all back buffers
 		g_d3d->frame_ctx = ARENA_ALLOC_ARRAY_ZERO(g_d3d->arena, frame_context_t, g_d3d->swapchain.back_buffer_count);
 
-		for (uint32_t i = 0; i < g_d3d->swapchain.back_buffer_count; ++i)
+		ARENA_SCRATCH_SCOPE()
 		{
-			frame_context_t& frame_ctx = g_d3d->frame_ctx[i];
-
-			// Create back buffer render target views
-			g_d3d->swapchain.dxgi_swapchain->GetBuffer(i, IID_PPV_ARGS(&frame_ctx.backbuffer));
-			ARENA_SCRATCH_SCOPE()
+			for (uint32_t i = 0; i < g_d3d->swapchain.back_buffer_count; ++i)
 			{
+				frame_context_t& frame_ctx = g_d3d->frame_ctx[i];
+
+				// Create back buffer render target views
+				g_d3d->swapchain.dxgi_swapchain->GetBuffer(i, IID_PPV_ARGS(&frame_ctx.backbuffer));
 				frame_ctx.backbuffer->SetName(ARENA_WPRINTF(arena_scratch, L"Back Buffer %u", i).buf);
 				frame_ctx.backbuffer_rtv = allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 				create_texture_2d_rtv(frame_ctx.backbuffer, frame_ctx.backbuffer_rtv, 0, swapchain_desc.Format);
 
+				// Create command allocator and command list
 				frame_ctx.command_allocator = create_command_allocator(ARENA_WPRINTF(arena_scratch, L"Frame Command Allocator %u", i).buf, D3D12_COMMAND_LIST_TYPE_DIRECT);
 				frame_ctx.command_list = create_command_list(ARENA_WPRINTF(arena_scratch, L"Frame Command List %u", i).buf, g_d3d->frame_ctx[i].command_allocator, D3D12_COMMAND_LIST_TYPE_DIRECT);
 
 				// Create linear allocator and underlying resource
 				frame_ctx.frame_allocator_resource = create_buffer_upload(ARENA_WPRINTF(arena_scratch, L"Frame allocator buffer %u", i).buf, frame_alloc_capacity);
+				
+				frame_ctx.frame_allocator_ptr = (uint8_t*)map_resource(frame_ctx.frame_allocator_resource);
+				linear_alloc::init(frame_ctx.frame_linear_allocator, frame_alloc_capacity);
 			}
-			frame_ctx.frame_allocator_ptr = (uint8_t*)map_resource(frame_ctx.frame_allocator_resource);
-			linear_alloc::init(frame_ctx.frame_linear_allocator, frame_alloc_capacity);
 		}
 	}
 

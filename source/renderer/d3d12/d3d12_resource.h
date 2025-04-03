@@ -11,6 +11,7 @@ namespace d3d12
 
 	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size);
 	ID3D12Resource* create_buffer_upload(const wchar_t* name, uint64_t byte_size);
+	ID3D12Resource* create_buffer_readback(const wchar_t* name, uint64_t byte_size);
 	void create_buffer_blas(const wchar_t* name, ID3D12GraphicsCommandList10* command_list,
 		ID3D12Resource* triangle_resource, uint64_t triangle_count, uint32_t triangle_stride,
 		ID3D12Resource** out_blas_scratch, ID3D12Resource** out_blas);

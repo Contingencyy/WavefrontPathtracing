@@ -95,14 +95,22 @@ void memory_arena::clear(memory_arena_t* arena)
 {
 	// reset the arena current pointer to its base
 	arena->ptr_at = arena->ptr_base;
-	memory_arena::decommit(arena, arena->ptr_base);
+	
+	if (arena->ptr_base)
+	{
+		memory_arena::decommit(arena, arena->ptr_base);
+	}
 }
 
 void memory_arena::release(memory_arena_t* arena)
 {
 	void* ptr_arena_base = arena->ptr_base;
 	arena->ptr_base = arena->ptr_at = arena->ptr_end = arena->ptr_committed = nullptr;
-	virtual_memory::release(ptr_arena_base);
+	
+	if (ptr_arena_base)
+	{
+		virtual_memory::release(ptr_arena_base);
+	}
 }
 
 uint64_t memory_arena::total_reserved(memory_arena_t* arena)

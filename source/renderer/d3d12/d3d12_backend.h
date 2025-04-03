@@ -17,6 +17,7 @@ namespace d3d12
 	void end_frame();
 
 	void copy_to_back_buffer(ID3D12Resource* src_resource, uint32_t render_width, uint32_t render_height);
+	void render_imgui();
 	void present();
 
 	void flush();
@@ -41,5 +42,12 @@ namespace d3d12
 	// TODO: Implement command list pool for immediate tasks
 	ID3D12GraphicsCommandList10* get_immediate_command_list();
 	uint64_t execute_immediate_command_list(ID3D12GraphicsCommandList10* command_list, bool wait_on_finish);
+
+	struct device_memory_info_t
+	{
+		DXGI_QUERY_VIDEO_MEMORY_INFO local_mem;
+		DXGI_QUERY_VIDEO_MEMORY_INFO non_local_mem;
+	};
+	device_memory_info_t get_device_memory_info();
 
 }

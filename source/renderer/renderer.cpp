@@ -13,6 +13,7 @@
 #include "core/camera/camera.h"
 #include "core/logger.h"
 #include "core/random.h"
+#include "d3d12/d3d12_query.h"
 
 #include "imgui/imgui.h"
 
@@ -20,6 +21,76 @@ namespace renderer
 {
 
 	renderer_inst_t* g_renderer = nullptr;
+
+	static frame_context_t& get_frame_context()
+	{
+		return g_renderer->frame_ctx[d3d12::g_d3d->swapchain.back_buffer_index];
+	}
+
+	static inline void begin_gpu_timestamp(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, const string_t& key)
+	{
+		bool is_copy_queue = command_list->GetType() == D3D12_COMMAND_LIST_TYPE_COPY;
+		hashmap_t<string_t, gpu_timer_query_t>& gpu_timestamp_queries = is_copy_queue ? frame_ctx.gpu_timer_queries_copy_queue : frame_ctx.gpu_timer_queries;
+		
+		ASSERT_MSG(!hashmap::find(gpu_timestamp_queries, key), "Tried to begin a gpu timestamp that already has an entry");
+		
+		gpu_timer_query_t* query = hashmap::emplace_zeroed(gpu_timestamp_queries, key);
+		query->timer_begin_query_index = d3d12::begin_query_timestamp(command_list);
+	}
+
+	static inline void end_gpu_timestamp(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, const string_t& key)
+	{
+		bool is_copy_queue = command_list->GetType() == D3D12_COMMAND_LIST_TYPE_COPY;
+		hashmap_t<string_t, gpu_timer_query_t>& gpu_timestamp_queries = is_copy_queue ? frame_ctx.gpu_timer_queries_copy_queue : frame_ctx.gpu_timer_queries;
+		
+		gpu_timer_query_t* query = hashmap::find(gpu_timestamp_queries, key);
+		ASSERT_MSG(query, "Called end_gpu_timestamp on a gpu timer query that has not begun yet");
+
+		query->timer_end_query_index = d3d12::end_query_timestamp(command_list);
+	}
+
+	static inline void readback_timestamp_queries()
+	{
+		d3d12::frame_context_t d3d_frame_ctx = d3d12::get_frame_context();
+		frame_context_t& frame_ctx = get_frame_context();
+
+		// Graphics queue GPU timestamp queries
+		if (frame_ctx.gpu_timer_queries.size == 0)
+			return;
+		
+		ID3D12Resource* readback_buffer = d3d_frame_ctx.timestamp_queries_readback;
+		uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
+
+		hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries);
+		while (hashmap::advance_iter(iter))
+		{
+			// TODO: This is dangerous, emplacing with a string key from another hashmap does not copy the string over,
+			// so when the first hashmap gets released, the keys from the second map will be invalid
+			// Also need to make sure that the keys are de-allocated somehow when hashmap entry is removed or reset.
+			gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results, *iter.key);
+			result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
+			result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
+		}
+
+		d3d12::unmap_resource(readback_buffer);
+
+		// Copy queue GPU timestamp queries
+		if (frame_ctx.gpu_timer_queries_copy_queue.size == 0)
+			return;
+		
+		readback_buffer = d3d_frame_ctx.copy_queue_timestamp_queries_readback;
+		timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
+
+		iter = hashmap::get_iter(frame_ctx.gpu_timer_queries_copy_queue);
+		while (hashmap::advance_iter(iter))
+		{
+			gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results_copy_queue, *iter.key);
+			result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
+			result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
+		}
+
+		d3d12::unmap_resource(readback_buffer);
+	}
 
 	static render_settings_shader_data_t get_default_render_settings()
 	{
@@ -227,7 +298,7 @@ namespace renderer
 		backend_params.arena = &g_renderer->arena;
 		backend_params.back_buffer_count = 2u;
 		d3d12::init(backend_params);
-
+		
 		// Create instance buffer
 		// TODO: Make the instance buffer resize automatically when required, treating the MAX_INSTANCES as the theoretically highest possible instance count instead
 		g_renderer->instance_data_capacity = MAX_INSTANCES;
@@ -236,14 +307,7 @@ namespace renderer
 		g_renderer->instance_buffer = d3d12::create_buffer(L"Instance Buffer", sizeof(instance_data_t) * MAX_INSTANCES);
 		g_renderer->instance_buffer_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		d3d12::create_buffer_srv(g_renderer->instance_buffer, g_renderer->instance_buffer_srv, 0, sizeof(instance_data_t) * MAX_INSTANCES);
-
-		// Software raytracing
-		//if (g_renderer->settings.use_software_rt)
-		{
-			// We always allocate the CPU side data for software TLAS instances
-			// TODO: Make this allocate from per-frame arena, then it can resize to required instance count
-			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, bvh_instance_t, g_renderer->instance_data_capacity);
-		}
+		
 		// Hardware raytracing
 		if (!g_renderer->settings.use_software_rt)
 		{
@@ -253,6 +317,9 @@ namespace renderer
 		}
 
 		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY(&g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
+
+		hashmap::init(g_renderer->gpu_timer_results, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+		hashmap::init(g_renderer->gpu_timer_results_copy_queue, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
@@ -352,6 +419,8 @@ namespace renderer
 
 	void exit()
 	{
+		ARENA_RELEASE(&g_renderer->frame_arena);
+		
 		slotmap::destroy(g_renderer->texture_slotmap);
 		slotmap::destroy(g_renderer->mesh_slotmap);
 
@@ -374,9 +443,27 @@ namespace renderer
 	{
 		d3d12::begin_frame();
 
+		// Read back the GPU timestamp queries from the buffer
+		hashmap::clear(g_renderer->gpu_timer_results);
+		hashmap::clear(g_renderer->gpu_timer_results_copy_queue);
+		readback_timestamp_queries();
+		
+		// Clear arena for the current frame
+		ARENA_CLEAR(&g_renderer->frame_arena);
+
+		// (Re-)Initialize the gpu timestamp queries for the current frame
+		frame_context_t& frame_ctx = get_frame_context();
+		hashmap::init(frame_ctx.gpu_timer_queries, g_renderer->frame_arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+		hashmap::init(frame_ctx.gpu_timer_queries_copy_queue, g_renderer->frame_arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+
 		if (g_renderer->change_raytracing_mode)
 		{
 			change_raytracing_mode();
+		}
+		
+		if (g_renderer->settings.use_software_rt)
+		{
+			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->frame_arena, bvh_instance_t, g_renderer->instance_data_capacity);
 		}
 
 		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -386,8 +473,17 @@ namespace renderer
 
 	void end_frame()
 	{
+		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
+		frame_context_t& frame_ctx = get_frame_context();
+		
+		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy RT To Backbuffer"));
 		d3d12::copy_to_back_buffer(g_renderer->rt_final_color, g_renderer->render_width, g_renderer->render_height);
-
+		end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy RT To Backbuffer"));
+		
+		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("ImGui"));
+		d3d12::render_imgui();
+		end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("ImGui"));
+		
 		d3d12::end_frame();
 		d3d12::present();
 
@@ -424,7 +520,7 @@ namespace renderer
 	void render()
 	{
 		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
-		frame_context_t& frame_ctx = g_renderer->frame_ctx[g_renderer->frame_index % 2];
+		frame_context_t& frame_ctx = get_frame_context();
 
 		if (g_renderer->instance_data_at > 0)
 		{
@@ -433,7 +529,6 @@ namespace renderer
 				ARENA_SCRATCH_SCOPE()
 				{
 					// Build the TLAS
-					// TODO: Do not rebuild the TLAS every single frame
 					tlas_builder_t tlas_builder = {};
 					tlas_builder.build(arena_scratch, g_renderer->tlas_instance_data_software, g_renderer->instance_data_at);
 					uint64_t tlas_byte_size = 0;
@@ -465,9 +560,11 @@ namespace renderer
 			}
 			else
 			{
+				begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("TLAS Build"));
 				// TODO: If the buffer size is sufficient, do not release it
 				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_scratch_resource);
 				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
+
 				d3d12::create_buffer_tlas(L"Scene TLAS Buffer (HW)", d3d_frame_ctx.command_list,
 					g_renderer->tlas_instance_data_buffer, g_renderer->instance_data_at,
 					&frame_ctx.scene_tlas_scratch_resource, &frame_ctx.scene_tlas_resource);
@@ -479,6 +576,7 @@ namespace renderer
 				}
 				// Update the scene TLAS descriptor
 				d3d12::create_as_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0);
+				end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("TLAS Build"));
 			}
 
 			{
@@ -523,7 +621,9 @@ namespace renderer
 
 		// Dispatch pathtrace compute shader
 		{
-			// TODO: Define these in a shared hlsl/cpp header, or set these as a define when compiling the shaders/PSO
+			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace"));
+
+			// TODO: Define these in a shared hlsl/cpp header, or somehow store that information in compiled shader
 			const uint32_t dispatch_threads_per_block_x = 16;
 			const uint32_t dispatch_threads_per_block_y = 16;
 
@@ -544,6 +644,7 @@ namespace renderer
 			{
 				uint32_t scene_tlas_index;
 				uint32_t hdr_env_index;
+				glm::uvec2 hdr_env_dimensions;
 				uint32_t instance_buffer_index;
 				uint32_t rt_index;
 				uint32_t sample_count;
@@ -555,17 +656,24 @@ namespace renderer
 
 			shader_input->scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
 			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
+			shader_input->hdr_env_dimensions = glm::uvec2(
+				g_renderer->scene_hdr_env_texture->width,
+				g_renderer->scene_hdr_env_texture->height);
 			shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
 			shader_input->rt_index = g_renderer->rt_color_accum_srv_uav.offset + 1;
 			shader_input->random_seed = random::rand_uint32();
 			shader_input->sample_count = g_renderer->accum_count;
-			
+
 			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
 			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+			
+			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace"));
 		}
 
 		// Dispatch post-process compute shader
 		{
+			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
+			
 			const uint32_t dispatch_threads_per_block_x = 16;
 			const uint32_t dispatch_threads_per_block_y = 16;
 
@@ -589,6 +697,8 @@ namespace renderer
 
 			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, shader_cb.resource->GetGPUVirtualAddress() + shader_cb.byte_offset);
 			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+			
+			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
 		}
 	}
 
@@ -603,10 +713,45 @@ namespace renderer
 		{
 			bool should_reset_accumulators = false;
 
-			//ImGui::Text("render time: %.3f ms", Profiler::GetTimerResult(GlobalProfilingScope_RenderTime).lastElapsed * 1000.0f);
-
 			ImGui::Text("Resolution: %ux%u", g_renderer->render_width, g_renderer->render_height);
 			ImGui::Text("Accumulator: %u", g_renderer->accum_count);
+
+			if (ImGui::CollapsingHeader("GPU Timers"))
+			{
+				// TODO: Get the correct timestamp frequency for each command queue, maybe store it inside the gpu timers
+				double timestamp_freq = (double)d3d12::get_timestamp_frequency();
+
+				hashmap_iter_t iter = hashmap::get_iter(g_renderer->gpu_timer_results);
+				while (hashmap::advance_iter(iter))
+				{
+					// TODO: Hashmap resizing
+					// TODO: Hashmap pick prime number for size
+					double timer_elapsed = (double)(iter.value->end_timestamp - iter.value->begin_timestamp);
+					double timer_ms = (timer_elapsed / timestamp_freq) * 1000.0;
+					
+					ImGui::Text("%.*s: %.3f ms", STRING_EXPAND(*iter.key), timer_ms);
+				}
+			}
+
+			// GPU memory usage
+			if (ImGui::CollapsingHeader("GPU Memory"))
+			{
+				d3d12::device_memory_info_t gpu_memory = d3d12::get_device_memory_info();
+				
+				ImGui::SeparatorText("Dedicated Memory");
+				ImGui::Text("Usage: %llu MB", TO_MB(gpu_memory.local_mem.CurrentUsage));
+				ImGui::Text("Available: %llu MB", TO_MB(gpu_memory.local_mem.Budget - gpu_memory.local_mem.CurrentUsage));
+				ImGui::Text("Reserved: %llu MB", TO_MB(gpu_memory.local_mem.CurrentReservation));
+				ImGui::Text("Total: %llu MB", TO_MB(gpu_memory.local_mem.Budget));
+				ImGui::Text("Available reserve: %llu MB", TO_MB(gpu_memory.local_mem.AvailableForReservation));
+
+				ImGui::SeparatorText("Shared Memory");
+				ImGui::Text("Usage: %llu MB", TO_MB(gpu_memory.non_local_mem.CurrentUsage));
+				ImGui::Text("Available: %llu MB", TO_MB(gpu_memory.non_local_mem.Budget - gpu_memory.non_local_mem.CurrentUsage));
+				ImGui::Text("Reserved: %llu MB", TO_MB(gpu_memory.non_local_mem.CurrentReservation));
+				ImGui::Text("Total: %llu MB", TO_MB(gpu_memory.non_local_mem.Budget));
+				ImGui::Text("Available reserve: %llu MB", TO_MB(gpu_memory.non_local_mem.AvailableForReservation));
+			}
 
 			// Debug category
 			if (ImGui::CollapsingHeader("Debug"))
@@ -745,6 +890,9 @@ namespace renderer
 		render_texture_t render_texture = {};
 		render_texture.texture_buffer = d3d_resource;
 		render_texture.texture_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		render_texture.width = (uint32_t)dst_desc.Width;
+		render_texture.height = dst_desc.Height;
+		render_texture.depth = dst_desc.DepthOrArraySize;
 		d3d12::create_texture_2d_srv(render_texture.texture_buffer, render_texture.texture_srv, 0, DXGI_FORMAT_R32G32B32A32_FLOAT);
 
 		render_texture_handle_t handle = slotmap::add(g_renderer->texture_slotmap, render_texture);

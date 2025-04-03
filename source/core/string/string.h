@@ -13,12 +13,16 @@ struct string_t
 {
 	char* buf = nullptr;
 	uint32_t count = 0;
+
+	bool operator==(const string_t& other) const;
 };
 
 struct wstring_t
 {
 	wchar_t* buf = nullptr;
 	uint32_t count = 0;
+
+	bool operator==(const wstring_t& other) const;
 };
 
 namespace string

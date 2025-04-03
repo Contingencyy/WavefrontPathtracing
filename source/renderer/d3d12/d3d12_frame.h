@@ -21,6 +21,9 @@ namespace d3d12
 		ID3D12Resource* frame_allocator_resource;
 		linear_alloc_t frame_linear_allocator;
 		uint8_t* frame_allocator_ptr;
+
+		ID3D12Resource* timestamp_queries_readback;
+		ID3D12Resource* copy_queue_timestamp_queries_readback;
 	};
 
 	struct frame_resource_t

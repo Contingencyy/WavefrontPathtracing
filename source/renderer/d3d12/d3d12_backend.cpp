@@ -5,6 +5,7 @@
 #include "d3d12_descriptor.h"
 #include "d3d12_upload.h"
 #include "d3d12_frame.h"
+#include "d3d12_query.h"
 
 #include "core/logger.h"
 #include "core/memory/memory_arena.h"
@@ -80,6 +81,12 @@ namespace d3d12
 
 		// Check if additional required features are supported
 		{
+			D3D12_FEATURE_DATA_D3D12_OPTIONS3 d3d_options3 = {};
+			DX_CHECK_HR(g_d3d->device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS3, &d3d_options3, sizeof(d3d_options3)));
+
+			if (!d3d_options3.CopyQueueTimestampQueriesSupported)
+				FATAL_ERROR("D3D12", "DirectX 12 Feature not supported: Copy Queue Timestamp Queries");
+			
 			D3D12_FEATURE_DATA_D3D12_OPTIONS5 d3d_options5 = {};
 			DX_CHECK_HR(g_d3d->device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &d3d_options5, sizeof(d3d_options5)));
 
@@ -159,6 +166,9 @@ namespace d3d12
 		// Initialize per-frame contexts
 		init_frame_contexts(FRAME_ALLOCATOR_DEFAULT_CAPACITY, swapchain_desc);
 
+		// Initialize queries and query heaps
+		init_queries(TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+
 		// Initialize DXC
 		DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&g_d3d->shader_compiler.dx_compiler));
 		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&g_d3d->shader_compiler.dxc_utils));
@@ -188,6 +198,7 @@ namespace d3d12
 	{
 		LOG_INFO("D3D12", "Exit");
 
+		exit_queries();
 		destroy_frame_contexts();
 		destroy_upload_context();
 		exit_descriptors();
@@ -205,6 +216,7 @@ namespace d3d12
 		// Wait for in-flight frame for the current back buffer
 		wait_on_fence(g_d3d->sync.fence, frame_ctx.fence_value);
 		reset_frame_context();
+		reset_queries();
 
 		ImGui_ImplWin32_NewFrame();
 		ImGui_ImplDX12_NewFrame();
@@ -257,7 +269,7 @@ namespace d3d12
 		}
 	}
 
-	void present()
+	void render_imgui()
 	{
 		frame_context_t& frame_ctx = get_frame_context();
 
@@ -278,6 +290,11 @@ namespace d3d12
 		frame_ctx.command_list->SetDescriptorHeaps(1, &g_d3d->descriptor_heaps.cbv_srv_uav);
 
 		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), frame_ctx.command_list);
+	}
+
+	void present()
+	{
+		frame_context_t& frame_ctx = get_frame_context();
 
 		// Transition back buffer to present state for presentation
 		{
@@ -287,6 +304,9 @@ namespace d3d12
 			};
 			frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 		}
+
+		// Before we close the command list we want to resolve any timestamp queries issued on the command list
+		resolve_timestamp_queries(frame_ctx.command_list);
 
 		// Submit command list for current frame
 		frame_ctx.command_list->Close();
@@ -571,4 +591,12 @@ namespace d3d12
 		return g_d3d->immediate.fence_value;
 	}
 
+	device_memory_info_t get_device_memory_info()
+	{
+		device_memory_info_t memory_info = {};
+		g_d3d->dxgi_adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory_info.local_mem);
+		g_d3d->dxgi_adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &memory_info.non_local_mem);
+
+		return memory_info;
+	}
 }
