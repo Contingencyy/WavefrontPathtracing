@@ -94,9 +94,14 @@ namespace application
 
 		// We could do one arena per system eventually, but for now everything that needs
 		// to live for as long as the application does will use the same arena
-		renderer::init(client_width, client_height);
+		renderer::init_params_t renderer_init = {};
+		renderer_init.render_width = client_width;
+		renderer_init.render_height = client_height;
+		renderer_init.backbuffer_count = 2u;
+		renderer_init.vsync = false;
+		renderer::init(renderer_init);
 
-		inst->active_scene = ARENA_ALLOC_STRUCT_ZERO(&inst->arena, scene_t);
+		inst->active_scene = ARENA_ALLOC_STRUCT_ZERO(inst->arena, scene_t);
 		scene::create(*inst->active_scene);
 
 		inst->running = true;
@@ -110,7 +115,7 @@ namespace application
 		scene::destroy(*inst->active_scene);
 		inst->active_scene = nullptr;
 
-		ARENA_RELEASE(&inst->arena);
+		ARENA_RELEASE(inst->arena);
 	}
 
 	void run()

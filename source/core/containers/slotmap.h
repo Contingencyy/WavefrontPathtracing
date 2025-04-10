@@ -25,7 +25,7 @@ namespace slotmap
 	inline constexpr uint32_t SLOTMAP_INVALID_SLOT_INDEX = ~0u;
 
 	template<typename handle_type, typename value_type>
-	void init(slotmap_t<handle_type, value_type>& slotmap, memory_arena_t* arena, uint32_t capacity = SLOTMAP_DEFAULT_CAPACITY)
+	void init(slotmap_t<handle_type, value_type>& slotmap, memory_arena_t& arena, uint32_t capacity = SLOTMAP_DEFAULT_CAPACITY)
 	{
 		slotmap.capacity = capacity;
 		slotmap.slots = ARENA_ALLOC_ARRAY_ZERO(arena, slotmap_slot_t<value_type>, slotmap.capacity);

@@ -4,7 +4,7 @@
 
 #include "renderer/shaders/shared.hlsl.h"
 
-void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
+void bvh_builder_t::build(memory_arena_t& arena, const build_args_t& build_args)
 {
 	m_build_opts = build_args.options;
 
@@ -50,7 +50,7 @@ void bvh_builder_t::build(memory_arena_t* arena, const build_args_t& build_args)
 	subdivide_node(arena, root_node, node_centroid_min, node_centroid_max, 0);
 }
 
-void bvh_builder_t::extract(memory_arena_t* arena, bvh_t& out_bvh, uint64_t& out_bvh_byte_size) const
+void bvh_builder_t::extract(memory_arena_t& arena, bvh_t& out_bvh, uint64_t& out_bvh_byte_size) const
 {
 	uint32_t header_size = sizeof(bvh_header_t);
 	uint32_t nodes_byte_size = sizeof(bvh_node_t) * m_node_at;
@@ -98,7 +98,7 @@ float bvh_builder_t::calc_node_cost(const bvh_node_t& node) const
 	return node.prim_count * as_util::get_aabb_volume(node.aabb_min, node.aabb_max);
 }
 
-void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, uint32_t depth)
+void bvh_builder_t::subdivide_node(memory_arena_t& arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, uint32_t depth)
 {
 	uint32_t split_axis = 0;
 	uint32_t split_pos = 0.0f;
@@ -168,7 +168,7 @@ void bvh_builder_t::subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm:
 	subdivide_node(arena, right_child_node, out_centroid_min, out_centroid_max, depth + 1);
 }
 
-float bvh_builder_t::find_best_split_plane(memory_arena_t* arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, uint32_t& out_axis, uint32_t& out_split_pos)
+float bvh_builder_t::find_best_split_plane(memory_arena_t& arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, uint32_t& out_axis, uint32_t& out_split_pos)
 {
 	float cheapest_split_cost = FLT_MAX;
 

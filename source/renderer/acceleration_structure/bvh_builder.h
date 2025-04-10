@@ -28,15 +28,15 @@ public:
 	};
 
 public:
-	void build(memory_arena_t* arena, const build_args_t& build_args);
-	void extract(memory_arena_t* arena, bvh_t& out_bvh, uint64_t& out_bvh_byte_size) const;
+	void build(memory_arena_t& arena, const build_args_t& build_args);
+	void extract(memory_arena_t& arena, bvh_t& out_bvh, uint64_t& out_bvh_byte_size) const;
 
 private:
 	void calc_node_min_max(bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max);
 	float calc_node_cost(const bvh_node_t& node) const;
 
-	void subdivide_node(memory_arena_t* arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, uint32_t depth);
-	float find_best_split_plane(memory_arena_t* arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, uint32_t& out_axis, uint32_t& out_split_pos);
+	void subdivide_node(memory_arena_t& arena, bvh_node_t& node, glm::vec3& out_centroid_min, glm::vec3& out_centroid_max, uint32_t depth);
+	float find_best_split_plane(memory_arena_t& arena, bvh_node_t& node, const glm::vec3& centroid_min, const glm::vec3& centroid_max, uint32_t& out_axis, uint32_t& out_split_pos);
 
 	glm::vec3 get_triangle_centroid(const bvh_triangle_t& triangle);
 	void get_triangle_min_max(const bvh_triangle_t& triangle, glm::vec3& out_min, glm::vec3& out_max);

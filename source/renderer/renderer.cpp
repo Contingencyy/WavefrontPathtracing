@@ -55,41 +55,46 @@ namespace renderer
 		frame_context_t& frame_ctx = get_frame_context();
 
 		// Graphics queue GPU timestamp queries
-		if (frame_ctx.gpu_timer_queries.size == 0)
-			return;
-		
-		ID3D12Resource* readback_buffer = d3d_frame_ctx.timestamp_queries_readback;
-		uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
-
-		hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries);
-		while (hashmap::advance_iter(iter))
+		if (g_renderer->gpu_timer_results.size > 0)
 		{
-			// TODO: This is dangerous, emplacing with a string key from another hashmap does not copy the string over,
-			// so when the first hashmap gets released, the keys from the second map will be invalid
-			// Also need to make sure that the keys are de-allocated somehow when hashmap entry is removed or reset.
-			gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results, *iter.key);
-			result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
-			result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
-		}
+			ID3D12Resource* readback_buffer = d3d_frame_ctx.timestamp_queries_readback;
+			uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
 
-		d3d12::unmap_resource(readback_buffer);
+			hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries);
+			while (hashmap::advance_iter(iter))
+			{
+				// TODO: This is dangerous, emplacing with a string key from another hashmap does not copy the string over,
+				// so when the first hashmap gets released, the keys from the second map will be invalid
+				// Also need to make sure that the keys are de-allocated somehow when hashmap entry is removed or reset.
+				// Its also a bit difficult to de-allocate keys with arenas, so maybe I just allocate a memory pool for keys in each hashmap?
+				// Should each hashmap have its own memory arena to allocate and re-use memory from for copying keys?
+				// Or should the user provide a string with the correct lifetime as a key?
+				// Or should the hashmap malloc the key in those cases?
+				// Or should strings as keys in hashmap always have a fixed size? char[64]
+				gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results, *iter.key);
+				result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
+				result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
+			}
+
+			d3d12::unmap_resource(readback_buffer);
+		}
 
 		// Copy queue GPU timestamp queries
-		if (frame_ctx.gpu_timer_queries_copy_queue.size == 0)
-			return;
-		
-		readback_buffer = d3d_frame_ctx.copy_queue_timestamp_queries_readback;
-		timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
-
-		iter = hashmap::get_iter(frame_ctx.gpu_timer_queries_copy_queue);
-		while (hashmap::advance_iter(iter))
+		if (g_renderer->gpu_timer_results_copy_queue.size > 0)
 		{
-			gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results_copy_queue, *iter.key);
-			result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
-			result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
-		}
+			ID3D12Resource* readback_buffer = d3d_frame_ctx.copy_queue_timestamp_queries_readback;
+			uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
 
-		d3d12::unmap_resource(readback_buffer);
+			hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries_copy_queue);
+			while (hashmap::advance_iter(iter))
+			{
+				gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results_copy_queue, *iter.key);
+				result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
+				result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
+			}
+
+			d3d12::unmap_resource(readback_buffer);
+		}
 	}
 
 	static render_settings_shader_data_t get_default_render_settings()
@@ -279,31 +284,31 @@ namespace renderer
 		}
 	}
 
-	void init(uint32_t render_width, uint32_t render_height)
+	void init(const init_params_t& init_params)
 	{
 		LOG_INFO("Renderer", "Init");
 
 		g_renderer = ARENA_BOOTSTRAP(renderer_inst_t, 0);
 
-		g_renderer->render_width = render_width;
-		g_renderer->render_height = render_height;
+		g_renderer->render_width = init_params.render_width;
+		g_renderer->render_height = init_params.render_height;
 		g_renderer->inv_render_width = 1.0f / (float)g_renderer->render_width;
 		g_renderer->inv_render_height = 1.0f / (float)g_renderer->render_height;
 
-		slotmap::init(g_renderer->texture_slotmap, &g_renderer->arena);
-		slotmap::init(g_renderer->mesh_slotmap, &g_renderer->arena);
+		slotmap::init(g_renderer->texture_slotmap, g_renderer->arena);
+		slotmap::init(g_renderer->mesh_slotmap, g_renderer->arena);
 
 		// The d3d12 backend use the same arena as the front-end renderer since the renderer initializes the backend and they have the same lifetimes
-		d3d12::backend_init_params backend_params = {};
-		backend_params.arena = &g_renderer->arena;
-		backend_params.back_buffer_count = 2u;
+		d3d12::init_params_t backend_params = {};
+		backend_params.back_buffer_count = init_params.backbuffer_count;
+		backend_params.vsync = init_params.vsync;
 		d3d12::init(backend_params);
 		
 		// Create instance buffer
 		// TODO: Make the instance buffer resize automatically when required, treating the MAX_INSTANCES as the theoretically highest possible instance count instead
 		g_renderer->instance_data_capacity = MAX_INSTANCES;
 		g_renderer->instance_data_at = 0;
-		g_renderer->instance_data = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->arena, instance_data_t, g_renderer->instance_data_capacity);
+		g_renderer->instance_data = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, instance_data_t, g_renderer->instance_data_capacity);
 		g_renderer->instance_buffer = d3d12::create_buffer(L"Instance Buffer", sizeof(instance_data_t) * MAX_INSTANCES);
 		g_renderer->instance_buffer_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		d3d12::create_buffer_srv(g_renderer->instance_buffer, g_renderer->instance_buffer_srv, 0, sizeof(instance_data_t) * MAX_INSTANCES);
@@ -316,7 +321,7 @@ namespace renderer
 			g_renderer->tlas_instance_data_hardware = (D3D12_RAYTRACING_INSTANCE_DESC*)d3d12::map_resource(g_renderer->tlas_instance_data_buffer);
 		}
 
-		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY(&g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
+		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
 
 		hashmap::init(g_renderer->gpu_timer_results, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
 		hashmap::init(g_renderer->gpu_timer_results_copy_queue, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
@@ -385,6 +390,7 @@ namespace renderer
 			};
 			IDxcBlob* cs_binary_pathtracer_software = d3d12::compile_shader(L"shaders/pathtracer.hlsl", L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
 			g_renderer->pso_cs_pathtracer_software = d3d12::create_pso_cs(cs_binary_pathtracer_software, g_renderer->root_signature);
+			//DX_RELEASE_OBJECT(cs_binary_pathtracer_software);
 		}
 
 		{
@@ -394,13 +400,14 @@ namespace renderer
 			};
 			IDxcBlob* cs_binary_pathtracer_hardware = d3d12::compile_shader(L"shaders/pathtracer.hlsl", L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
 			g_renderer->pso_cs_pathtracer_hardware = d3d12::create_pso_cs(cs_binary_pathtracer_hardware, g_renderer->root_signature);
+			//DX_RELEASE_OBJECT(cs_binary_pathtracer_hardware);
 		}
-		//DX_RELEASE_OBJECT(cs_binary_pathtracer_software);
-		//DX_RELEASE_OBJECT(cs_binary_pathtracer_hardware);
 
-		IDxcBlob* cs_binary_post_process = d3d12::compile_shader(L"shaders/post_process.hlsl", L"main", L"cs_6_7");
-		g_renderer->pso_cs_post_process = d3d12::create_pso_cs(cs_binary_post_process, g_renderer->root_signature);
-		//DX_RELEASE_OBJECT(cs_binary_post_process);
+		{
+			IDxcBlob* cs_binary_post_process = d3d12::compile_shader(L"shaders/post_process.hlsl", L"main", L"cs_6_7");
+			g_renderer->pso_cs_post_process = d3d12::create_pso_cs(cs_binary_post_process, g_renderer->root_signature);
+			//DX_RELEASE_OBJECT(cs_binary_post_process);
+		}
 
 		// Render target
 		g_renderer->rt_color_accum = d3d12::create_texture_2d(L"Color Accumulator RT", DXGI_FORMAT_R16G16B16A16_FLOAT,
@@ -419,7 +426,7 @@ namespace renderer
 
 	void exit()
 	{
-		ARENA_RELEASE(&g_renderer->frame_arena);
+		ARENA_RELEASE(g_renderer->frame_arena);
 		
 		slotmap::destroy(g_renderer->texture_slotmap);
 		slotmap::destroy(g_renderer->mesh_slotmap);
@@ -449,7 +456,7 @@ namespace renderer
 		readback_timestamp_queries();
 		
 		// Clear arena for the current frame
-		ARENA_CLEAR(&g_renderer->frame_arena);
+		ARENA_CLEAR(g_renderer->frame_arena);
 
 		// (Re-)Initialize the gpu timestamp queries for the current frame
 		frame_context_t& frame_ctx = get_frame_context();
@@ -463,7 +470,7 @@ namespace renderer
 		
 		if (g_renderer->settings.use_software_rt)
 		{
-			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(&g_renderer->frame_arena, bvh_instance_t, g_renderer->instance_data_capacity);
+			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(g_renderer->frame_arena, bvh_instance_t, g_renderer->instance_data_capacity);
 		}
 
 		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -476,9 +483,9 @@ namespace renderer
 		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
 		frame_context_t& frame_ctx = get_frame_context();
 		
-		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy RT To Backbuffer"));
+		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy Backbuffer"));
 		d3d12::copy_to_back_buffer(g_renderer->rt_final_color, g_renderer->render_width, g_renderer->render_height);
-		end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy RT To Backbuffer"));
+		end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy Backbuffer"));
 		
 		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("ImGui"));
 		d3d12::render_imgui();
@@ -714,6 +721,11 @@ namespace renderer
 			bool should_reset_accumulators = false;
 
 			ImGui::Text("Resolution: %ux%u", g_renderer->render_width, g_renderer->render_height);
+			// GPU timestamps increase when vsync is enabled. Seems that the driver is doing stalls related to VSync that affect timings
+			// See https://gamedev.net/forums/topic/706827-issue-with-directx12-timestamps/
+			ImGui::Checkbox("VSync", &d3d12::g_d3d->vsync);
+			ImGui::SetItemTooltip("When VSync is enabled, GPU timers cannot be trusted because depending on hardware/drivers,"
+						 "any stalls introduced by VSync might affect them.");
 			ImGui::Text("Accumulator: %u", g_renderer->accum_count);
 
 			if (ImGui::CollapsingHeader("GPU Timers"))
@@ -903,9 +915,9 @@ namespace renderer
 	{
 		render_mesh_t mesh = {};
 		// Need to copy the string buffer since mesh_params.debug_name is temporary
-		ARENA_COPY_WSTR(&g_renderer->arena, mesh_params.debug_name, mesh.debug_name);
+		ARENA_COPY_WSTR(g_renderer->arena, mesh_params.debug_name, mesh.debug_name);
 		mesh.triangle_count = mesh_params.index_count / 3;
-		mesh.triangles = ARENA_ALLOC_ARRAY(&g_renderer->arena, triangle_t, mesh.triangle_count);
+		mesh.triangles = ARENA_ALLOC_ARRAY(g_renderer->arena, triangle_t, mesh.triangle_count);
 		for (uint32_t tri_idx = 0, i = 0; tri_idx < mesh.triangle_count; ++tri_idx, i += 3)
 		{
 			mesh.triangles[tri_idx].v0 = mesh_params.vertices[mesh_params.indices[i]];

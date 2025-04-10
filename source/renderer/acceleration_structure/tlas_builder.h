@@ -13,8 +13,8 @@ struct tlas_t
 class tlas_builder_t
 {
 public:
-	void build(memory_arena_t* arena, bvh_instance_t* bvh_instances, uint32_t bvh_instance_count);
-	void extract(memory_arena_t* arena, tlas_t& out_tlas, uint64_t& out_tlas_byte_size) const;
+	void build(memory_arena_t& arena, bvh_instance_t* bvh_instances, uint32_t bvh_instance_count);
+	void extract(memory_arena_t& arena, tlas_t& out_tlas, uint64_t& out_tlas_byte_size) const;
 
 private:
 	uint32_t find_best_match(uint32_t A, const uint32_t* indices, uint32_t index_count);

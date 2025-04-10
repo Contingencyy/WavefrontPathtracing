@@ -5,12 +5,12 @@
 namespace string
 {
 
-	string_t make(memory_arena_t* arena, uint32_t size)
+	string_t make(memory_arena_t& arena, uint32_t size)
 	{
 		return { ARENA_ALLOC_ARRAY_ZERO(arena, char, size), size };
 	}
 
-	string_t make(memory_arena_t* arena, const char* c_str)
+	string_t make(memory_arena_t& arena, const char* c_str)
 	{
 		uint32_t str_count = strlen(c_str);
 		string_t result = make(arena, str_count);
@@ -19,7 +19,7 @@ namespace string
 		return result;
 	}
 
-	const char* make_nullterm(memory_arena_t* arena, const string_t& str)
+	const char* make_nullterm(memory_arena_t& arena, const string_t& str)
 	{
 		char* result = ARENA_ALLOC_ARRAY(arena, char, str.count + 1);
 		memcpy(result, str.buf, str.count);
@@ -42,7 +42,7 @@ namespace string
 		return result;
 	}
 
-	void copy(memory_arena_t* arena, string_t& dst, const string_t& src)
+	void copy(memory_arena_t& arena, string_t& dst, const string_t& src)
 	{
 		if (!dst.buf)
 		{
@@ -78,12 +78,12 @@ namespace string
 namespace wstring
 {
 
-	wstring_t make(memory_arena_t* arena, uint32_t size)
+	wstring_t make(memory_arena_t& arena, uint32_t size)
 	{
 		return { ARENA_ALLOC_ARRAY_ZERO(arena, wchar_t, size), size };
 	}
 
-	wstring_t make(memory_arena_t* arena, const wchar_t* c_str)
+	wstring_t make(memory_arena_t& arena, const wchar_t* c_str)
 	{
 		uint32_t str_count = wcslen(c_str);
 		wstring_t result = make(arena, str_count);
@@ -92,7 +92,7 @@ namespace wstring
 		return result;
 	}
 
-	const wchar_t* make_nullterm(memory_arena_t* arena, const wstring_t& str)
+	const wchar_t* make_nullterm(memory_arena_t& arena, const wstring_t& str)
 	{
 		wchar_t* result = ARENA_ALLOC_ARRAY(arena, wchar_t, str.count + 1);
 		memcpy(result, str.buf, str.count * sizeof(wchar_t));
@@ -115,7 +115,7 @@ namespace wstring
 		return result;
 	}
 
-	void copy(memory_arena_t* arena, wstring_t& dst, const wstring_t& src)
+	void copy(memory_arena_t& arena, wstring_t& dst, const wstring_t& src)
 	{
 		if (!dst.buf)
 		{
@@ -146,7 +146,7 @@ namespace wstring
 //		}
 //	}
 //
-//	wstring_builder_t make(memory_arena_t* arena)
+//	wstring_builder_t make(memory_arena_t& arena)
 //	{
 //		wstring_builder_t builder = {};
 //		builder.arena = arena;
@@ -171,7 +171,7 @@ namespace wstring
 //		return extract(builder, builder.arena, add_separator, separator);
 //	}
 //
-//	wstring_t extract(const wstring_builder_t& builder, memory_arena_t* arena, bool add_separator, wchar_t separator)
+//	wstring_t extract(const wstring_builder_t& builder, memory_arena_t& arena, bool add_separator, wchar_t separator)
 //	{
 //		uint32_t str_size = 0;
 //

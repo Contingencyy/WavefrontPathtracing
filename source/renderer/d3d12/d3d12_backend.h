@@ -4,13 +4,13 @@
 namespace d3d12
 {
 
-	struct backend_init_params
+	struct init_params_t
 	{
-		memory_arena_t* arena;
 		uint32_t back_buffer_count;
+		bool vsync;
 	};
 	
-	void init(const backend_init_params& init_params);
+	void init(const init_params_t& init_params);
 	void exit();
 
 	void begin_frame();

@@ -8,7 +8,15 @@ struct vertex_t;
 namespace renderer
 {
 
-	void init(uint32_t render_width, uint32_t render_height);
+	struct init_params_t
+	{
+		uint32_t render_width;
+		uint32_t render_height;
+		uint32_t backbuffer_count;
+		bool vsync;
+	};
+	
+	void init(const init_params_t& init_params);
 	void exit();
 
 	void begin_frame();

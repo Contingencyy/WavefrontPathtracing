@@ -3,7 +3,7 @@
 #include "bvh_builder.h"
 #include "as_util.h"
 
-void tlas_builder_t::build(memory_arena_t* arena, bvh_instance_t* bvh_instances, uint32_t bvh_instance_count)
+void tlas_builder_t::build(memory_arena_t& arena, bvh_instance_t* bvh_instances, uint32_t bvh_instance_count)
 {
 	m_instance_count = bvh_instance_count;
 	m_instances = bvh_instances;
@@ -67,7 +67,7 @@ void tlas_builder_t::build(memory_arena_t* arena, bvh_instance_t* bvh_instances,
 	m_nodes[0] = m_nodes[node_idx[A]];
 }
 
-void tlas_builder_t::extract(memory_arena_t* arena, tlas_t& out_tlas, uint64_t& out_tlas_byte_size) const
+void tlas_builder_t::extract(memory_arena_t& arena, tlas_t& out_tlas, uint64_t& out_tlas_byte_size) const
 {
 	uint32_t header_size = sizeof(tlas_header_t);
 	uint32_t nodes_byte_size = sizeof(tlas_node_t) * m_node_at;

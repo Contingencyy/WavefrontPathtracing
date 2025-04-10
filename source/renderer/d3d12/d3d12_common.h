@@ -14,7 +14,7 @@ namespace d3d12
 
 	struct d3d12_instance_t
 	{
-		memory_arena_t* arena;
+		memory_arena_t arena;
 
 		IDXGIAdapter4* dxgi_adapter;
 		ID3D12Device14* device;

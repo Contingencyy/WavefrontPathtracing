@@ -13,6 +13,8 @@ struct hashmap_node_t
 // TODO: Custom Key copy function to avoid problems with e.g. strings as keys
 // TODO: Custom hashing function
 // TODO: Custom compare function
+// TODO: Hashmap resizing
+	// TODO: Hashmap resizing should resize to double capcity, then next greater prime number from that to reduce collisions that hash to powers of 2
 // TODO: Hashmap iterate by making a linked list
 // TODO: Hashmap iterate by passing in an array of keys to loop over, which is useful for the timestamps here
 template<typename key_type, typename value_type>//, typename compare_func, typename hash_func>
@@ -71,7 +73,7 @@ namespace hashmap
 	{
 		hashmap.capacity = capacity;
 		hashmap.size = 0;
-		hashmap.nodes = (hashmap_node_t<key_type, value_type>*)ARENA_ALLOC_ZERO(&arena,
+		hashmap.nodes = (hashmap_node_t<key_type, value_type>*)ARENA_ALLOC_ZERO(arena,
 			sizeof(hashmap_node_t<key_type, value_type>) * hashmap.capacity,
 			alignof(hashmap_node_t<key_type, value_type>));
 

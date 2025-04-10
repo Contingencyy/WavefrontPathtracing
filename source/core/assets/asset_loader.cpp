@@ -27,19 +27,19 @@ namespace asset_loader
 
 	static void* stbi_malloc(uint64_t size)
 	{
-		return ARENA_ALLOC_ZERO(s_stbi_memory_arena, size, 4);
+		return ARENA_ALLOC_ZERO(*s_stbi_memory_arena, size, 4);
 	}
 
 	static void* stbi_realloc(void* ptr, uint64_t old_size, uint64_t new_size)
 	{
-		void* ptr_new = ARENA_ALLOC_ZERO(s_stbi_memory_arena, new_size, 4);
+		void* ptr_new = ARENA_ALLOC_ZERO(*s_stbi_memory_arena, new_size, 4);
 		memcpy(ptr_new, ptr, old_size);
 		return ptr_new;
 	}
 
-	texture_asset_t* load_image_hdr(memory_arena_t* arena, const char* filepath)
+	texture_asset_t* load_image_hdr(memory_arena_t& arena, const char* filepath)
 	{
-		s_stbi_memory_arena = arena;
+		s_stbi_memory_arena = &arena;
 		texture_asset_t* asset = ARENA_ALLOC_STRUCT_ZERO(arena, texture_asset_t);
 
 		ARENA_MEMORY_SCOPE(arena)
@@ -77,17 +77,17 @@ namespace asset_loader
 		return (T*)ptr_base;
 	}
 
-	scene_asset_t* load_gltf(memory_arena_t* arena, const char* filepath)
+	scene_asset_t* load_gltf(memory_arena_t& arena, const char* filepath)
 	{
 		// Parse the GLTF file
 		cgltf_options options = {};
 
 		// Make CGLTF use our arena for allocations
-		options.memory.user_data = arena;
+		options.memory.user_data = &arena;
 		options.memory.alloc_func = [](void* user, cgltf_size size)
 			{
 				memory_arena_t* arena = (memory_arena_t*)user;
-				return ARENA_ALLOC_ZERO(arena, size, 16);
+				return ARENA_ALLOC_ZERO(*arena, size, 16);
 			};
 		// No-op, freeing is done by the arena itself
 		options.memory.free_func = [](void* user, void* ptr)

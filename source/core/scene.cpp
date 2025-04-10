@@ -28,12 +28,12 @@ namespace scene
 		scene.scene_object_at++;
 	}
 
-	void scene::create(scene_t& scene)
+	void create(scene_t& scene)
 	{
 		// Scene objects
-		scene.scene_object_count = 100;
+		scene.scene_object_count = 128;
 		scene.scene_object_at = 0;
-		scene.scene_objects = ARENA_ALLOC_ARRAY_ZERO(&scene.arena, scene_object_t, scene.scene_object_count);
+		scene.scene_objects = ARENA_ALLOC_ARRAY_ZERO(scene.arena, scene_object_t, scene.scene_object_count);
 
 		// Camera and camera controller
 		camera::create(scene.camera, glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0.0f, 10.0f, 1.0f), 60.0f);
@@ -61,12 +61,13 @@ namespace scene
 		create_scene_object(scene, render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));
 
 		// HDR environment map
-		//scene.hdr_env = asset_loader::load_image_hdr(&scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr");
-		//scene.hdr_env = asset_loader::load_image_hdr(&scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr");
-		scene.hdr_env = asset_loader::load_image_hdr(&scene.arena, "assets/textures/HDR_Env_Country_Club.hdr");
+		//scene.hdr_env = asset_loader::load_image_hdr(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr");
+		//scene.hdr_env = asset_loader::load_image_hdr(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr");
+		scene.hdr_env = asset_loader::load_image_hdr(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr");
 
 		// Dragon
-		scene.dragon_mesh = asset_loader::load_gltf(&scene.arena, "assets/gltf/dragon/DragonAttenuation.gltf");
+		scene.dragon_mesh = asset_loader::load_gltf(scene.arena, "assets/gltf/dragon/DragonAttenuation.gltf");
+		
 		// Dragon 1
 		//material_t dragon_material = material_t::make_refractive(glm::vec3(1.0f), 0.0f, 1.0f, 1.517f, glm::vec3(0.2f, 0.95f, 0.95f));
 		material_t dragon_material = material::make_diffuse(glm::vec3(0.7f, 0.1f, 0.05f));
@@ -89,17 +90,17 @@ namespace scene
 		create_scene_object(scene, scene.dragon_mesh->render_mesh_handles[1], dragon_material, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
 	}
 
-	void scene::destroy(scene_t& scene)
+	void destroy(scene_t& scene)
 	{
-		ARENA_RELEASE(&scene.arena);
+		ARENA_RELEASE(scene.arena);
 	}
 
-	void scene::update(scene_t& scene, float dt)
+	void update(scene_t& scene, float dt)
 	{
 		camera_controller::update(scene.camera_controller, dt);
 	}
 
-	void scene::render(scene_t& scene)
+	void render(scene_t& scene)
 	{
 		renderer::begin_scene(scene.camera, scene.hdr_env->render_texture_handle);
 
@@ -114,7 +115,7 @@ namespace scene
 		renderer::end_scene();
 	}
 
-	void scene::render_ui(scene_t& scene)
+	void render_ui(scene_t& scene)
 	{
 	}
 

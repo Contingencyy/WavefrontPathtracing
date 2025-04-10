@@ -27,6 +27,7 @@ struct scene_t
 
 	uint32_t scene_object_count;
 	uint32_t scene_object_at;
+	// TODO: Add a scene object free-list
 	scene_object_t* scene_objects;
 };
 

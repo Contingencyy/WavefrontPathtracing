@@ -26,12 +26,12 @@ namespace d3d12
 
 	d3d12_instance_t* g_d3d = nullptr;
 
-	void init(const backend_init_params& init_params)
+	void init(const init_params_t& init_params)
 	{
 		LOG_INFO("D3D12", "Init");
 
-		g_d3d = ARENA_ALLOC_STRUCT_ZERO(init_params.arena, d3d12_instance_t);
-		g_d3d->arena = init_params.arena;
+		g_d3d = ARENA_BOOTSTRAP(d3d12_instance_t, 0);
+		g_d3d->vsync = init_params.vsync;
 
 		// Enable debug layer
 #ifdef _DEBUG
