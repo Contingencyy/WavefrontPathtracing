@@ -29,24 +29,27 @@ namespace renderer
 
 	static inline void begin_gpu_timestamp(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, const string_t& key)
 	{
-		bool is_copy_queue = command_list->GetType() == D3D12_COMMAND_LIST_TYPE_COPY;
-		hashmap_t<string_t, gpu_timer_query_t>& gpu_timestamp_queries = is_copy_queue ? frame_ctx.gpu_timer_queries_copy_queue : frame_ctx.gpu_timer_queries;
+		ASSERT_MSG(!hashmap::find(frame_ctx.gpu_timer_queries, key), "Tried to begin a gpu timestamp that already has an entry");
 		
-		ASSERT_MSG(!hashmap::find(gpu_timestamp_queries, key), "Tried to begin a gpu timestamp that already has an entry");
-		
-		gpu_timer_query_t* query = hashmap::emplace_zeroed(gpu_timestamp_queries, key);
-		query->timer_begin_query_index = d3d12::begin_query_timestamp(command_list);
+		gpu_timer_query_t* query = hashmap::emplace_zeroed(frame_ctx.gpu_timer_queries, key);
+		query->query_idx_begin = d3d12::begin_query_timestamp(command_list);
+
+		switch (command_list->GetType())
+		{
+		case D3D12_COMMAND_LIST_TYPE_DIRECT: query->d3d_command_queue = d3d12::g_d3d->command_queue_direct; break;
+		case D3D12_COMMAND_LIST_TYPE_COPY: query->d3d_command_queue = d3d12::g_d3d->upload_ctx.command_queue_copy; break;
+		default: FATAL_ERROR("Renderer", "Tried to begin a timestamp query on an unsupported command list type"); break;
+		}
 	}
 
 	static inline void end_gpu_timestamp(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, const string_t& key)
 	{
 		bool is_copy_queue = command_list->GetType() == D3D12_COMMAND_LIST_TYPE_COPY;
-		hashmap_t<string_t, gpu_timer_query_t>& gpu_timestamp_queries = is_copy_queue ? frame_ctx.gpu_timer_queries_copy_queue : frame_ctx.gpu_timer_queries;
 		
-		gpu_timer_query_t* query = hashmap::find(gpu_timestamp_queries, key);
+		gpu_timer_query_t* query = hashmap::find(frame_ctx.gpu_timer_queries, key);
 		ASSERT_MSG(query, "Called end_gpu_timestamp on a gpu timer query that has not begun yet");
 
-		query->timer_end_query_index = d3d12::end_query_timestamp(command_list);
+		query->query_idx_end = d3d12::end_query_timestamp(command_list);
 	}
 
 	static inline void readback_timestamp_queries()
@@ -55,9 +58,9 @@ namespace renderer
 		frame_context_t& frame_ctx = get_frame_context();
 
 		// Graphics queue GPU timestamp queries
-		if (g_renderer->gpu_timer_results.size > 0)
+		if (frame_ctx.gpu_timer_queries.size > 0)
 		{
-			ID3D12Resource* readback_buffer = d3d_frame_ctx.timestamp_queries_readback;
+			ID3D12Resource* readback_buffer = d3d_frame_ctx.readback_buffer_timestamps;
 			uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
 
 			hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries);
@@ -70,27 +73,12 @@ namespace renderer
 				// Should each hashmap have its own memory arena to allocate and re-use memory from for copying keys?
 				// Or should the user provide a string with the correct lifetime as a key?
 				// Or should the hashmap malloc the key in those cases?
-				// Or should strings as keys in hashmap always have a fixed size? char[64]
+				// Or should the hashmap have a function for inserting/emplacing that takes a memory arena as a parameter to alloc the key from?
+				// Or should strings as keys in hashmap always have a fixed size? char[64] Maybe make a fixed size string type
+				// I think I like the fixed string better. Then I dont need to manually copy the string over for every key
 				gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results, *iter.key);
-				result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
-				result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
-			}
-
-			d3d12::unmap_resource(readback_buffer);
-		}
-
-		// Copy queue GPU timestamp queries
-		if (g_renderer->gpu_timer_results_copy_queue.size > 0)
-		{
-			ID3D12Resource* readback_buffer = d3d_frame_ctx.copy_queue_timestamp_queries_readback;
-			uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
-
-			hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries_copy_queue);
-			while (hashmap::advance_iter(iter))
-			{
-				gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results_copy_queue, *iter.key);
-				result->begin_timestamp = timestamp_values[iter.value->timer_begin_query_index];
-				result->end_timestamp = timestamp_values[iter.value->timer_end_query_index];
+				result->timestamp_begin = timestamp_values[iter.value->query_idx_begin];
+				result->timestamp_end = timestamp_values[iter.value->query_idx_end];
 			}
 
 			d3d12::unmap_resource(readback_buffer);
@@ -324,7 +312,6 @@ namespace renderer
 		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
 
 		hashmap::init(g_renderer->gpu_timer_results, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
-		hashmap::init(g_renderer->gpu_timer_results_copy_queue, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
@@ -452,7 +439,6 @@ namespace renderer
 
 		// Read back the GPU timestamp queries from the buffer
 		hashmap::clear(g_renderer->gpu_timer_results);
-		hashmap::clear(g_renderer->gpu_timer_results_copy_queue);
 		readback_timestamp_queries();
 		
 		// Clear arena for the current frame
@@ -461,7 +447,6 @@ namespace renderer
 		// (Re-)Initialize the gpu timestamp queries for the current frame
 		frame_context_t& frame_ctx = get_frame_context();
 		hashmap::init(frame_ctx.gpu_timer_queries, g_renderer->frame_arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
-		hashmap::init(frame_ctx.gpu_timer_queries_copy_queue, g_renderer->frame_arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
 
 		if (g_renderer->change_raytracing_mode)
 		{
@@ -736,9 +721,7 @@ namespace renderer
 				hashmap_iter_t iter = hashmap::get_iter(g_renderer->gpu_timer_results);
 				while (hashmap::advance_iter(iter))
 				{
-					// TODO: Hashmap resizing
-					// TODO: Hashmap pick prime number for size
-					double timer_elapsed = (double)(iter.value->end_timestamp - iter.value->begin_timestamp);
+					double timer_elapsed = (double)(iter.value->timestamp_end - iter.value->timestamp_begin);
 					double timer_ms = (timer_elapsed / timestamp_freq) * 1000.0;
 					
 					ImGui::Text("%.*s: %.3f ms", STRING_EXPAND(*iter.key), timer_ms);

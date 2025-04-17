@@ -11,7 +11,8 @@
 
 #include "imgui/imgui_impl_win32.h"
 
-static HWND s_hwnd;
+static HWND s_hwnd = {};
+static double s_perf_frequency = 0.0;
 
 static inline void create_console()
 {
@@ -167,6 +168,18 @@ bool poll_window_events()
 	return true;
 }
 
+double get_timer()
+{
+	LARGE_INTEGER counter = {};
+	if (!QueryPerformanceCounter(&counter))
+	{
+		FATAL_ERROR("Platform", "Failed call to QueryPerformanceCounter");
+	}
+
+	double time = (double)counter.QuadPart / s_perf_frequency;
+	return time;
+}
+
 void create_window(int32_t desired_width, int32_t desired_height)
 {
 	int32_t screen_width = GetSystemMetrics(SM_CXFULLSCREEN);
@@ -292,6 +305,15 @@ int WINAPI wWinMain(
 	_In_ int32_t nShowCmd)
 {
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+	
+	// Only need to query the performance frequency once since it is determined at system boot
+	LARGE_INTEGER freq = {};
+	if (!QueryPerformanceFrequency(&freq))
+	{
+		FATAL_ERROR("Platform", "Failed call to QueryPerformanceFrequency");
+	}
+	s_perf_frequency = (double)freq.QuadPart; // / 1000.0; // for milliseconds
+	
 	create_console();
 
 	// Parse command line arguments

@@ -82,14 +82,16 @@ namespace renderer
 
 	struct gpu_timer_query_t
 	{
-		uint32_t timer_begin_query_index;
-		uint32_t timer_end_query_index;
+		uint32_t query_idx_begin;
+		uint32_t query_idx_end;
+
+		ID3D12CommandQueue* d3d_command_queue;
 	};
 
 	struct gpu_timer_result_t
 	{
-		uint64_t begin_timestamp;
-		uint64_t end_timestamp;
+		uint64_t timestamp_begin;
+		uint64_t timestamp_end;
 	};
 
 	struct frame_context_t
@@ -99,7 +101,6 @@ namespace renderer
 		d3d12::descriptor_allocation_t scene_tlas_srv;
 
 		hashmap_t<string_t, gpu_timer_query_t> gpu_timer_queries;
-		hashmap_t<string_t, gpu_timer_query_t> gpu_timer_queries_copy_queue;
 	};
 
 	struct renderer_inst_t
@@ -156,7 +157,6 @@ namespace renderer
 		d3d12::frame_resource_t cb_view;
 		
 		hashmap_t<string_t, gpu_timer_result_t> gpu_timer_results;
-		hashmap_t<string_t, gpu_timer_result_t> gpu_timer_results_copy_queue;
 	};
 	extern renderer_inst_t* g_renderer;
 

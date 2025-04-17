@@ -14,6 +14,7 @@ namespace d3d12
     uint32_t begin_query_timestamp(ID3D12GraphicsCommandList10* command_list);
     uint32_t end_query_timestamp(ID3D12GraphicsCommandList10* command_list);
     void resolve_timestamp_queries(ID3D12GraphicsCommandList10* command_list);
+    // TODO: Get correct timestamp frequency for each command queue
     uint64_t get_timestamp_frequency();
 
 }

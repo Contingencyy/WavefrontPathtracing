@@ -9,12 +9,12 @@
 
 #include "imgui/imgui.h"
 
-#include <chrono>
-
 void create_window(int32_t desired_width, int32_t desired_height);
 void get_window_client_area(int32_t& out_window_width, int32_t& out_window_height);
 void set_window_capture_mouse(bool capture);
 bool poll_window_events();
+// Should return the time in seconds
+double get_timer();
 
 namespace application
 {
@@ -24,10 +24,9 @@ namespace application
 	struct instance_t
 	{
 		memory_arena_t arena;
-
+		
 		scene_t* active_scene;
-
-		std::chrono::duration<float> delta_time = std::chrono::duration<float>(0.0f);
+		double delta_time;
 		bool running = false;
 	} static *inst;
 
@@ -53,15 +52,15 @@ namespace application
 
 	static void update()
 	{
-		scene::update(*inst->active_scene, inst->delta_time.count());
+		scene::update(*inst->active_scene, inst->delta_time);
 	}
 
 	static void render_ui()
 	{
 		ImGui::Begin("General");
 
-		uint32_t fps = 1.0f / inst->delta_time.count();
-		float frametime_ms = inst->delta_time.count() * 1000.0f;
+		uint32_t fps = 1.0f / inst->delta_time;
+		float frametime_ms = inst->delta_time * 1000.0f;
 
 		ImGui::Text("FPS: %u", fps);
 		ImGui::Text("Frametime: %.3f ms", frametime_ms);
@@ -120,12 +119,12 @@ namespace application
 
 	void run()
 	{
-		std::chrono::high_resolution_clock::time_point time_curr = std::chrono::high_resolution_clock::now();
-		std::chrono::high_resolution_clock::time_point time_prev = std::chrono::high_resolution_clock::now();
+		double time_curr = get_timer();
+		double time_prev = get_timer();
 
 		while (inst->running && !s_should_close)
 		{
-			time_curr = std::chrono::high_resolution_clock::now();
+			time_curr = get_timer();
 			inst->delta_time = time_curr - time_prev;
 
 			handle_events();
