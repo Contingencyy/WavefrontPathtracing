@@ -9,7 +9,7 @@ namespace d3d12
 	// --------------------------------------------------------------------------------------------------------
 	// ---------- Buffers
 
-	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size);
+	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
 	ID3D12Resource* create_buffer_upload(const wchar_t* name, uint64_t byte_size);
 	ID3D12Resource* create_buffer_readback(const wchar_t* name, uint64_t byte_size);
 	void create_buffer_blas(const wchar_t* name, ID3D12GraphicsCommandList10* command_list,

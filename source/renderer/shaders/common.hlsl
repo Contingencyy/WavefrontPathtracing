@@ -34,7 +34,7 @@
     Global constant buffers
 */
 
-ConstantBuffer<render_settings_shader_data_t> cb_render_settings : register(b0, space0);
+ConstantBuffer<render_settings_shader_data_t> cb_settings : register(b0, space0);
 ConstantBuffer<view_shader_data_t> cb_view : register(b1, space0);
 
 /*
@@ -173,9 +173,9 @@ ray_t make_primary_ray(uint2 pixel_pos, float2 render_dim)
     return ray;
 }
 #else
-RayDesc make_ray(float3 origin, float3 dir)
+RayDesc2 make_ray(float3 origin, float3 dir)
 {
-    RayDesc ray = (RayDesc)0;
+    RayDesc2 ray = (RayDesc2)0;
     ray.Origin = origin;
     ray.Direction = dir;
     ray.TMin = RAY_MIN_T;
@@ -184,7 +184,7 @@ RayDesc make_ray(float3 origin, float3 dir)
     return ray;
 }
 
-RayDesc make_primary_ray(uint2 pixel_pos, float2 render_dim)
+RayDesc2 make_primary_ray(uint2 pixel_pos, float2 render_dim)
 {
     float2 uv = (pixel_pos + 0.5f) / render_dim;
     uv.y = 1.0f - uv.y;
@@ -195,8 +195,22 @@ RayDesc make_primary_ray(uint2 pixel_pos, float2 render_dim)
     float3 camera_to_pixel_world = mul(float4(camera_to_pixel_view, 0.0f), cb_view.view_to_world).xyz;
     float3 camera_origin_world = mul(float4(0.0f, 0.0f, 0.0f, 1.0f), cb_view.view_to_world).xyz;
 
-    RayDesc ray = make_ray(camera_origin_world, camera_to_pixel_world);
+    RayDesc2 ray = make_ray(camera_origin_world, camera_to_pixel_world);
     return ray;
+}
+
+// We need a RayDesc2 struct that is an exact copy of the DXR RayDesc struct because doing a
+// (RW)ByteAddressBuffer.Load<RayDesc> will result in a deadlock!
+// See: https://github.com/microsoft/DirectXShaderCompiler/issues/5261
+RayDesc raydesc2_to_raydesc(RayDesc2 ray_desc2)
+{
+    RayDesc ray_desc = (RayDesc)0;
+    ray_desc.Origin = ray_desc2.Origin;
+    ray_desc.Direction = ray_desc2.Direction;
+    ray_desc.TMin = ray_desc2.TMin;
+    ray_desc.TMax = ray_desc2.TMax;
+    
+    return ray_desc;
 }
 #endif
 
@@ -222,4 +236,9 @@ float3 srgb_to_linear(float3 color)
     float3 lower = clamped / 12.92f;
     
     return lerp(higher, lower, cutoff);
+}
+
+bool is_nan(float x)
+{
+    return (asuint(x) & 0x7fffffff) > 0x7f800000;
 }

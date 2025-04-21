@@ -142,6 +142,26 @@ namespace renderer
 		render_settings_shader_data_t settings;
 		uint64_t frame_index;
 
+		struct wavefront_t
+		{
+			ID3D12PipelineState* pso_generate;
+			ID3D12PipelineState* pso_extend;
+			ID3D12PipelineState* pso_shade;
+			//ID3D12PipelineState* pso_connect;
+
+			ID3D12Resource* buffer_ray;
+			ID3D12Resource* buffer_energy;
+			ID3D12Resource* buffer_throughput;
+			ID3D12Resource* buffer_pixelpos;
+			ID3D12Resource* buffer_intersection;
+
+			d3d12::descriptor_allocation_t buffer_ray_srv_uav;
+			d3d12::descriptor_allocation_t buffer_energy_srv_uav;
+			d3d12::descriptor_allocation_t buffer_throughput_srv_uav;
+			d3d12::descriptor_allocation_t buffer_pixelpos_srv_uav;
+			d3d12::descriptor_allocation_t buffer_intersection_srv_uav;
+		} wavefront;
+
 		ID3D12RootSignature* root_signature;
 		ID3D12PipelineState* pso_cs_pathtracer_software;
 		ID3D12PipelineState* pso_cs_pathtracer_hardware;

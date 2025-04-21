@@ -217,14 +217,15 @@ void trace_ray_tlas(ByteAddressBuffer buffer, inout ray_t ray, inout hit_result_
     }
 }
 #else
-void trace_ray_tlas(RaytracingAccelerationStructure scene_tlas, RayDesc ray, inout hit_result_t hit)
+void trace_ray_tlas(RaytracingAccelerationStructure scene_tlas, RayDesc2 ray, inout hit_result_t hit)
 {
+    RayDesc ray_desc = raydesc2_to_raydesc(ray);
 #if TRIANGLE_BACKFACE_CULLING
     RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES>ray_query;
-    ray_query.TraceRayInline(scene_tlas, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0u, ray);
+    ray_query.TraceRayInline(scene_tlas, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0u, ray_desc);
 #else
     RayQuery<RAY_FLAG_NONE> ray_query; // For shadow rays, use RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH (https://learn.microsoft.com/en-us/windows/win32/direct3d12/ray_flag)
-    ray_query.TraceRayInline(scene_tlas, RAY_FLAG_NONE, ~0u, ray);
+    ray_query.TraceRayInline(scene_tlas, RAY_FLAG_NONE, ~0u, ray_desc);
 #endif
     
     while (ray_query.Proceed())

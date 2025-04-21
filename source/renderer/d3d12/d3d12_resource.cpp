@@ -18,7 +18,7 @@ namespace d3d12
 		return resource;
 	}
 
-	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size)
+	ID3D12Resource* create_buffer(const wchar_t* name, uint64_t byte_size, D3D12_RESOURCE_FLAGS flags)
 	{
 		D3D12_HEAP_PROPERTIES heap_props = {};
 		heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -33,7 +33,7 @@ namespace d3d12
 		resource_desc.DepthOrArraySize = 1;
 		resource_desc.MipLevels = 1;
 		resource_desc.SampleDesc.Count = 1;
-		resource_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		resource_desc.Flags = flags;
 
 		return create_resource_internal(name, heap_props, resource_desc);
 	}
@@ -287,9 +287,8 @@ namespace d3d12
 		uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
 		uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 
-		uav_desc.Buffer.NumElements = byte_count;
+		uav_desc.Buffer.NumElements = byte_count / 4;
 		uav_desc.Buffer.FirstElement = byte_offset;
-		uav_desc.Buffer.StructureByteStride = 1;
 		uav_desc.Buffer.CounterOffsetInBytes = 0;
 		uav_desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
 

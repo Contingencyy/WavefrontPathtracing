@@ -1,9 +1,6 @@
 #pragma once
 
-#define CPLUSPLUS !defined(__HLSL_VERSION)
-#define HLSL defined(__HLSL_VERSION)
-
-#if CPLUSPLUS
+#ifdef __cplusplus
 #define int int32_t
 #define uint uint32_t
 #define uint2 glm::uvec2
@@ -126,7 +123,26 @@ struct tlas_node_t
 };
 #define TLAS_NODE_SIZE 32
 
-#ifdef __CPLUSPLUS
+struct intersection_result_t
+{
+	uint instance_idx;
+	uint primitive_idx;
+	float t;
+	float2 bary;
+};
+
+// We need a RayDesc2 struct that is an exact copy of the DXR RayDesc struct because doing a
+// ByteAddressBuffer.Load<RayDesc> will result in a deadlock!
+// See: https://github.com/microsoft/DirectXShaderCompiler/issues/5261
+struct RayDesc2
+{
+	float3 Origin;
+	float TMin;
+	float3 Direction;
+	float TMax;
+};
+
+#ifdef __cplusplus
 static_assert(sizeof(triangle_t) == TRIANGLE_SIZE);
 static_assert(sizeof(instance_data_t) == INSTANCE_DATA_SIZE);
 static_assert(sizeof(bvh_node_t) == BVH_NODE_SIZE);
@@ -135,7 +151,7 @@ static_assert(sizeof(bvh_instance_t) == BVH_INSTANCE_SIZE);
 static_assert(sizeof(tlas_node_t) == TLAS_NODE_SIZE);
 #endif
 
-#if !defined(__HLSL_VERSION)
+#ifdef __cplusplus
 #undef int
 #undef uint
 #undef float
@@ -145,6 +161,3 @@ static_assert(sizeof(tlas_node_t) == TLAS_NODE_SIZE);
 #undef float3x3
 #undef float4x4
 #endif
-
-#undef CPLUSPLUS
-#undef HLSL

@@ -461,8 +461,11 @@ namespace d3d12
 			IDxcBlobEncoding* compile_error = nullptr;
 			compile_result->GetErrorBuffer(&compile_error);
 
-			FATAL_ERROR("D3D12", "Tried to compile shader %s (entry: %ls, target: %ls) with args %ls",
-				(char*)compile_error->GetBufferPointer(), entry_point, target_profile, compiler_args->GetArguments());
+			// compiler_args->GetArguments() does not want to work, because its an array of const wchar_t instead of just one contiguous string
+			/*FATAL_ERROR("D3D12", "Tried to compile shader %ls (entry: %ls, target: %ls) with args %ls. Error: %s",
+				filepath, entry_point, target_profile, compiler_args->GetArguments(), (char*)compile_error->GetBufferPointer());*/
+			FATAL_ERROR("D3D12", "Failed shader compilation.\nShader: %ls\nEntry point: %ls\nTarget profile: %ls\nArguments: \nError: %s",
+				filepath, entry_point, target_profile, /*(const wchar_t*)compiler_args->GetArguments(), */(char*)compile_error->GetBufferPointer());
 
 			DX_RELEASE_OBJECT(compile_error);
 			return nullptr;

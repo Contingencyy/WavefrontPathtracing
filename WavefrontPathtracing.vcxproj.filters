@@ -84,9 +84,6 @@
     <ClCompile Include="source\renderer\d3d12\d3d12_backend.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\d3d12\d3d12_command.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\renderer\d3d12\d3d12_descriptor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -124,6 +121,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="extern\imguizmo\ImSequencer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\renderer\d3d12\d3d12_query.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -224,9 +224,6 @@
     <ClInclude Include="source\renderer\d3d12\d3d12_backend.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\d3d12\d3d12_command.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\renderer\d3d12\d3d12_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -281,6 +278,9 @@
     <ClInclude Include="source\renderer\shaders\shared.hlsl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="source\renderer\d3d12\d3d12_query.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\renderer\shaders\pathtracer.hlsl" />
@@ -289,5 +289,10 @@
     <FxCompile Include="source\renderer\shaders\intersect.hlsl" />
     <FxCompile Include="source\renderer\shaders\post_process.hlsl" />
     <FxCompile Include="source\renderer\shaders\sample.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\connect.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\extend.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\generate.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\shade.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\wavefront_common.hlsl" />
   </ItemGroup>
 </Project>

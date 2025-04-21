@@ -167,7 +167,8 @@ string_t memory_arena::printf_args(memory_arena_t& arena, const char* fmt, va_li
 	va_list args2;
 	va_copy(args2, args);
 
-	uint32_t count = vsnprintf(NULL, 0, fmt, args2);
+	int32_t count = vsnprintf(NULL, 0, fmt, args2);
+	ASSERT(count != -1);
 	
 	va_end(args2);
 
@@ -193,7 +194,8 @@ wstring_t memory_arena::wprintf_args(memory_arena_t& arena, const wchar_t* fmt, 
 	va_list args2;
 	va_copy(args2, args);
 
-	uint32_t count = _vscwprintf(fmt, args2);
+	int32_t count = _vscwprintf(fmt, args2);
+	ASSERT(count != -1);
 	
 	va_end(args2);
 

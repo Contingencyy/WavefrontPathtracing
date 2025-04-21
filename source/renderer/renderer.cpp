@@ -396,19 +396,72 @@ namespace renderer
 			//DX_RELEASE_OBJECT(cs_binary_post_process);
 		}
 
-		// Render target
-		g_renderer->rt_color_accum = d3d12::create_texture_2d(L"Color Accumulator RT", DXGI_FORMAT_R16G16B16A16_FLOAT,
-			g_renderer->render_width, g_renderer->render_height, 1,
-			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
-		g_renderer->rt_color_accum_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
-		d3d12::create_texture_2d_srv(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		d3d12::create_texture_2d_uav(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 1);
+		// Initialize wavefront pathtracing PSOs
+		{
+			DxcDefine defines[] = { DxcDefine{ .Name = L"RAYTRACING_MODE_SOFTWARE", .Value = L"0" } };
+			IDxcBlob* shader_binary_wavefront_generate = d3d12::compile_shader(L"shaders/wavefront/generate.hlsl",
+				L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->wavefront.pso_generate = d3d12::create_pso_cs(shader_binary_wavefront_generate, g_renderer->root_signature);
+			
+			IDxcBlob* shader_binary_wavefront_extend = d3d12::compile_shader(L"shaders/wavefront/extend.hlsl",
+				L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->wavefront.pso_extend = d3d12::create_pso_cs(shader_binary_wavefront_extend, g_renderer->root_signature);
+			
+			IDxcBlob* shader_binary_wavefront_shade = d3d12::compile_shader(L"shaders/wavefront/shade.hlsl",
+				L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->wavefront.pso_shade = d3d12::create_pso_cs(shader_binary_wavefront_shade, g_renderer->root_signature);
+		}
 
-		g_renderer->rt_final_color = d3d12::create_texture_2d(L"Final Color RT", DXGI_FORMAT_R8G8B8A8_UNORM,
-			g_renderer->render_width, g_renderer->render_height, 1,
-			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
-		g_renderer->rt_final_color_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
-		d3d12::create_texture_2d_uav(g_renderer->rt_final_color, g_renderer->rt_final_color_uav, 0);
+		// Initialize wavefront pathtracing resources
+		{
+			uint64_t element_count = g_renderer->render_width * g_renderer->render_height;
+
+			uint64_t buffer_size = element_count * sizeof(RayDesc2);
+			g_renderer->wavefront.buffer_ray = d3d12::create_buffer(L"Wavefront Ray Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_ray_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_ray, g_renderer->wavefront.buffer_ray_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_ray, g_renderer->wavefront.buffer_ray_srv_uav, 1, buffer_size);
+
+			buffer_size = element_count * 12;
+			g_renderer->wavefront.buffer_energy = d3d12::create_buffer(L"Wavefront Energy Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_energy_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_energy, g_renderer->wavefront.buffer_energy_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_energy, g_renderer->wavefront.buffer_energy_srv_uav, 1, buffer_size);
+
+			buffer_size = element_count * 12;
+			g_renderer->wavefront.buffer_throughput = d3d12::create_buffer(L"Wavefront Throughput Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_throughput_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_throughput, g_renderer->wavefront.buffer_throughput_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_throughput, g_renderer->wavefront.buffer_throughput_srv_uav, 1, buffer_size);
+
+			buffer_size = element_count * 8;
+			g_renderer->wavefront.buffer_pixelpos = d3d12::create_buffer(L"Wavefront Pixelpos Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_pixelpos_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixelpos, g_renderer->wavefront.buffer_pixelpos_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixelpos, g_renderer->wavefront.buffer_pixelpos_srv_uav, 1, buffer_size);
+
+			buffer_size = element_count * sizeof(intersection_result_t);
+			g_renderer->wavefront.buffer_intersection = d3d12::create_buffer(L"Wavefront Intersection Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_intersection_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_intersection, g_renderer->wavefront.buffer_intersection_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_intersection, g_renderer->wavefront.buffer_intersection_srv_uav, 1, buffer_size);
+		}
+
+		// Create render targets
+		{
+			g_renderer->rt_color_accum = d3d12::create_texture_2d(L"Color Accumulator RT", DXGI_FORMAT_R16G16B16A16_FLOAT,
+				g_renderer->render_width, g_renderer->render_height, 1,
+				D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
+			g_renderer->rt_color_accum_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_texture_2d_srv(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			d3d12::create_texture_2d_uav(g_renderer->rt_color_accum, g_renderer->rt_color_accum_srv_uav, 1);
+
+			g_renderer->rt_final_color = d3d12::create_texture_2d(L"Final Color RT", DXGI_FORMAT_R8G8B8A8_UNORM,
+				g_renderer->render_width, g_renderer->render_height, 1,
+				D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nullptr);
+			g_renderer->rt_final_color_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1);
+			d3d12::create_texture_2d_uav(g_renderer->rt_final_color, g_renderer->rt_final_color_uav, 0);
+		}
 	}
 
 	void exit()
@@ -417,19 +470,30 @@ namespace renderer
 		
 		slotmap::destroy(g_renderer->texture_slotmap);
 		slotmap::destroy(g_renderer->mesh_slotmap);
-
+		
 		// Wait for all potential in-flight frames to finish operations on the GPU
 		d3d12::wait_on_fence(d3d12::g_d3d->sync.fence, d3d12::g_d3d->sync.fence_value);
 		d3d12::flush_uploads();
+		
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_ray);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_energy);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_throughput);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_pixelpos);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_intersection);
+		
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_generate);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_extend);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_shade);
+		//DX_RELEASE_OBJECT(g_renderer->wavefront.pso_connect);
 
 		DX_RELEASE_OBJECT(g_renderer->rt_color_accum);
 		DX_RELEASE_OBJECT(g_renderer->rt_final_color);
-
+		
 		DX_RELEASE_OBJECT(g_renderer->root_signature);
 		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer_software);
 		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer_hardware);
 		DX_RELEASE_OBJECT(g_renderer->pso_cs_post_process);
-
+		
 		d3d12::exit();
 	}
 
@@ -611,66 +675,114 @@ namespace renderer
 			g_renderer->rt_final_color_uav.cpu, g_renderer->rt_final_color, clear_value, 0, nullptr);
 #endif
 
-		// Dispatch pathtrace compute shader
+		// TODO: Define these in a shared hlsl/cpp header, or somehow store that information in compiled shader
+		const uint32_t dispatch_threads_per_block_x = 16;
+		const uint32_t dispatch_threads_per_block_y = 16;
+
+		uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
+		uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
+
+		// Dispatch wavefront pathtracing compute shaders
 		{
-			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace"));
+			// Generate
+			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Generate"));
 
-			// TODO: Define these in a shared hlsl/cpp header, or somehow store that information in compiled shader
-			const uint32_t dispatch_threads_per_block_x = 16;
-			const uint32_t dispatch_threads_per_block_y = 16;
-
-			uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
-			uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
-
-			if (g_renderer->settings.use_software_rt)
-			{
-				d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer_software);
-			}
-			else
-			{
-				d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer_hardware);
-			}
-
-			// Bind shader input constant buffer
 			struct shader_input_t
 			{
-				uint32_t scene_tlas_index;
-				uint32_t hdr_env_index;
-				glm::uvec2 hdr_env_dimensions;
-				uint32_t instance_buffer_index;
-				uint32_t rt_index;
-				uint32_t sample_count;
-				uint32_t random_seed;
+				uint32_t buffer_ray_index;
+				uint32_t buffer_energy_index;
+				uint32_t buffer_throughput_index;
+				uint32_t buffer_pixelpos_index;
 			};
-
 			d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 			shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+			shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
+			shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
+			shader_input->buffer_throughput_index = g_renderer->wavefront.buffer_throughput_srv_uav.offset + 1;
+			shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
 
-			shader_input->scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
-			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
-			shader_input->hdr_env_dimensions = glm::uvec2(
-				g_renderer->scene_hdr_env_texture->width,
-				g_renderer->scene_hdr_env_texture->height);
-			shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
-			shader_input->rt_index = g_renderer->rt_color_accum_srv_uav.offset + 1;
-			shader_input->random_seed = random::rand_uint32();
-			shader_input->sample_count = g_renderer->accum_count;
-
+			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_generate);
 			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
 			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
-			
-			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace"));
+
+			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Generate"));
+		}
+		{
+			// TODO: ExecuteIndirect to feed the amount of dispatched threads directly from the GPU
+			// TODO: Allow for multiple timestamp pairs of the same name, add them all together in the end
+			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend Shade"));
+			for (uint32_t recursion_depth = 0; recursion_depth <= g_renderer->settings.ray_max_recursion; ++recursion_depth)
+			{
+				{
+					// Extend
+					//begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend"));
+
+					struct shader_input_t
+					{
+						uint32_t buffer_ray_index;
+						uint32_t buffer_intersection_index;
+						uint32_t buffer_scene_tlas_index;
+					};
+					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset;
+					shader_input->buffer_intersection_index = g_renderer->wavefront.buffer_intersection_srv_uav.offset + 1;
+					shader_input->buffer_scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
+
+					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_extend);
+					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+					d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+
+					//end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend"));
+				}
+				{
+					// Shade
+					//begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Shade"));
+
+					struct shader_input_t
+					{
+						uint32_t buffer_ray_index;
+						uint32_t buffer_intersection_index;
+						uint32_t buffer_energy_index;
+						uint32_t buffer_throughput_index;
+						uint32_t buffer_pixelpos_index;
+						uint32_t buffer_instance_index;
+						uint32_t texture_hdr_env_index;
+						uint32_t texture_hdr_env_width;
+						uint32_t texture_hdr_env_height;
+						uint32_t random_seed;
+						uint32_t recursion_depth;
+					};
+					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
+					shader_input->buffer_intersection_index = g_renderer->wavefront.buffer_intersection_srv_uav.offset;
+					shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
+					shader_input->buffer_throughput_index = g_renderer->wavefront.buffer_throughput_srv_uav.offset + 1;
+					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
+					shader_input->buffer_instance_index = g_renderer->instance_buffer_srv.offset;
+					shader_input->texture_hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
+					shader_input->texture_hdr_env_width = g_renderer->scene_hdr_env_texture->width;
+					shader_input->texture_hdr_env_height = g_renderer->scene_hdr_env_texture->height;
+					shader_input->random_seed = random::rand_uint32();
+					shader_input->recursion_depth = recursion_depth;
+
+					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_shade);
+					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+					d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+
+					//end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Shade"));
+				}
+				{
+					// TODO: Connect (Next event estimation)
+				}
+			}
+			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend Shade"));
 		}
 
 		// Dispatch post-process compute shader
 		{
 			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
-			
-			const uint32_t dispatch_threads_per_block_x = 16;
-			const uint32_t dispatch_threads_per_block_y = 16;
-
-			uint32_t dispatch_blocks_x = MAX((g_renderer->render_width + dispatch_threads_per_block_x - 1) / dispatch_threads_per_block_x, 1);
-			uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
 			d3d_frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
 			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
@@ -678,14 +790,17 @@ namespace renderer
 			// Bind shader input constant buffer
 			struct shader_input_t
 			{
-				uint32_t color_index;
-				uint32_t rt_index;
+				uint32_t buffer_energy_index;
+				uint32_t texture_color_accum_index;
+				uint32_t texture_color_final_index;
+				uint32_t sample_count;
 			};
-
 			d3d12::frame_resource_t shader_cb = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 			shader_input_t* shader_input = (shader_input_t*)shader_cb.ptr;
-			shader_input->color_index = g_renderer->rt_color_accum_srv_uav.offset;
-			shader_input->rt_index = g_renderer->rt_final_color_uav.offset;
+			shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset;
+			shader_input->texture_color_accum_index = g_renderer->rt_color_accum_srv_uav.offset + 1;
+			shader_input->texture_color_final_index = g_renderer->rt_final_color_uav.offset;
+			shader_input->sample_count = g_renderer->accum_count;
 
 			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, shader_cb.resource->GetGPUVirtualAddress() + shader_cb.byte_offset);
 			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
@@ -782,10 +897,12 @@ namespace renderer
 				ImGui::Indent(10.0f);
 
 				// Software/Hardware raytracing
+				ImGui::BeginDisabled(true);
 				if (ImGui::Checkbox("Use software raytracing", (bool*)&g_renderer->settings.use_software_rt))
 				{
 					g_renderer->change_raytracing_mode = true;
 				}
+				ImGui::EndDisabled();
 				ImGui::SetItemTooltip("When this is enabled the raytracing will use software raytracing with custom acceleration structures instead of hardware raytracing."
 					"This might take a while because it will rebuild all bottom level acceleration structures of all meshes.");
 
@@ -817,7 +934,7 @@ namespace renderer
 		ID3D12Resource* d3d_resource = nullptr;
 		ARENA_SCRATCH_SCOPE()
 		{
-			d3d_resource = d3d12::create_texture_2d(ARENA_WPRINTF(arena_scratch, L"Texture Buffer %ls", texture_params.debug_name).buf,
+			d3d_resource = d3d12::create_texture_2d(ARENA_WPRINTF(arena_scratch, L"Texture Buffer %.*ls", STRING_EXPAND(texture_params.debug_name)).buf,
 				DXGI_FORMAT_R32G32B32A32_FLOAT, texture_params.width, texture_params.height, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
 		}
 		uint32_t src_rowpitch = texture_params.width * texture_params.bytes_per_channel * texture_params.channel_count;
