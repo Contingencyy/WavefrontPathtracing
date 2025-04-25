@@ -1,6 +1,5 @@
 #pragma once
 #include "d3d12_include.h"
-#include "d3d12_descriptor.h"
 #include "d3d12_upload.h"
 #include "d3d12_frame.h"
 

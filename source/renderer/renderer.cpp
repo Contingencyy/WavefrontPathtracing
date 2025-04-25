@@ -705,6 +705,15 @@ namespace renderer
 			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
 			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
 
+			D3D12_RESOURCE_BARRIER barriers[] =
+			{
+				d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
+				d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
+				d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
+				d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
+			};
+			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+
 			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Generate"));
 		}
 		{
@@ -732,6 +741,12 @@ namespace renderer
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_extend);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
 					d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+					
+					D3D12_RESOURCE_BARRIER barriers[] =
+					{
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_intersection)
+					};
+					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 
 					//end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend"));
 				}
@@ -770,6 +785,15 @@ namespace renderer
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_shade);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
 					d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+
+					D3D12_RESOURCE_BARRIER barriers[] =
+					{
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
+					};
+					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 
 					//end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Shade"));
 				}

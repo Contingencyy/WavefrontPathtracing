@@ -93,14 +93,14 @@ float rand_float(inout uint seed)
 
 triangle_t load_triangle(ByteAddressBuffer buffer, uint primitive_idx)
 {
-    uint byte_offset = TRIANGLE_SIZE * primitive_idx;
+    uint byte_offset = sizeof(triangle_t) * primitive_idx;
     triangle_t tri = buffer.Load<triangle_t>(byte_offset);
     return tri;
 }
 
 instance_data_t load_instance(ByteAddressBuffer buffer, uint instance_idx)
 {
-    uint byte_offset = INSTANCE_DATA_SIZE * instance_idx;
+    uint byte_offset = sizeof(instance_data_t) * instance_idx;
     instance_data_t instance_data = buffer.Load<instance_data_t>(byte_offset);
     return instance_data;
 }

@@ -45,7 +45,6 @@ struct triangle_t
 	vertex_t v1;
 	vertex_t v2;
 };
-#define TRIANGLE_SIZE 72
 
 struct material_t
 {
@@ -68,7 +67,6 @@ struct instance_data_t
 	material_t material;
 	uint triangle_buffer_idx;
 };
-#define INSTANCE_DATA_SIZE 188
 
 // ---------------------------------------------------------------------------------------
 // Acceleration structure
@@ -87,7 +85,6 @@ struct bvh_node_t
 	float3 aabb_max;
 	uint prim_count;
 };
-#define BVH_NODE_SIZE 32
 
 struct bvh_triangle_t
 {
@@ -95,8 +92,6 @@ struct bvh_triangle_t
 	float3 p1;
 	float3 p2;
 };
-#define BVH_TRIANGLE_INDEX_SIZE 4
-#define BVH_TRIANGLE_SIZE 36
 
 struct bvh_instance_t
 {
@@ -105,7 +100,6 @@ struct bvh_instance_t
 	float3 aabb_max;
 	uint bvh_index;
 };
-#define BVH_INSTANCE_SIZE 92
 
 struct tlas_header_t
 {
@@ -121,7 +115,6 @@ struct tlas_node_t
 	float3 aabb_max;
 	uint instance_idx;
 };
-#define TLAS_NODE_SIZE 32
 
 struct intersection_result_t
 {
@@ -141,15 +134,6 @@ struct RayDesc2
 	float3 Direction;
 	float TMax;
 };
-
-#ifdef __cplusplus
-static_assert(sizeof(triangle_t) == TRIANGLE_SIZE);
-static_assert(sizeof(instance_data_t) == INSTANCE_DATA_SIZE);
-static_assert(sizeof(bvh_node_t) == BVH_NODE_SIZE);
-static_assert(sizeof(bvh_triangle_t) == BVH_TRIANGLE_SIZE);
-static_assert(sizeof(bvh_instance_t) == BVH_INSTANCE_SIZE);
-static_assert(sizeof(tlas_node_t) == TLAS_NODE_SIZE);
-#endif
 
 #ifdef __cplusplus
 #undef int

@@ -11,21 +11,21 @@ bvh_header_t bvh_get_header(ByteAddressBuffer buffer)
 
 bvh_node_t bvh_get_node(ByteAddressBuffer buffer, bvh_header_t header, uint node_idx)
 {
-    uint byte_offset = header.nodes_offset + BVH_NODE_SIZE * node_idx;
+    uint byte_offset = header.nodes_offset + sizeof(bvh_node_t) * node_idx;
     bvh_node_t node = buffer.Load<bvh_node_t>(byte_offset);
     return node;
 }
 
 bvh_triangle_t bvh_get_triangle(ByteAddressBuffer buffer, bvh_header_t header, uint tri_idx)
 {
-    uint byte_offset = header.triangles_offset + BVH_TRIANGLE_SIZE * tri_idx;
+    uint byte_offset = header.triangles_offset + sizeof(bvh_triangle_t) * tri_idx;
     bvh_triangle_t tri = buffer.Load<bvh_triangle_t>(byte_offset);
     return tri;
 }
 
 uint bvh_get_triangle_index(ByteAddressBuffer buffer, bvh_header_t header, uint tri_idx)
 {
-    uint byte_offset = header.indices_offset + BVH_TRIANGLE_INDEX_SIZE * tri_idx;
+    uint byte_offset = header.indices_offset + 4 * tri_idx;
     uint triangle_index = buffer.Load<uint>(byte_offset);
     return triangle_index;
 }
@@ -38,14 +38,14 @@ tlas_header_t tlas_get_header(ByteAddressBuffer buffer)
 
 tlas_node_t tlas_get_node(ByteAddressBuffer buffer, tlas_header_t header, uint node_idx)
 {
-    uint byte_offset = header.nodes_offset + TLAS_NODE_SIZE * node_idx;
+    uint byte_offset = header.nodes_offset + sizeof(tlas_node_t) * node_idx;
     tlas_node_t node = buffer.Load<tlas_node_t>(byte_offset);
     return node;
 }
 
 bvh_instance_t tlas_get_instance(ByteAddressBuffer buffer, tlas_header_t header, uint instance_idx)
 {
-    uint byte_offset = header.instances_offset + BVH_INSTANCE_SIZE * instance_idx;
+    uint byte_offset = header.instances_offset + sizeof(bvh_instance_t) * instance_idx;
     bvh_instance_t instance = buffer.Load<bvh_instance_t>(byte_offset);
     return instance;
 }

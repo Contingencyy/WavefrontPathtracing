@@ -40,9 +40,9 @@ namespace d3d12
 		debug_interface->EnableDebugLayer();
 
 		// Enable GPU based validation
-#ifdef DX12_GPU_BASED_VALIDATION
+#if D3D12_GPU_BASED_VALIDATION
 		ID3D12Debug1* debug_interface1 = nullptr;
-		DXCheckHR(debug_interface->QueryInterface(IID_PPV_ARGS(&debug_interface1)));
+		DX_CHECK_HR(debug_interface->QueryInterface(IID_PPV_ARGS(&debug_interface1)));
 		debug_interface1->SetEnableGPUBasedValidation(true);
 #endif
 #endif
