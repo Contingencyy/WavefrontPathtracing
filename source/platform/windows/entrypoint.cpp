@@ -232,15 +232,32 @@ void create_window(int32_t desired_width, int32_t desired_height)
 	ShowWindow(s_hwnd, TRUE);
 }
 
-void fatal_error_impl(int32_t line, const string_t& error_msg)
+void fatal_error_impl(int32_t line, const char* error_msg)
 {
-	ARENA_SCRATCH_SCOPE()
-	{
-		const char* error_msg_nullterm = string::make_nullterm(arena_scratch, error_msg);
+	MessageBoxA(NULL, error_msg, "Fatal Error", MB_OK);
+	__debugbreak();
+	ExitProcess(1);
+}
 
-		MessageBoxA(NULL, error_msg_nullterm, "Fatal Error", MB_OK);
-		__debugbreak();
-		ExitProcess(1);
+bool show_message_box_impl(const char* title, const char* message)
+{
+	int32_t result = MessageBoxA(NULL, message, title, MB_RETRYCANCEL);
+
+	switch (result)
+	{
+	case IDNO:
+	case IDABORT:
+	case IDCANCEL:
+	case IDIGNORE:
+		return false;
+	case IDYES:
+	case IDOK:
+	case IDRETRY:
+	case IDTRYAGAIN:
+	case IDCONTINUE:
+		return true;
+	default:
+		return false;
 	}
 }
 

@@ -38,6 +38,8 @@ namespace renderer
 		world_tangent,
 		world_bitangent,
 
+		path_depth,
+
 		render_target_depth,
 
 		count
@@ -49,6 +51,7 @@ namespace renderer
 		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics", "Geometry Normal",
 		"Material Albedo", "Material Normal", "Material Spec Refract", "Material Absorption", "Material Emissive",
 		"World Normal", "World Tangent", "World Bitangent",
+		"Path Depth",
 		"RenderTarget Depth"
 	};
 	static_assert(render_view_mode::count == ARRAY_SIZE(render_view_mode_labels));

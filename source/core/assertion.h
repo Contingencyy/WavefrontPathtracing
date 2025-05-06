@@ -21,9 +21,11 @@
 #define NEVER(expr) !ALWAYS(!(expr))
 
 #define FATAL_ERROR(sender, msg, ...) fatal_error(__LINE__, __FILE__, sender, msg, ##__VA_ARGS__)
+#define SHOW_MESSAGE_BOX(title, sender, msg, ...) show_message_box(title, sender, msg, ##__VA_ARGS__)
 
-// Platform-specific implementation
-void fatal_error_impl(int32_t line, const string_t& error_msg);
+// Platform-specific implementations
+void fatal_error_impl(int32_t line, const char* error_msg);
+bool show_message_box_impl(const char* title, const char* message);
 
 inline void fatal_error(int32_t line, const char* file, const char* sender, const char* message, ...)
 {
@@ -36,7 +38,28 @@ inline void fatal_error(int32_t line, const char* file, const char* sender, cons
 		
 		va_end(args);
 
-		string_t error_message = ARENA_PRINTF(arena_scratch, "Fatal Error Occured\n[%s] %s\nFile: %s\nLine: %i\n", sender, string::make_nullterm(arena_scratch, formatted_message), file, line);
-		fatal_error_impl(line, error_message);
+		string_t error_message = ARENA_PRINTF(arena_scratch, "Fatal Error Occured\n[%s] %.*s\nFile: %s\nLine: %i\n", sender, STRING_EXPAND(formatted_message), file, line);
+		const char* error_message_nullterm = string::make_nullterm(arena_scratch, error_message);
+		fatal_error_impl(line, error_message_nullterm);
 	}
+}
+
+inline bool show_message_box(const char* title, const char* sender, const char* message, ...)
+{
+	bool result = true;
+	ARENA_SCRATCH_SCOPE()
+	{
+		va_list args;
+		va_start(args, message);
+
+		string_t formatted_message = ARENA_PRINTF_ARGS(arena_scratch, message, args);
+		
+		va_end(args);
+
+		string_t full_message = ARENA_PRINTF(arena_scratch, "[%s] %.*s", sender, STRING_EXPAND(formatted_message));
+		const char* message_nullterm = string::make_nullterm(arena_scratch, full_message);
+		result = show_message_box_impl(title, message_nullterm);
+	}
+
+	return result;
 }
