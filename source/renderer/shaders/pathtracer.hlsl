@@ -17,8 +17,7 @@ struct shader_input_t
     uint hdr_env_index;
     uint2 hdr_env_dimensions;
     uint instance_buffer_index;
-    uint rt_index;
-    uint sample_count;
+    uint buffer_energy_index;
     uint random_seed;
 };
 
@@ -33,9 +32,9 @@ float4 sample_hdr_env(float3 dir, float2 texture_resolution)
 }
 
 #if RAYTRACING_MODE_SOFTWARE
-float4 trace_path(ByteAddressBuffer scene_tlas, float2 pixel_pos, float2 render_dim, uint seed)
+float3 trace_path(ByteAddressBuffer scene_tlas, float2 pixel_pos, float2 render_dim, uint seed)
 #else
-float4 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, float2 render_dim, uint seed)
+float3 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, float2 render_dim, uint seed)
 #endif
 {
 #if RAYTRACING_MODE_SOFTWARE
@@ -173,7 +172,7 @@ float4 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, 
         ray_depth++;
     }
     
-    return float4(energy, 1.0f);
+    return energy;
 }
 
 [numthreads(GROUP_THREADS_X, GROUP_THREADS_Y, 1)]
@@ -184,21 +183,12 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
 #else
     RaytracingAccelerationStructure scene_tlas = get_resource<RaytracingAccelerationStructure>(cb_in.scene_tlas_index);
 #endif
-    RWTexture2D<float4> color_out = get_resource<RWTexture2D<float4> >(cb_in.rt_index);
     
     // Make the primary ray and start tracing
     uint2 pixel_pos = uint2(dispatch_id.xy);
-    float4 final_color = trace_path(scene_tlas, pixel_pos, cb_view.render_dim, cb_in.random_seed + dispatch_id.y * dispatch_id.x + dispatch_id.x);
-    
-    float4 color_accum = color_out[pixel_pos];
-    float sample_weight = 1.0f / cb_in.sample_count;
-    
-    if (cb_settings.accumulate)
-    {
-        color_out[pixel_pos] = color_accum * (1.0f - sample_weight) + final_color * sample_weight;
-    }
-    else
-    {
-        color_out[pixel_pos] = final_color;
-    }
+    float3 energy = trace_path(scene_tlas, pixel_pos, cb_view.render_dim, cb_in.random_seed + dispatch_id.y * dispatch_id.x + dispatch_id.x);
+
+    RWByteAddressBuffer buffer_energy = get_resource<RWByteAddressBuffer>(cb_in.buffer_energy_index);
+    uint write_offset = dispatch_id.y * cb_view.render_dim.x + dispatch_id.x;
+    buffer_energy.Store<float3>(write_offset * 12, energy);
 }

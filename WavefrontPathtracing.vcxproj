@@ -236,6 +236,18 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\renderer\material.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
     <ClCompile Include="source\core\allocators\ring_alloc.cpp" />
+    <FxCompile Include="source\renderer\shaders\wavefront\clear_buffers.hlsl">
+      <ObjectFileOutput>C:\Projects\WavefrontPathtracing\bin\x64\Debug\init_args.cso</ObjectFileOutput>
+      <TrackerLogDirectory>C:\Projects\WavefrontPathtracing\build\x64\Debug\Wavefron.59D7F158.tlog\</TrackerLogDirectory>
+      <EntryPointName>main</EntryPointName>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <ShaderModel>4.0_level_9_3</ShaderModel>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <DisableOptimizations>true</DisableOptimizations>
+      <EnableDebuggingInformation>true</EnableDebuggingInformation>
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </FxCompile>
     <FxCompile Include="source\renderer\shaders\wavefront\connect.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -249,6 +261,18 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <FxCompile Include="source\renderer\shaders\wavefront\generate.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </FxCompile>
+    <FxCompile Include="source\renderer\shaders\wavefront\init_args.hlsl">
+      <ObjectFileOutput>C:\Projects\WavefrontPathtracing\bin\x64\Debug\%(Filename).cso</ObjectFileOutput>
+      <TrackerLogDirectory>C:\Projects\WavefrontPathtracing\build\x64\Debug\Wavefron.59D7F158.tlog\</TrackerLogDirectory>
+      <EntryPointName>main</EntryPointName>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <ShaderModel>4.0_level_9_3</ShaderModel>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <DisableOptimizations>true</DisableOptimizations>
+      <EnableDebuggingInformation>true</EnableDebuggingInformation>
+      <ExcludedFromBuild>true</ExcludedFromBuild>
       <FileType>Document</FileType>
     </FxCompile>
     <FxCompile Include="source\renderer\shaders\wavefront\shade.hlsl">

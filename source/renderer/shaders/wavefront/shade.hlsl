@@ -1,16 +1,9 @@
 #include "../common.hlsl"
 #include "../sample.hlsl"
 
-#ifndef GROUP_THREADS_X
-#define GROUP_THREADS_X 16
-#endif
-
-#ifndef GROUP_THREADS_Y
-#define GROUP_THREADS_Y 16
-#endif
-
 struct shader_input_t
 {
+    uint buffer_ray_counts_index;
     uint buffer_ray_index;
     uint buffer_intersection_index;
     uint buffer_energy_index;
@@ -43,25 +36,25 @@ float4 sample_hdr_env(float3 dir, float2 texture_resolution)
 }
 
 // TODO: Shade binning to allow for evaluation of different material types?
-[numthreads(GROUP_THREADS_X, GROUP_THREADS_Y, 1)]
+[numthreads(64, 1, 1)]
 void main(uint3 dispatch_id : SV_DispatchThreadID)
 {
-    uint data_offset = dispatch_id.y * cb_view.render_dim.x + dispatch_id.x;
+    RWByteAddressBuffer buffer_ray_counts = get_resource<RWByteAddressBuffer>(cb_in.buffer_ray_counts_index);
+    uint ray_count = buffer_ray_counts.Load<uint>(cb_in.recursion_depth * 4);
+    
+    // Dispatches might have work that is not divisible by the dispatch thread dimensions, so we skip those
+    [branch]
+    if (dispatch_id.x >= ray_count)
+        return;
     
     RWByteAddressBuffer buffer_ray = get_resource<RWByteAddressBuffer>(cb_in.buffer_ray_index);
-    RayDesc2 ray = buffer_ray.Load<RayDesc2>(data_offset * sizeof(RayDesc2));
-
-    // Temporary
-    if (!(length(ray.Direction) > 0.0))
-    {
-        return;
-    }
+    RayDesc2 ray = buffer_ray.Load<RayDesc2>(dispatch_id.x * sizeof(RayDesc2));
     
     ByteAddressBuffer buffer_intersection = get_resource<ByteAddressBuffer>(cb_in.buffer_intersection_index);
-    intersection_result_t intersection_result = buffer_intersection.Load<intersection_result_t>(data_offset * sizeof(intersection_result_t));
+    intersection_result_t intersection_result = buffer_intersection.Load<intersection_result_t>(dispatch_id.x * sizeof(intersection_result_t));
     
     RWByteAddressBuffer buffer_pixelpos = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_index);
-    uint2 pixel_pos = buffer_pixelpos.Load<uint2>(data_offset * sizeof(uint2));
+    uint2 pixel_pos = buffer_pixelpos.Load<uint2>(dispatch_id.x * sizeof(uint2));
     uint pixel_offset = pixel_pos.y * cb_view.render_dim.x + pixel_pos.x;
 
     RWByteAddressBuffer buffer_energy = get_resource<RWByteAddressBuffer>(cb_in.buffer_energy_index);
@@ -71,6 +64,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     float3 throughput = buffer_throughput.Load<float3>(pixel_offset * sizeof(float3));
 
     bool terminate_path = false;
+    [branch]
     if (!intersection_result_valid(intersection_result))
     {
         energy += sample_hdr_env(ray.Direction, float2(cb_in.texture_hdr_env_width, cb_in.texture_hdr_env_height)).xyz * throughput;
@@ -80,12 +74,14 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(cb_in.buffer_instance_index);
     instance_data_t instance = load_instance(instance_buffer, intersection_result.instance_idx);
     
+    [branch]
     if (instance.material.emissive)
     {
         energy += instance.material.emissive_color * instance.material.emissive_intensity * throughput;
         terminate_path = true;
     }
-    
+
+    [branch]
     if (!terminate_path)
     {
         ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(instance.triangle_buffer_idx);
@@ -95,7 +91,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         float3 hit_normal = triangle_interpolate(hit_tri.v0.normal, hit_tri.v1.normal, hit_tri.v2.normal, intersection_result.bary);
         hit_normal = normalize(mul(float4(hit_normal, 0.0f), instance.local_to_world).xyz);
         
-        uint seed = cb_in.random_seed + dispatch_id.y * dispatch_id.x + dispatch_id.x;
+        uint seed = cb_in.random_seed + dispatch_id.x;
         float r = rand_float(seed);
 
         // Specular path
@@ -190,19 +186,18 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         }
     }
     
-    // TODO: Change all output buffer writes to an atomic increment except for those that need to keep mapping to pixels 1 to 1
-    // TODO: Write ExecuteIndirect arguments here to feed the next recursion iteration from the GPU instead
-    // TODO: Simply do not increment atomic counter for next recursion iteration instead of writing a "null ray"
-    // Write new ray to output buffer
-    if (!terminate_path && cb_in.recursion_depth < cb_settings.ray_max_recursion)
+    // Write new ray to output buffer if we need to do another recursion
+    [branch]
+    if (cb_in.recursion_depth < cb_settings.ray_max_recursion && !terminate_path)
     {
-        buffer_ray.Store<RayDesc2>(data_offset * sizeof(RayDesc2), ray);
-        buffer_pixelpos.Store<uint2>(data_offset * sizeof(uint2), pixel_pos);
-    }
-    else if (terminate_path && cb_in.recursion_depth < cb_settings.ray_max_recursion)
-    {
-        ray = make_ray(float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0));
-        buffer_ray.Store<RayDesc2>(data_offset * sizeof(RayDesc2), ray);
+        // Update indirect args for next recursion
+        uint write_offset;
+        uint ray_count_offset = cb_in.recursion_depth + 1;
+        buffer_ray_counts.InterlockedAdd(ray_count_offset * 4, 1u, write_offset);
+
+        // Get next ray offset and write new ray
+        buffer_ray.Store<RayDesc2>(write_offset * sizeof(RayDesc2), ray);
+        buffer_pixelpos.Store<uint2>(write_offset * sizeof(uint2), pixel_pos);
     }
 
     // Write new energy and throughput to output buffers at correct pixel position

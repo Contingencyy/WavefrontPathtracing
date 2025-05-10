@@ -38,7 +38,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     RWTexture2D<float4> texture_color_accum = get_resource<RWTexture2D<float4> >(cb_in.texture_color_accum_index);
     float4 color_accum = texture_color_accum[pixel_pos];
     float sample_weight = 1.0f / cb_in.sample_count;
-    
+
     if (cb_settings.accumulate)
     {
         texture_color_accum[pixel_pos] = color_accum * (1.0f - sample_weight) + float4(energy, 1.0) * sample_weight;

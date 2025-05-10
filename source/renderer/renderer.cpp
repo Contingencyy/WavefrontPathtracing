@@ -88,6 +88,7 @@ namespace renderer
 	static render_settings_shader_data_t get_default_render_settings()
 	{
 		render_settings_shader_data_t defaults = {};
+		defaults.use_wavefront_pathtracing = true;
 		defaults.use_software_rt = false;
 		defaults.render_view_mode = render_view_mode::none;
 		defaults.ray_max_recursion = 3;
@@ -399,6 +400,14 @@ namespace renderer
 		// Initialize wavefront pathtracing PSOs
 		{
 			DxcDefine defines[] = { DxcDefine{ .Name = L"RAYTRACING_MODE_SOFTWARE", .Value = L"0" } };
+			IDxcBlob* shader_binary_wavefront_clear_buffers = d3d12::compile_shader(L"shaders/wavefront/clear_buffers.hlsl",
+				L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->wavefront.pso_clear_buffers = d3d12::create_pso_cs(shader_binary_wavefront_clear_buffers, g_renderer->root_signature);
+			
+			IDxcBlob* shader_binary_wavefront_init_args = d3d12::compile_shader(L"shaders/wavefront/init_args.hlsl",
+				L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
+			g_renderer->wavefront.pso_init_args = d3d12::create_pso_cs(shader_binary_wavefront_init_args, g_renderer->root_signature);
+			
 			IDxcBlob* shader_binary_wavefront_generate = d3d12::compile_shader(L"shaders/wavefront/generate.hlsl",
 				L"main", L"cs_6_7", ARRAY_SIZE(defines), defines);
 			g_renderer->wavefront.pso_generate = d3d12::create_pso_cs(shader_binary_wavefront_generate, g_renderer->root_signature);
@@ -414,9 +423,33 @@ namespace renderer
 
 		// Initialize wavefront pathtracing resources
 		{
-			uint64_t element_count = g_renderer->render_width * g_renderer->render_height;
+			// Create command signature for ExecuteIndirect dispatches
+			D3D12_INDIRECT_ARGUMENT_DESC indirect_arg_descs[1];
+			indirect_arg_descs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+		
+			D3D12_COMMAND_SIGNATURE_DESC command_signature_desc = {};
+			command_signature_desc.NumArgumentDescs = ARRAY_SIZE(indirect_arg_descs);
+			command_signature_desc.pArgumentDescs = indirect_arg_descs;
+			command_signature_desc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
+			command_signature_desc.NodeMask = 0;
 
-			uint64_t buffer_size = element_count * sizeof(RayDesc2);
+			d3d12::g_d3d->device->CreateCommandSignature(&command_signature_desc, nullptr, IID_PPV_ARGS(&g_renderer->wavefront.command_signature));
+
+			uint64_t element_count = g_renderer->render_width * g_renderer->render_height;
+			// The maximum recursion count (limited by UI) is currently 8, so we allow 8 bounces for a total of 9 indirect dispatch arg sets 
+			uint64_t buffer_size = 9 * sizeof(D3D12_DISPATCH_ARGUMENTS);
+			g_renderer->wavefront.buffer_indirect_args = d3d12::create_buffer(L"Wavefront Indirect Arguments", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_indirect_args_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_indirect_args, g_renderer->wavefront.buffer_indirect_args_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_indirect_args, g_renderer->wavefront.buffer_indirect_args_srv_uav, 1, buffer_size);
+
+			buffer_size = 9 * sizeof(uint32_t);
+			g_renderer->wavefront.buffer_ray_counts = d3d12::create_buffer(L"Wavefront Ray Counts", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_ray_counts_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_ray_counts, g_renderer->wavefront.buffer_ray_counts_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_ray_counts, g_renderer->wavefront.buffer_ray_counts_srv_uav, 1, buffer_size);
+			
+			buffer_size = element_count * sizeof(RayDesc2);
 			g_renderer->wavefront.buffer_ray = d3d12::create_buffer(L"Wavefront Ray Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 			g_renderer->wavefront.buffer_ray_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
 			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_ray, g_renderer->wavefront.buffer_ray_srv_uav, 0, buffer_size);
@@ -475,20 +508,26 @@ namespace renderer
 		d3d12::wait_on_fence(d3d12::g_d3d->sync.fence, d3d12::g_d3d->sync.fence_value);
 		d3d12::flush_uploads();
 		
+		DX_RELEASE_OBJECT(g_renderer->wavefront.command_signature);
+		
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_clear_buffers);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_init_args);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_generate);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_extend);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_shade);
+		//DX_RELEASE_OBJECT(g_renderer->wavefront.pso_connect);
+		
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_indirect_args);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_ray_counts);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_ray);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_energy);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_throughput);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_pixelpos);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_intersection);
-		
-		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_generate);
-		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_extend);
-		DX_RELEASE_OBJECT(g_renderer->wavefront.pso_shade);
-		//DX_RELEASE_OBJECT(g_renderer->wavefront.pso_connect);
 
 		DX_RELEASE_OBJECT(g_renderer->rt_color_accum);
 		DX_RELEASE_OBJECT(g_renderer->rt_final_color);
-		
+
 		DX_RELEASE_OBJECT(g_renderer->root_signature);
 		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer_software);
 		DX_RELEASE_OBJECT(g_renderer->pso_cs_pathtracer_hardware);
@@ -544,7 +583,8 @@ namespace renderer
 		d3d12::present();
 
 		g_renderer->frame_index++;
-		g_renderer->accum_count++;
+		if (g_renderer->settings.accumulate)
+			g_renderer->accum_count++;
 	}
 
 	void begin_scene(const camera_t& scene_camera, render_texture_handle_t env_render_texture_handle)
@@ -674,7 +714,7 @@ namespace renderer
 		frame_ctx.d3d12_command_list->ClearUnorderedAccessViewFloat(g_renderer->rt_final_color_uav.gpu,
 			g_renderer->rt_final_color_uav.cpu, g_renderer->rt_final_color, clear_value, 0, nullptr);
 #endif
-
+		
 		// TODO: Define these in a shared hlsl/cpp header, or somehow store that information in compiled shader
 		const uint32_t dispatch_threads_per_block_x = 16;
 		const uint32_t dispatch_threads_per_block_y = 16;
@@ -683,79 +723,138 @@ namespace renderer
 		uint32_t dispatch_blocks_y = MAX((g_renderer->render_height + dispatch_threads_per_block_y - 1) / dispatch_threads_per_block_y, 1);
 
 		// Dispatch wavefront pathtracing compute shaders
+		if (g_renderer->settings.use_wavefront_pathtracing)
 		{
-			// Generate
-			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Generate"));
-
-			struct shader_input_t
+			// TODO: The shaders should not be running if dispatch_id.x > ray_count, since those will be invalid, but we launch 64 threads at a time
+			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Wavefront"));
+			
+			// Init indirect arguments
 			{
-				uint32_t buffer_ray_index;
-				uint32_t buffer_energy_index;
-				uint32_t buffer_throughput_index;
-				uint32_t buffer_pixelpos_index;
-			};
-			d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
-			shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
-			shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
-			shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
-			shader_input->buffer_throughput_index = g_renderer->wavefront.buffer_throughput_srv_uav.offset + 1;
-			shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
-
-			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_generate);
-			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
-			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
-
-			D3D12_RESOURCE_BARRIER barriers[] =
-			{
-				d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
-				d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
-				d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
-				d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
-			};
-			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
-
-			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Generate"));
-		}
-		{
-			// TODO: ExecuteIndirect to feed the amount of dispatched threads directly from the GPU
-			// TODO: Allow for multiple timestamp pairs of the same name, add them all together in the end
-			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend Shade"));
+				D3D12_RESOURCE_BARRIER barriers[] =
+				{
+					d3d12::barrier_transition(g_renderer->wavefront.buffer_indirect_args, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT)
+				};
+				d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+			}
+			
 			for (uint32_t recursion_depth = 0; recursion_depth <= g_renderer->settings.ray_max_recursion; ++recursion_depth)
 			{
+				if (recursion_depth == 0)
 				{
-					// Extend
-					//begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend"));
-
+					// Clear wavefront buffers
 					struct shader_input_t
 					{
-						uint32_t buffer_ray_index;
-						uint32_t buffer_intersection_index;
-						uint32_t buffer_scene_tlas_index;
+						uint32_t buffer_ray_counts_index;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset + 1;
+
+					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_clear_buffers);
+					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+					d3d_frame_ctx.command_list->Dispatch(9, 1, 1);
+			
+					{
+						D3D12_RESOURCE_BARRIER barriers[] =
+						{
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts)
+						};
+						d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+					}
+				}
+
+				{
+					// Init indirect arguments
+					struct shader_input_t
+					{
+						uint32_t recursion_depth;
+						uint32_t buffer_ray_counts_index;
+						uint32_t buffer_indirect_args_index;
+					};
+					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->recursion_depth = recursion_depth;
+					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset;
+					shader_input->buffer_indirect_args_index = g_renderer->wavefront.buffer_indirect_args_srv_uav.offset + 1;
+
+					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_init_args);
+					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+					d3d_frame_ctx.command_list->Dispatch(1, 1, 1);
+
+					{
+						D3D12_RESOURCE_BARRIER barriers[] =
+						{
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_indirect_args)
+						};
+						d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+					}
+				}
+
+				if (recursion_depth == 0)
+				{
+					// Generate
+					struct shader_input_t
+					{
+						uint32_t buffer_ray_index;
+						uint32_t buffer_energy_index;
+						uint32_t buffer_throughput_index;
+						uint32_t buffer_pixelpos_index;
+					};
+					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
+					shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
+					shader_input->buffer_throughput_index = g_renderer->wavefront.buffer_throughput_srv_uav.offset + 1;
+					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
+
+					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_generate);
+					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+					d3d_frame_ctx.command_list->ExecuteIndirect(g_renderer->wavefront.command_signature, 1,
+						g_renderer->wavefront.buffer_indirect_args, 0, nullptr, 0);
+
+					D3D12_RESOURCE_BARRIER barriers[] =
+					{
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
+					};
+					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+				}
+				{
+					// Extend
+					struct shader_input_t
+					{
+						uint32_t buffer_ray_counts_index;
+						uint32_t buffer_ray_index;
+						uint32_t buffer_intersection_index;
+						uint32_t buffer_scene_tlas_index;
+						uint32_t recursion_depth;
+					};
+					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset;
 					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset;
 					shader_input->buffer_intersection_index = g_renderer->wavefront.buffer_intersection_srv_uav.offset + 1;
 					shader_input->buffer_scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
+					shader_input->recursion_depth = recursion_depth;
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_extend);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
-					d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+					d3d_frame_ctx.command_list->ExecuteIndirect(g_renderer->wavefront.command_signature, 1,
+						g_renderer->wavefront.buffer_indirect_args, recursion_depth * sizeof(D3D12_DISPATCH_ARGUMENTS), nullptr, 0);
 					
 					D3D12_RESOURCE_BARRIER barriers[] =
 					{
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_intersection)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
-
-					//end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend"));
 				}
 				{
 					// Shade
-					//begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Shade"));
-
 					struct shader_input_t
 					{
+						uint32_t buffer_ray_counts_index;
 						uint32_t buffer_ray_index;
 						uint32_t buffer_intersection_index;
 						uint32_t buffer_energy_index;
@@ -770,6 +869,7 @@ namespace renderer
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset + 1;
 					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
 					shader_input->buffer_intersection_index = g_renderer->wavefront.buffer_intersection_srv_uav.offset;
 					shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
@@ -784,32 +884,64 @@ namespace renderer
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_shade);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
-					d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+					d3d_frame_ctx.command_list->ExecuteIndirect(g_renderer->wavefront.command_signature, 1,
+						g_renderer->wavefront.buffer_indirect_args, recursion_depth * sizeof(D3D12_DISPATCH_ARGUMENTS), nullptr, 0);
 
 					D3D12_RESOURCE_BARRIER barriers[] =
 					{
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts),
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
-
-					//end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Shade"));
 				}
 				{
 					// TODO: Connect (Next event estimation)
 				}
 			}
-			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Wavefront Extend Shade"));
+			
+			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Wavefront"));
+		}
+		else
+		{
+			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Megakernel"));
+			
+			struct shader_input_t
+			{
+				uint32_t scene_tlas_index;
+				uint32_t hdr_env_index;
+				glm::uvec2 hdr_env_dimensions;
+				uint32_t instance_buffer_index;
+				uint32_t buffer_energy_index;
+				uint32_t random_seed;
+			};
+			d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
+			shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
+			shader_input->scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
+			shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
+			shader_input->hdr_env_dimensions = glm::uvec2(g_renderer->scene_hdr_env_texture->width, g_renderer->scene_hdr_env_texture->height);
+			shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
+			shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
+			shader_input->random_seed = random::rand_uint32();
+
+			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_pathtracer_hardware);
+			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
+			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+
+			D3D12_RESOURCE_BARRIER barriers[] =
+			{
+				d3d12::barrier_uav(g_renderer->wavefront.buffer_energy)
+			};
+			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+			
+			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Megakernel"));
 		}
 
 		// Dispatch post-process compute shader
 		{
 			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
-
-			d3d_frame_ctx.command_list->SetComputeRootSignature(g_renderer->root_signature);
-			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
 
 			// Bind shader input constant buffer
 			struct shader_input_t
@@ -826,8 +958,16 @@ namespace renderer
 			shader_input->texture_color_final_index = g_renderer->rt_final_color_uav.offset;
 			shader_input->sample_count = g_renderer->accum_count;
 
+			d3d_frame_ctx.command_list->SetPipelineState(g_renderer->pso_cs_post_process);
 			d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, shader_cb.resource->GetGPUVirtualAddress() + shader_cb.byte_offset);
 			d3d_frame_ctx.command_list->Dispatch(dispatch_blocks_x, dispatch_blocks_y, 1);
+
+			D3D12_RESOURCE_BARRIER barriers[] =
+			{
+				d3d12::barrier_uav(g_renderer->rt_color_accum),
+				d3d12::barrier_uav(g_renderer->rt_final_color)
+			};
+			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 			
 			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
 		}
@@ -919,6 +1059,10 @@ namespace renderer
 			if (ImGui::CollapsingHeader("Settings"))
 			{
 				ImGui::Indent(10.0f);
+
+				// Wavefront or megakernel pathtracing
+				ImGui::Checkbox("Use Wavefront Path-tracing", (bool*)&g_renderer->settings.use_wavefront_pathtracing);
+				ImGui::SetItemTooltip("On: Wavefront path-tracing enabled.\nOff: Megakernel path-tracing enabled");
 
 				// Software/Hardware raytracing
 				ImGui::BeginDisabled(true);

@@ -147,17 +147,25 @@ namespace renderer
 
 		struct wavefront_t
 		{
+			ID3D12CommandSignature* command_signature;
+
+			ID3D12PipelineState* pso_clear_buffers;
+			ID3D12PipelineState* pso_init_args;
 			ID3D12PipelineState* pso_generate;
 			ID3D12PipelineState* pso_extend;
 			ID3D12PipelineState* pso_shade;
 			//ID3D12PipelineState* pso_connect;
-
+			
+			ID3D12Resource* buffer_indirect_args;
+			ID3D12Resource* buffer_ray_counts;
 			ID3D12Resource* buffer_ray;
 			ID3D12Resource* buffer_energy;
 			ID3D12Resource* buffer_throughput;
 			ID3D12Resource* buffer_pixelpos;
 			ID3D12Resource* buffer_intersection;
 
+			d3d12::descriptor_allocation_t buffer_indirect_args_srv_uav;
+			d3d12::descriptor_allocation_t buffer_ray_counts_srv_uav;
 			d3d12::descriptor_allocation_t buffer_ray_srv_uav;
 			d3d12::descriptor_allocation_t buffer_energy_srv_uav;
 			d3d12::descriptor_allocation_t buffer_throughput_srv_uav;
