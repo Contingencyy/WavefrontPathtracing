@@ -745,19 +745,28 @@ namespace renderer
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_counts_index;
+						uint32_t buffer_energy_index;
+						uint32_t buffer_throughput_index;
+						uint32_t buffer_pixelpos_index;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset + 1;
+					shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
+					shader_input->buffer_throughput_index = g_renderer->wavefront.buffer_throughput_srv_uav.offset + 1;
+					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_clear_buffers);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
-					d3d_frame_ctx.command_list->Dispatch(9, 1, 1);
-			
+					d3d_frame_ctx.command_list->Dispatch((g_renderer->render_width * g_renderer->render_height + 63) / 64, 1, 1);
+
 					{
 						D3D12_RESOURCE_BARRIER barriers[] =
 						{
-							d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts)
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts),
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
 						};
 						d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					}
@@ -796,16 +805,10 @@ namespace renderer
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_index;
-						uint32_t buffer_energy_index;
-						uint32_t buffer_throughput_index;
-						uint32_t buffer_pixelpos_index;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
-					shader_input->buffer_energy_index = g_renderer->wavefront.buffer_energy_srv_uav.offset + 1;
-					shader_input->buffer_throughput_index = g_renderer->wavefront.buffer_throughput_srv_uav.offset + 1;
-					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_generate);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -814,10 +817,7 @@ namespace renderer
 
 					D3D12_RESOURCE_BARRIER barriers[] =
 					{
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_energy),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_throughput),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 				}
