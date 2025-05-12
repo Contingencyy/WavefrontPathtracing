@@ -3,8 +3,8 @@
 struct shader_input_t
 {
     uint buffer_ray_counts_index;
-    uint buffer_energy_index;
-    uint buffer_throughput_index;
+    uint texture_energy_index;
+    uint texture_throughput_index;
     uint buffer_pixelpos_index;
 };
 
@@ -23,13 +23,14 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         buffer_ray_counts.Store<uint>(dispatch_id.x * sizeof(uint), 0);
 
     // Initialize energy, throughput, and pixelpos buffer
-    RWByteAddressBuffer buffer_energy = get_resource<RWByteAddressBuffer>(cb_in.buffer_energy_index);
-    buffer_energy.Store<float3>(dispatch_id.x * sizeof(float3), float3(0.0, 0.0, 0.0));
-
-    RWByteAddressBuffer buffer_throughput = get_resource<RWByteAddressBuffer>(cb_in.buffer_throughput_index);
-    buffer_throughput.Store<float3>(dispatch_id.x * sizeof(float3), float3(1.0, 1.0, 1.0));
-
     uint2 pixel_pos = uint2(dispatch_id.x % cb_view.render_dim.x, dispatch_id.x / cb_view.render_dim.x);
+    
+    RWTexture2D<float4> texture_energy = get_resource<RWTexture2D<float4> >(cb_in.texture_energy_index);
+    texture_energy[pixel_pos] = float4(0.0, 0.0, 0.0, 0.0);
+
+    RWTexture2D<float4> texture_throughput = get_resource<RWTexture2D<float4> >(cb_in.texture_throughput_index);
+    texture_throughput[pixel_pos] = float4(1.0, 1.0, 1.0, 0.0);
+
     RWByteAddressBuffer buffer_pixelpos = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_index);
     buffer_pixelpos.Store<uint2>(dispatch_id.x * sizeof(uint2), pixel_pos);
 }

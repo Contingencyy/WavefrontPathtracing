@@ -10,7 +10,7 @@
 
 struct shader_input_t
 {
-    uint buffer_energy_index;
+    uint texture_energy_index;
     uint texture_color_accum_index;
     uint texture_color_final_index;
     uint sample_count;
@@ -25,8 +25,8 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     uint2 pixel_pos = uint2(dispatch_id.xy);
     
     // Get the final energy buffer from path trace
-    ByteAddressBuffer energy_buffer = get_resource<ByteAddressBuffer>(cb_in.buffer_energy_index);
-    float3 energy = energy_buffer.Load<float3>(data_offset * sizeof(float3));
+    Texture2D<float4> energy_buffer = get_resource<Texture2D<float4> >(cb_in.texture_energy_index);
+    float3 energy = energy_buffer[pixel_pos].xyz;
 
     // Badness detector for NaN/INF in energy buffer
     if (is_nan(energy.x) || is_nan(energy.y) || is_nan(energy.z) || any(isinf(energy)))

@@ -159,16 +159,18 @@ namespace renderer
 			ID3D12Resource* buffer_indirect_args;
 			ID3D12Resource* buffer_ray_counts;
 			ID3D12Resource* buffer_ray;
-			ID3D12Resource* buffer_energy;
-			ID3D12Resource* buffer_throughput;
+			// RGBA16 float, Alpha channel is unused
+			ID3D12Resource* texture_energy;
+			// RGBA16 float, Alpha channel is unused
+			ID3D12Resource* texture_throughput;
 			ID3D12Resource* buffer_pixelpos;
 			ID3D12Resource* buffer_intersection;
 
 			d3d12::descriptor_allocation_t buffer_indirect_args_srv_uav;
 			d3d12::descriptor_allocation_t buffer_ray_counts_srv_uav;
 			d3d12::descriptor_allocation_t buffer_ray_srv_uav;
-			d3d12::descriptor_allocation_t buffer_energy_srv_uav;
-			d3d12::descriptor_allocation_t buffer_throughput_srv_uav;
+			d3d12::descriptor_allocation_t texture_energy_srv_uav;
+			d3d12::descriptor_allocation_t texture_throughput_srv_uav;
 			d3d12::descriptor_allocation_t buffer_pixelpos_srv_uav;
 			d3d12::descriptor_allocation_t buffer_intersection_srv_uav;
 		} wavefront;

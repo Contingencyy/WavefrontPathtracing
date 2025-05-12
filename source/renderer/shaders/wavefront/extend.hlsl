@@ -63,7 +63,6 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     uint ray_count = buffer_ray_counts.Load<uint>(cb_in.recursion_depth * 4);
 
     // Dispatches might have work that is not divisible by the dispatch thread dimensions, so we skip those
-    [branch]
     if (dispatch_id.x >= ray_count)
         return;
     

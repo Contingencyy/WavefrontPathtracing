@@ -340,7 +340,7 @@ namespace d3d12
 		return create_resource_internal(name, heap_props, resource_desc, state, clear_value);
 	}
 
-	void create_texture_2d_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip_count, uint32_t mip_bias)
+	void create_texture_2d_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t mip_count, uint32_t mip_bias)
 	{
 		ASSERT(resource);
 		D3D12_RESOURCE_DESC resource_desc = resource->GetDesc();
@@ -355,7 +355,7 @@ namespace d3d12
 #endif
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		srv_desc.Format = format;
+		srv_desc.Format = resource_desc.Format;
 		srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 

@@ -36,8 +36,8 @@ float3 direction_to_normal_space(float3 normal, float3 dir)
 
 void uniform_hemisphere_sample(float3 normal, float2 r, out float3 out_dir, out float out_pdf)
 {
-    float sin_theta = sqrt(1.0f - r.x * r.x);
-    float phi = 2.0f * PI * r.y;
+    float sin_theta = sqrt(1.0 - r.x * r.x);
+    float phi = 2.0 * PI * r.y;
     
     out_dir = normalize(direction_to_normal_space(normal, float3(sin_theta * cos(phi), r.x, sin_theta * sin(phi))));
     out_pdf = INV_TWO_PI;
@@ -45,10 +45,10 @@ void uniform_hemisphere_sample(float3 normal, float2 r, out float3 out_dir, out 
 
 void cosine_weighted_hemisphere_sample(float3 normal, float2 r, out float3 out_dir, out float out_pdf)
 {
-    float sin_theta = sqrt(1.0f - r.x);
-    float phi = 2.0f * PI * r.y;
+    float sin_theta = sqrt(r.x);
+    float phi = 2.0 * PI * r.y;
     
-    out_dir = normalize(direction_to_normal_space(normal, float3(sin_theta * cos(phi), sqrt(r.x), sin_theta * sin(phi))));
+    out_dir = normalize(direction_to_normal_space(normal, float3(sin_theta * cos(phi), sqrt(max(1.0 - r.x, 0.0)), sin_theta * sin(phi))));
     out_pdf = max(dot(normal, out_dir), 0.0f) * INV_PI;
 }
 

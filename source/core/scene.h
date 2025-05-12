@@ -22,6 +22,7 @@ struct scene_t
 	camera_controller_t camera_controller;
 	texture_asset_t* hdr_env;
 	scene_asset_t* dragon_mesh;
+	scene_asset_t* sponza_mesh;
 
 	camera_t camera;
 

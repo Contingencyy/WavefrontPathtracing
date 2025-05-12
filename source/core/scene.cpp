@@ -88,6 +88,13 @@ namespace scene
 		// Dragon 5
 		dragon_material = material::make_specular(glm::vec3(0.8f, 0.7f, 0.2f), 1.0f);
 		create_scene_object(scene, scene.dragon_mesh->render_mesh_handles[1], dragon_material, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
+
+		scene.sponza_mesh = asset_loader::load_gltf(scene.arena, "assets/gltf/sponza/Sponza.gltf");
+		material_t sponza_material = material::make_diffuse(glm::vec3(1.0f, 1.0f, 1.0f));
+		for (uint32_t i = 0; i < scene.sponza_mesh->mesh_handle_count; ++i)
+		{
+			create_scene_object(scene, scene.sponza_mesh->render_mesh_handles[i], sponza_material, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f));
+		}
 	}
 
 	void destroy(scene_t& scene)

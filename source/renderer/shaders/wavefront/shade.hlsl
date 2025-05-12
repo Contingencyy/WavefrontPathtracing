@@ -6,8 +6,8 @@ struct shader_input_t
     uint buffer_ray_counts_index;
     uint buffer_ray_index;
     uint buffer_intersection_index;
-    uint buffer_energy_index;
-    uint buffer_throughput_index;
+    uint texture_energy_index;
+    uint texture_throughput_index;
     uint buffer_pixelpos_index;
     uint buffer_instance_index;
     uint texture_hdr_env_index;
@@ -43,7 +43,6 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     uint ray_count = buffer_ray_counts.Load<uint>(cb_in.recursion_depth * 4);
     
     // Dispatches might have work that is not divisible by the dispatch thread dimensions, so we skip those
-    [branch]
     if (dispatch_id.x >= ray_count)
         return;
     
@@ -55,13 +54,12 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     
     RWByteAddressBuffer buffer_pixelpos = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_index);
     uint2 pixel_pos = buffer_pixelpos.Load<uint2>(dispatch_id.x * sizeof(uint2));
-    uint pixel_offset = pixel_pos.y * cb_view.render_dim.x + pixel_pos.x;
 
-    RWByteAddressBuffer buffer_energy = get_resource<RWByteAddressBuffer>(cb_in.buffer_energy_index);
-    float3 energy = buffer_energy.Load<float3>(pixel_offset * sizeof(float3));
+    RWTexture2D<float4> texture_energy = get_resource<RWTexture2D<float4> >(cb_in.texture_energy_index);
+    float3 energy = texture_energy[pixel_pos].xyz;
     
-    RWByteAddressBuffer buffer_throughput = get_resource<RWByteAddressBuffer>(cb_in.buffer_throughput_index);
-    float3 throughput = buffer_throughput.Load<float3>(pixel_offset * sizeof(float3));
+    RWTexture2D<float4> texture_throughput = get_resource<RWTexture2D<float4> >(cb_in.texture_throughput_index);
+    float3 throughput = texture_throughput[pixel_pos].xyz;
 
     bool terminate_path = false;
     [branch]
@@ -95,6 +93,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         float r = rand_float(seed);
 
         // Specular path
+        [branch]
         if (r < instance.material.specular)
         {
             float3 reflect_dir = reflect(ray.Direction, hit_normal);
@@ -178,22 +177,22 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
                 uniform_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
             }
             
-            float3 diffuse_brdf = instance.material.albedo;
+            float3 diffuse_brdf = instance.material.albedo * INV_PI;
             float NdotR = max(dot(diffuse_dir, hit_normal), 0.0f);
             
             ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MULTIPLIER, diffuse_dir);
-            throughput *= (NdotR * diffuse_brdf) / hemisphere_pdf;
+            throughput *= (NdotR * diffuse_brdf) * (1.0 / hemisphere_pdf);
         }
     }
     
     // Write new ray to output buffer if we need to do another recursion
     [branch]
-    if (cb_in.recursion_depth < cb_settings.ray_max_recursion && !terminate_path)
+    if (cb_in.recursion_depth < cb_settings.max_bounces && !terminate_path)
     {
         // Update indirect args for next recursion
         uint write_offset;
         uint ray_count_offset = cb_in.recursion_depth + 1;
-        buffer_ray_counts.InterlockedAdd(ray_count_offset * 4, 1u, write_offset);
+        buffer_ray_counts.InterlockedAdd(ray_count_offset * sizeof(uint), 1u, write_offset);
 
         // Get next ray offset and write new ray
         buffer_ray.Store<RayDesc2>(write_offset * sizeof(RayDesc2), ray);
@@ -201,6 +200,6 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     }
 
     // Write new energy and throughput to output buffers at correct pixel position
-    buffer_energy.Store<float3>(pixel_offset * sizeof(float3), energy);
-    buffer_throughput.Store<float3>(pixel_offset * sizeof(float3), throughput);
+    texture_energy[pixel_pos].xyz = energy;
+    texture_throughput[pixel_pos].xyz = throughput;
 }

@@ -37,7 +37,7 @@ namespace d3d12
 	ID3D12Resource* create_texture_2d(const wchar_t* name, DXGI_FORMAT format, uint32_t width, uint32_t height, uint32_t mips,
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, const D3D12_CLEAR_VALUE* clear_value = nullptr);
 
-	void create_texture_2d_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip_count = 0xFFFFFFFF, uint32_t mip_bias = 0);
+	void create_texture_2d_srv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t mip_count = 0xFFFFFFFF, uint32_t mip_bias = 0);
 	void create_texture_2d_uav(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, uint32_t mip = 0);
 	void create_texture_2d_rtv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip = 0);
 	void create_texture_2d_dsv(ID3D12Resource* resource, const descriptor_allocation_t& descriptor, uint32_t descriptor_offset, DXGI_FORMAT format, uint32_t mip = 0);

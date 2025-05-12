@@ -19,7 +19,7 @@ struct render_settings_shader_data_t
 	uint use_wavefront_pathtracing;
 	uint use_software_rt;
 	uint render_view_mode;
-	uint ray_max_recursion;
+	uint max_bounces;
 	uint cosine_weighted_diffuse;
 	uint accumulate;
 };

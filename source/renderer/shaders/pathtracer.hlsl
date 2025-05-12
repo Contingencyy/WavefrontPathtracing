@@ -17,7 +17,7 @@ struct shader_input_t
     uint hdr_env_index;
     uint2 hdr_env_dimensions;
     uint instance_buffer_index;
-    uint buffer_energy_index;
+    uint texture_energy_index;
     uint random_seed;
 };
 
@@ -47,7 +47,7 @@ float3 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, 
     float3 energy = (float3) 0;
     uint ray_depth = 0;
     
-    while (ray_depth <= cb_settings.ray_max_recursion)
+    while (ray_depth <= cb_settings.max_bounces)
     {
         // Prepare hit result and trace TLAS
         hit_result_t hit = make_hit_result();
@@ -162,11 +162,11 @@ float3 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, 
                 uniform_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
             }
             
-            float3 diffuse_brdf = instance.material.albedo;
+            float3 diffuse_brdf = instance.material.albedo * INV_PI;
             float NdotR = max(dot(diffuse_dir, hit_normal), 0.0f);
             
             ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MULTIPLIER, diffuse_dir);
-            throughput *= (NdotR * diffuse_brdf) / hemisphere_pdf;
+            throughput *= (NdotR * diffuse_brdf) * (1.0 / hemisphere_pdf);
         }
         
         ray_depth++;
@@ -188,7 +188,6 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     uint2 pixel_pos = uint2(dispatch_id.xy);
     float3 energy = trace_path(scene_tlas, pixel_pos, cb_view.render_dim, cb_in.random_seed + dispatch_id.y * dispatch_id.x + dispatch_id.x);
 
-    RWByteAddressBuffer buffer_energy = get_resource<RWByteAddressBuffer>(cb_in.buffer_energy_index);
-    uint write_offset = dispatch_id.y * cb_view.render_dim.x + dispatch_id.x;
-    buffer_energy.Store<float3>(write_offset * 12, energy);
+    RWTexture2D<float4> buffer_energy = get_resource<RWTexture2D<float4> >(cb_in.texture_energy_index);
+    buffer_energy[pixel_pos].xyz = energy;
 }
