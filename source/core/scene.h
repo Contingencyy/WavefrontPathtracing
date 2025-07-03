@@ -1,18 +1,18 @@
 #pragma once
 #include "core/camera/camera_controller.h"
 #include "camera/camera.h"
-
 #include "renderer/renderer_fwd.h"
-#include "renderer/material.h"
 
 struct texture_asset_t;
 struct scene_asset_t;
+struct mesh_asset_t;
+struct material_asset_t;
 
 struct scene_object_t
 {
-	render_mesh_handle_t render_mesh_handle;
 	glm::mat4 transform_mat;
-	material_t material;
+	mesh_asset_t* mesh;
+	material_asset_t* material;
 };
 
 struct scene_t
@@ -21,8 +21,8 @@ struct scene_t
 	
 	camera_controller_t camera_controller;
 	texture_asset_t* hdr_env;
-	scene_asset_t* dragon_mesh;
-	scene_asset_t* sponza_mesh;
+	scene_asset_t* dragon_scene_asset;
+	scene_asset_t* sponza_scene_asset;
 
 	camera_t camera;
 

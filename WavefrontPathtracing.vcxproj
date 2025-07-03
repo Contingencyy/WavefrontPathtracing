@@ -223,6 +223,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="source\platform\windows\platform.cpp" />
     <ClCompile Include="source\platform\windows\thread_win32.cpp" />
     <ClCompile Include="source\platform\windows\virtual_memory.cpp" />
     <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp" />
@@ -233,7 +234,6 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\renderer\d3d12\d3d12_query.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_resource.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_upload.cpp" />
-    <ClCompile Include="source\renderer\material.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
     <ClCompile Include="source\core\allocators\ring_alloc.cpp" />
     <FxCompile Include="source\renderer\shaders\wavefront\clear_buffers.hlsl">
@@ -314,6 +314,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\core\logger.h" />
     <ClInclude Include="source\core\thread.h" />
     <ClInclude Include="source\pch.h" />
+    <ClInclude Include="source\platform\platform.h" />
     <ClInclude Include="source\platform\windows\windows_common.h" />
     <ClInclude Include="source\renderer\acceleration_structure\bvh_builder.h" />
     <ClInclude Include="source\renderer\acceleration_structure\as_util.h" />
@@ -326,7 +327,6 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\d3d12\d3d12_query.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_resource.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_upload.h" />
-    <ClInclude Include="source\renderer\material.h" />
     <ClInclude Include="source\renderer\renderer.h" />
     <ClInclude Include="source\renderer\renderer_common.h" />
     <ClInclude Include="source\renderer\renderer_fwd.h" />

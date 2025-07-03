@@ -75,9 +75,6 @@
     <ClCompile Include="source\core\string\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\material.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="source\core\allocators\ring_alloc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -124,6 +121,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\renderer\d3d12\d3d12_query.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\platform\windows\platform.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -212,9 +212,6 @@
     <ClInclude Include="source\core\string\string.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\material.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\core\api_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -281,6 +278,9 @@
     <ClInclude Include="source\renderer\d3d12\d3d12_query.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="source\platform\platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\renderer\shaders\pathtracer.hlsl" />
@@ -293,6 +293,7 @@
     <FxCompile Include="source\renderer\shaders\wavefront\extend.hlsl" />
     <FxCompile Include="source\renderer\shaders\wavefront\generate.hlsl" />
     <FxCompile Include="source\renderer\shaders\wavefront\shade.hlsl" />
-    <FxCompile Include="source\renderer\shaders\wavefront\wavefront_common.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\clear_buffers.hlsl" />
+    <FxCompile Include="source\renderer\shaders\wavefront\init_args.hlsl" />
   </ItemGroup>
 </Project>

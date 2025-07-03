@@ -38,6 +38,7 @@ struct vertex_t
 {
 	float3 position;
 	float3 normal;
+	float2 tex_coord;
 };
 
 struct triangle_t
@@ -49,16 +50,16 @@ struct triangle_t
 
 struct material_t
 {
-	float3 albedo;
-	float specular;
+	float3 base_color_factor;
+	float metallic_factor;
+	float roughness_factor;
+	float3 emissive_factor;
+	float emissive_strength;
 
-	float refractivity;
-	float ior;
-	float3 absorption;
-
-	uint emissive;
-	float3 emissive_color;
-	float emissive_intensity;
+	uint base_color_index;
+	uint normal_index;
+	uint metallic_roughness_index;
+	uint emissive_index;
 };
 
 struct instance_data_t

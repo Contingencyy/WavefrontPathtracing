@@ -15,7 +15,7 @@
 inline void dx_check_hr(int32_t Line, const char* File, HRESULT HR)
 {
 	if (FAILED(HR))
-		fatal_error(Line, File, "DX12 Backend", get_hr_message(HR));
+		_fatal_error(Line, File, "DX12 Backend", get_hr_message(HR));
 }
 
 #define DX_CHECK_HR(hr) dx_check_hr(__LINE__, __FILE__, hr)

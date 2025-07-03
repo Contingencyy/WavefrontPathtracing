@@ -11,14 +11,13 @@ namespace d3d12
 
 	static uint32_t get_used_allocations()
 	{
-		uint32_t allocs_used = ((g_d3d->upload_ctx.alloc_head + UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS) - g_d3d->upload_ctx.alloc_tail) % UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS;
+		uint32_t allocs_used = g_d3d->upload_ctx.alloc_head - g_d3d->upload_ctx.alloc_tail;
 		return allocs_used;
 	}
 
 	static uint32_t get_free_allocations()
 	{
-		uint32_t allocs_used = ((g_d3d->upload_ctx.alloc_head + UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS) - g_d3d->upload_ctx.alloc_tail) % UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS;
-		uint32_t allocs_free = UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS - allocs_used;
+		uint32_t allocs_free = UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS - get_used_allocations();
 		return allocs_free;
 	}
 
@@ -134,10 +133,10 @@ namespace d3d12
 					g_d3d->upload_ctx.alloc_head += 1;
 				}
 			}
-				
+			
 			if (!alloc)
 			{
-				ASSERT(get_used_allocations() > 0);
+				ASSERT_MSG(get_used_allocations() > 0, "Used Allocations: %u, Requested bytes: %u, Requested Align: %u", get_used_allocations(), byte_count, align);
 				retire_single_allocation();
 			}
 		}

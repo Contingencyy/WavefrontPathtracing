@@ -5,16 +5,10 @@
 #include "core/scene.h"
 #include "core/input.h"
 
+#include "platform/platform.h"
 #include "renderer/renderer.h"
 
 #include "imgui/imgui.h"
-
-void create_window(int32_t desired_width, int32_t desired_height);
-void get_window_client_area(int32_t& out_window_width, int32_t& out_window_height);
-void set_window_capture_mouse(bool capture);
-bool poll_window_events();
-// Should return the time in seconds
-double get_timer();
 
 namespace application
 {
@@ -32,20 +26,20 @@ namespace application
 
 	static void handle_events()
 	{
-		s_should_close = !poll_window_events();
+		s_should_close = !platform::window_poll_events();
 
 		if (!ImGui::GetIO().WantCaptureMouse)
 		{
-			if (!input::is_mouse_captured() && input::is_key_pressed(input::KeyCode_LeftMouse))
+			if (!input::is_mouse_captured() && input::is_key_pressed(input::KEYCODE_LEFT_MOUSE))
 			{
-				set_window_capture_mouse(true);
+				platform::window_set_capture_mouse(true);
 			}
 		}
 		if (input::is_mouse_captured())
 		{
-			if (input::is_key_pressed(input::KeyCode_RightMouse))
+			if (input::is_key_pressed(input::KEYCODE_RIGHT_MOUSE))
 			{
-				set_window_capture_mouse(false);
+				platform::window_set_capture_mouse(false);
 			}
 		}
 	}
@@ -81,15 +75,16 @@ namespace application
 		renderer::end_frame();
 	}
 
-	void init(const command_line_args_t& cmd_args)
+	void init(memory_arena_t& arena, const command_line_args_t& cmd_args)
 	{
 		LOG_INFO("Application", "Init");
 
-		create_window(cmd_args.window_width, cmd_args.window_height);
-		inst = ARENA_BOOTSTRAP(instance_t, 0);
+		platform::window_create(cmd_args.window_width, cmd_args.window_height);
+		inst = ARENA_ALLOC_STRUCT_ZERO(arena, instance_t);
+		inst->arena = arena;
 
 		int32_t client_width = 0, client_height = 0;
-		get_window_client_area(client_width, client_height);
+		platform::window_get_client_area(client_width, client_height);
 
 		// We could do one arena per system eventually, but for now everything that needs
 		// to live for as long as the application does will use the same arena
@@ -119,13 +114,13 @@ namespace application
 
 	void run()
 	{
-		double time_curr = get_timer();
-		double time_prev = get_timer();
+		timer_t time_curr = platform::get_ticks();
+		timer_t time_prev = platform::get_ticks();
 
 		while (inst->running && !s_should_close)
 		{
-			time_curr = get_timer();
-			inst->delta_time = time_curr - time_prev;
+			time_curr = platform::get_ticks();
+			inst->delta_time = platform::get_elapsed_seconds(time_prev, time_curr);
 
 			handle_events();
 			update();

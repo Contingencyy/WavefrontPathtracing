@@ -8,7 +8,7 @@ namespace d3d12
 {
 
 	inline constexpr uint32_t UPLOAD_BUFFER_DEFAULT_MAX_SUBMISSIONS = 32u;
-	inline constexpr uint64_t UPLOAD_BUFFER_DEFAULT_CAPACITY = MB(64);
+	inline constexpr uint64_t UPLOAD_BUFFER_DEFAULT_CAPACITY = MB(128);
 
 	struct upload_alloc_t
 	{

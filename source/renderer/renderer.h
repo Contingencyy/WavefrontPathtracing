@@ -2,8 +2,8 @@
 #include "renderer_fwd.h"
 
 struct camera_t;
-struct material_t;
 struct vertex_t;
+struct material_asset_t;
 
 namespace renderer
 {
@@ -34,6 +34,7 @@ namespace renderer
 		uint32_t height;
 		uint8_t bytes_per_channel;
 		uint8_t channel_count;
+		TEXTURE_FORMAT format;
 		uint8_t* ptr_data;
 
 		wstring_t debug_name;
@@ -50,6 +51,6 @@ namespace renderer
 		wstring_t debug_name;
 	};
 	render_mesh_handle_t create_render_mesh(const render_mesh_params_t& mesh_params);
-	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material);
+	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_asset_t& material);
 
 }

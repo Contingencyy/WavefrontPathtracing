@@ -421,7 +421,7 @@ namespace d3d12
 		
 		if (FAILED(hr))
 		{
-			FATAL_ERROR("D3D12", "Failed to load shader source: %s", filepath);
+			FATAL_ERROR("D3D12", "Failed to load shader source: %ls", filepath);
 			return nullptr;
 		}
 
@@ -602,4 +602,17 @@ namespace d3d12
 
 		return memory_info;
 	}
+
+	DXGI_FORMAT get_dxgi_texture_format(TEXTURE_FORMAT format)
+	{
+		switch (format)
+		{
+		case TEXTURE_FORMAT_RG8:			return DXGI_FORMAT_R8G8_UNORM;
+		case TEXTURE_FORMAT_RGBA8:			return DXGI_FORMAT_R8G8B8A8_UNORM;
+		case TEXTURE_FORMAT_RGBA8_SRGB:		return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		case TEXTURE_FORMAT_RGBA32_FLOAT:	return DXGI_FORMAT_R32G32B32A32_FLOAT;
+		default:							return DXGI_FORMAT_UNKNOWN;
+		}
+	}
+
 }

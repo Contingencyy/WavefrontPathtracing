@@ -13,6 +13,7 @@
 #include "core/camera/camera.h"
 #include "core/logger.h"
 #include "core/random.h"
+#include "core/assets/asset_types.h"
 #include "d3d12/d3d12_query.h"
 
 #include "imgui/imgui.h"
@@ -90,7 +91,7 @@ namespace renderer
 		render_settings_shader_data_t defaults = {};
 		defaults.use_wavefront_pathtracing = true;
 		defaults.use_software_rt = false;
-		defaults.render_view_mode = render_view_mode::none;
+		defaults.render_view_mode = RENDER_VIEW_MODE::RENDER_VIEW_MODE_NONE;
 		defaults.max_bounces = 3;
 		defaults.accumulate = true;
 		defaults.cosine_weighted_diffuse = true;
@@ -292,6 +293,40 @@ namespace renderer
 		backend_params.back_buffer_count = init_params.backbuffer_count;
 		backend_params.vsync = init_params.vsync;
 		d3d12::init(backend_params);
+
+		// Create defaults
+		{
+			uint32_t texture_data = 0xffffffff;
+			render_texture_params_t params = {};
+			params.width = 1;
+			params.height = 1;
+			params.bytes_per_channel = 1;
+			params.channel_count = 4;
+			params.format = TEXTURE_FORMAT_RGBA8_SRGB;
+			params.ptr_data = (uint8_t*)(&texture_data);
+			g_renderer->defaults.texture_handle_base_color = create_render_texture(params);
+			g_renderer->defaults.texture_base_color = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_base_color);
+
+			texture_data = (127 << 24) | (127 << 16) | (255 << 8) | (255 << 0);
+			params.format = TEXTURE_FORMAT_RGBA8;
+			params.ptr_data = (uint8_t*)(&texture_data);
+			g_renderer->defaults.texture_handle_normal = create_render_texture(params);
+			g_renderer->defaults.texture_normal = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_normal);
+
+			uint16_t texture_data_16 = (127 << 8) | (127 << 0);
+			params.channel_count = 2;
+			params.format = TEXTURE_FORMAT_RG8;
+			params.ptr_data = (uint8_t*)(&texture_data_16);
+			g_renderer->defaults.texture_handle_metallic_roughness = create_render_texture(params);
+			g_renderer->defaults.texture_metallic_roughness = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_metallic_roughness);
+
+			texture_data = 0xffffffff;
+			params.channel_count = 4;
+			params.format = TEXTURE_FORMAT_RGBA8_SRGB;
+			params.ptr_data = (uint8_t*)(&texture_data);
+			g_renderer->defaults.texture_handle_emissive = create_render_texture(params);
+			g_renderer->defaults.texture_emissive = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_emissive);
+		}
 		
 		// Create instance buffer
 		// TODO: Make the instance buffer resize automatically when required, treating the MAX_INSTANCES as the theoretically highest possible instance count instead
@@ -360,12 +395,28 @@ namespace renderer
 		root_parameters[3].DescriptorTable.pDescriptorRanges = descriptor_ranges;
 		root_parameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+		D3D12_STATIC_SAMPLER_DESC1 static_samplers[1] = {};
+		static_samplers[0].Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+		static_samplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		static_samplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		static_samplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		static_samplers[0].MipLODBias = 0;
+		static_samplers[0].MaxAnisotropy = 0;
+		static_samplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		static_samplers[0].BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+		static_samplers[0].MinLOD = 0.0f;
+		static_samplers[0].MaxLOD = D3D12_FLOAT32_MAX;
+		static_samplers[0].ShaderRegister = 0;
+		static_samplers[0].RegisterSpace = 0;
+		static_samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		static_samplers[0].Flags = D3D12_SAMPLER_FLAG_NONE;
+
 		D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc = {};
 		root_signature_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_2;
 		root_signature_desc.Desc_1_2.NumParameters = ARRAY_SIZE(root_parameters);
 		root_signature_desc.Desc_1_2.pParameters = root_parameters;
-		root_signature_desc.Desc_1_2.NumStaticSamplers = 0;
-		root_signature_desc.Desc_1_2.pStaticSamplers = nullptr;
+		root_signature_desc.Desc_1_2.NumStaticSamplers = ARRAY_SIZE(static_samplers);
+		root_signature_desc.Desc_1_2.pStaticSamplers = static_samplers;
 		root_signature_desc.Desc_1_2.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
 
 		// Root signature and PSOs
@@ -460,6 +511,12 @@ namespace renderer
 			g_renderer->wavefront.buffer_pixelpos_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
 			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixelpos, g_renderer->wavefront.buffer_pixelpos_srv_uav, 0, buffer_size);
 			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixelpos, g_renderer->wavefront.buffer_pixelpos_srv_uav, 1, buffer_size);
+
+			buffer_size = element_count * 8;
+			g_renderer->wavefront.buffer_pixelpos_two = d3d12::create_buffer(L"Wavefront Pixelpos Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_pixelpos_two_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixelpos_two, g_renderer->wavefront.buffer_pixelpos_two_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixelpos_two, g_renderer->wavefront.buffer_pixelpos_two_srv_uav, 1, buffer_size);
 
 			buffer_size = element_count * sizeof(intersection_result_t);
 			g_renderer->wavefront.buffer_intersection = d3d12::create_buffer(L"Wavefront Intersection Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -750,6 +807,7 @@ namespace renderer
 						uint32_t texture_energy_index;
 						uint32_t texture_throughput_index;
 						uint32_t buffer_pixelpos_index;
+						uint32_t buffer_pixelpos_two_index;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
@@ -757,6 +815,7 @@ namespace renderer
 					shader_input->texture_energy_index = g_renderer->wavefront.texture_energy_srv_uav.offset + 1;
 					shader_input->texture_throughput_index = g_renderer->wavefront.texture_throughput_srv_uav.offset + 1;
 					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
+					shader_input->buffer_pixelpos_two_index = g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1;
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_clear_buffers);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -862,6 +921,7 @@ namespace renderer
 						uint32_t texture_energy_index;
 						uint32_t texture_throughput_index;
 						uint32_t buffer_pixelpos_index;
+						uint32_t buffer_pixelpos_two_index;
 						uint32_t buffer_instance_index;
 						uint32_t texture_hdr_env_index;
 						uint32_t texture_hdr_env_width;
@@ -876,7 +936,8 @@ namespace renderer
 					shader_input->buffer_intersection_index = g_renderer->wavefront.buffer_intersection_srv_uav.offset;
 					shader_input->texture_energy_index = g_renderer->wavefront.texture_energy_srv_uav.offset + 1;
 					shader_input->texture_throughput_index = g_renderer->wavefront.texture_throughput_srv_uav.offset + 1;
-					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
+					shader_input->buffer_pixelpos_index = recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1 : g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1;
+					shader_input->buffer_pixelpos_two_index = recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1 : g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
 					shader_input->buffer_instance_index = g_renderer->instance_buffer_srv.offset;
 					shader_input->texture_hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
 					shader_input->texture_hdr_env_width = g_renderer->scene_hdr_env_texture->width;
@@ -1038,13 +1099,13 @@ namespace renderer
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", render_view_mode_labels[g_renderer->settings.render_view_mode], ImGuiComboFlags_None))
 				{
-					for (uint32_t i = 0; i < render_view_mode::count; ++i)
+					for (uint32_t i = 0; i < RENDER_VIEW_MODE::RENDER_VIEW_MODE_COUNT; ++i)
 					{
 						bool selected = i == g_renderer->settings.render_view_mode;
 
 						if (ImGui::Selectable(render_view_mode_labels[i], selected))
 						{
-							g_renderer->settings.render_view_mode = (render_view_mode)i;
+							g_renderer->settings.render_view_mode = (RENDER_VIEW_MODE)i;
 							should_reset_accumulators = true;
 						}
 
@@ -1101,11 +1162,13 @@ namespace renderer
 		// TODO: Support mip generation
 		// TODO: Support compressed textures
 		
+		DXGI_FORMAT dxgi_format = d3d12::get_dxgi_texture_format(texture_params.format);
+
 		ID3D12Resource* d3d_resource = nullptr;
 		ARENA_SCRATCH_SCOPE()
 		{
 			d3d_resource = d3d12::create_texture_2d(ARENA_WPRINTF(arena_scratch, L"Texture Buffer %.*ls", STRING_EXPAND(texture_params.debug_name)).buf,
-				DXGI_FORMAT_R32G32B32A32_FLOAT, texture_params.width, texture_params.height, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
+				dxgi_format, texture_params.width, texture_params.height, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
 		}
 		uint32_t src_rowpitch = texture_params.width * texture_params.bytes_per_channel * texture_params.channel_count;
 
@@ -1218,18 +1281,45 @@ namespace renderer
 		return handle;
 	}
 
-	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_t& material)
+	void submit_render_mesh(render_mesh_handle_t render_mesh_handle, const glm::mat4& transform, const material_asset_t& material)
 	{
 		const render_mesh_t* mesh = slotmap::find(g_renderer->mesh_slotmap, render_mesh_handle);
 
 		ASSERT_MSG(mesh, "Mesh with render mesh handle { index: %u, version: %u } was not valid", render_mesh_handle.index, render_mesh_handle.version);
 		ASSERT_MSG(g_renderer->instance_data_at < g_renderer->instance_data_capacity, "Exceeded capacity of instances");
 
+		material_t render_material = {};
+		render_material.base_color_factor = material.base_color_factor.xyz;
+		render_material.metallic_factor = material.metallic_factor;
+		render_material.roughness_factor = material.roughness_factor;
+		render_material.emissive_factor = material.emissive_factor;
+		render_material.emissive_strength = material.emissive_strength;
+
+		if (render_texture_t* base_color_texture = slotmap::find(g_renderer->texture_slotmap, material.base_color_texture.render_texture_handle))
+			render_material.base_color_index = base_color_texture->texture_srv.offset;
+		else
+			render_material.base_color_index = g_renderer->defaults.texture_base_color->texture_srv.offset;
+
+		if (render_texture_t* normal_texture = slotmap::find(g_renderer->texture_slotmap, material.normal_texture.render_texture_handle))
+			render_material.normal_index = normal_texture->texture_srv.offset;
+		else
+			render_material.normal_index = g_renderer->defaults.texture_normal->texture_srv.offset;
+
+		if (render_texture_t* metallic_roughness_texture = slotmap::find(g_renderer->texture_slotmap, material.metallic_roughness_texture.render_texture_handle))
+			render_material.metallic_roughness_index = metallic_roughness_texture->texture_srv.offset;
+		else
+			render_material.metallic_roughness_index = g_renderer->defaults.texture_metallic_roughness->texture_srv.offset;
+
+		if (render_texture_t* emissive_texture = slotmap::find(g_renderer->texture_slotmap, material.emissive_texture.render_texture_handle))
+			render_material.emissive_index = emissive_texture->texture_srv.offset;
+		else
+			render_material.emissive_index = g_renderer->defaults.texture_emissive->texture_srv.offset;
+
 		// Write instance to instance buffer
 		instance_data_t& instance_data = g_renderer->instance_data[g_renderer->instance_data_at];
 		instance_data.local_to_world = transform;
 		instance_data.world_to_local = glm::inverse(transform);
-		instance_data.material = material;
+		instance_data.material = render_material;
 		instance_data.triangle_buffer_idx = mesh->triangle_srv.offset;
 
 		if (g_renderer->settings.use_software_rt)

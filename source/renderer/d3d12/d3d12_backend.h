@@ -1,5 +1,6 @@
 #pragma once
 #include "d3d12_include.h"
+#include "renderer/renderer_fwd.h"
 
 namespace d3d12
 {
@@ -49,5 +50,6 @@ namespace d3d12
 		DXGI_QUERY_VIDEO_MEMORY_INFO non_local_mem;
 	};
 	device_memory_info_t get_device_memory_info();
+	DXGI_FORMAT get_dxgi_texture_format(TEXTURE_FORMAT format);
 
 }

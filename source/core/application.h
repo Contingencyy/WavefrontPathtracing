@@ -11,7 +11,7 @@ struct command_line_args_t
 namespace application
 {
 
-	void init(const command_line_args_t& cmd_args);
+	void init(memory_arena_t& arena, const command_line_args_t& cmd_args);
 	void exit();
 	void run();
 

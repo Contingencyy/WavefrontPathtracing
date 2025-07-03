@@ -7,29 +7,29 @@
 namespace logger
 {
 
-	enum log_severity_t
+	enum LOG_SEVERITY
 	{
-		LogSeverity_Verbose,
-		LogSeverity_Info,
-		LogSeverity_Warn,
-		LogSeverity_Error
+		LOG_SEVERITY_VERBOSE,
+		LOG_SEVERITY_INFO,
+		LOG_SEVERITY_WARN,
+		LOG_SEVERITY_ERROR
 	};
 
-	inline constexpr log_severity_t LOG_SEVERITY_MINIMUM_LEVEL = LogSeverity_Verbose;
+	inline constexpr LOG_SEVERITY LOG_SEVERITY_MINIMUM_LEVEL = LOG_SEVERITY_VERBOSE;
 
-	inline constexpr const char* log_severity_to_string(log_severity_t severity)
+	inline constexpr const char* log_severity_to_string(LOG_SEVERITY severity)
 	{
 		switch (severity)
 		{
-		case LogSeverity_Verbose: return "VERBOSE";
-		case LogSeverity_Info:    return "INFO";
-		case LogSeverity_Warn:    return "WARN";
-		case LogSeverity_Error:   return "ERROR";
-		default:				  return "UNKNOWN";
+		case LOG_SEVERITY_VERBOSE:	return "VERBOSE";
+		case LOG_SEVERITY_INFO:		return "INFO";
+		case LOG_SEVERITY_WARN:		return "WARN";
+		case LOG_SEVERITY_ERROR:	return "ERROR";
+		default:					return "UNKNOWN";
 		}
 	}
 
-	inline void log(log_severity_t severity, const char* sender, const char* log_message, ...)
+	inline void log(LOG_SEVERITY severity, const char* sender, const char* log_message, ...)
 	{
 		if (severity < LOG_SEVERITY_MINIMUM_LEVEL)
 			return;
@@ -50,7 +50,7 @@ namespace logger
 
 }
 
-#define LOG_VERBOSE(...) logger::log(logger::LogSeverity_Verbose, __VA_ARGS__)
-#define LOG_INFO(...)	 logger::log(logger::LogSeverity_Info,    __VA_ARGS__)
-#define LOG_WARN(...)	 logger::log(logger::LogSeverity_Warn,	  __VA_ARGS__)
-#define LOG_ERR(...)	 logger::log(logger::LogSeverity_Error,	  __VA_ARGS__)
+#define LOG_VERBOSE(...) logger::log(logger::LOG_SEVERITY_VERBOSE, __VA_ARGS__)
+#define LOG_INFO(...)	 logger::log(logger::LOG_SEVERITY_INFO,    __VA_ARGS__)
+#define LOG_WARN(...)	 logger::log(logger::LOG_SEVERITY_WARN,	  __VA_ARGS__)
+#define LOG_ERR(...)	 logger::log(logger::LOG_SEVERITY_ERROR,	  __VA_ARGS__)

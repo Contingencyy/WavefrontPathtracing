@@ -1,33 +1,30 @@
 #include "pch.h"
 #include "core/input.h"
-#include "core/containers/hashmap.h"
 
+#include "platform/platform.h"
 #include "platform/windows/windows_common.h"
-
-void reset_mouse_position_to_center();
-void get_window_center(int32_t& out_centerX, int32_t& out_centerY);
 
 namespace input
 {
 
-	static keycode_t wparam_to_keycode(WPARAM wparam)
+	static KEYCODE wparam_to_keycode(WPARAM wparam)
 	{
 		switch (wparam)
 		{
-		case VK_LBUTTON: return KeyCode_LeftMouse;
-		case VK_RBUTTON: return KeyCode_RightMouse;
-		case 0x57:		 return KeyCode_W;
-		case 0x53:		 return KeyCode_S;
-		case 0x41:		 return KeyCode_A;
-		case 0x44:		 return KeyCode_D;
-		case VK_SPACE:	 return KeyCode_Space;
-		case VK_CONTROL: return KeyCode_LeftCtrl;
-		case VK_SHIFT:	 return KeyCode_LeftShift;
-		default:		 return KeyCode_NumKeys;
+		case VK_LBUTTON: return KEYCODE_LEFT_MOUSE;
+		case VK_RBUTTON: return KEYCODE_RIGHT_MOUSE;
+		case 0x57:		 return KEYCODE_W;
+		case 0x53:		 return KEYCODE_S;
+		case 0x41:		 return KEYCODE_A;
+		case 0x44:		 return KEYCODE_D;
+		case VK_SPACE:	 return KEYCODE_SPACE;
+		case VK_CONTROL: return KEYCODE_LEFT_CTRL;
+		case VK_SHIFT:	 return KEYCODE_LEFT_SHIFT;
+		default:		 return KEYCODE_NUM_KEYS;
 		}
 	}
 
-	static bool s_keystates[KeyCode_NumKeys];
+	static bool s_keystates[KEYCODE_NUM_KEYS];
 	static bool s_capturing_mouse = false;
 	static bool s_window_focused = true;
 
@@ -40,7 +37,7 @@ namespace input
 
 	void on_platform_key_button_state_changed(uint64_t platformcode, bool pressed)
 	{
-		if (wparam_to_keycode(platformcode) != KeyCode_NumKeys)
+		if (wparam_to_keycode(platformcode) != KEYCODE_NUM_KEYS)
 			s_keystates[wparam_to_keycode(platformcode)] = pressed;
 	}
 
@@ -65,7 +62,7 @@ namespace input
 			// If we are capturing the mouse, we reset the mouse position to the center of the window
 			// However, this would mess with our mouse movement, so we need to move the mouse over artificially while preserving the delta
 			int32_t centerX, centerY;
-			get_window_center(centerX, centerY);
+			platform::window_get_center(centerX, centerY);
 
 			int32_t deltaX = centerX - s_curr_mouseX;
 			int32_t deltaY = centerY - s_curr_mouseY;
@@ -74,31 +71,31 @@ namespace input
 			s_prev_mouseX += deltaX;
 			s_prev_mouseY += deltaY;
 
-			reset_mouse_position_to_center();
+			platform::window_reset_mouse_to_center();
 		}
 	}
 
-	bool is_key_pressed(keycode_t keycode)
+	bool is_key_pressed(KEYCODE keycode)
 	{
 		return s_keystates[keycode];
 	}
 
-	float get_axis_1D(keycode_t axis_pos, keycode_t axis_neg)
+	float get_axis_1d(KEYCODE axis_pos, KEYCODE axis_neg)
 	{
 		return (float)(s_keystates[axis_pos]) + (-(float)(s_keystates[axis_neg]));
 	}
 
-	float get_mouse_relX()
+	float get_mouse_relx()
 	{
 		return (float)(s_curr_mouseX - s_prev_mouseX);
 	}
 
-	float get_mouse_relY()
+	float get_mouse_rely()
 	{
 		return (float)(s_curr_mouseY - s_prev_mouseY);
 	}
 
-	float get_mouse_scroll_relY()
+	float get_mouse_scroll_rely()
 	{
 		return s_mousewheel_delta;
 	}

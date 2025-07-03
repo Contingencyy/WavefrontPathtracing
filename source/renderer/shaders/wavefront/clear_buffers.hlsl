@@ -6,6 +6,7 @@ struct shader_input_t
     uint texture_energy_index;
     uint texture_throughput_index;
     uint buffer_pixelpos_index;
+    uint buffer_pixelpos_two_index;
 };
 
 ConstantBuffer<shader_input_t> cb_in : register(b2, space0);
@@ -33,4 +34,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
 
     RWByteAddressBuffer buffer_pixelpos = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_index);
     buffer_pixelpos.Store<uint2>(dispatch_id.x * sizeof(uint2), pixel_pos);
+    
+    RWByteAddressBuffer buffer_pixelpos_two = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_two_index);
+    buffer_pixelpos_two.Store<uint2>(dispatch_id.x * sizeof(uint2), uint2(0, 0));
 }

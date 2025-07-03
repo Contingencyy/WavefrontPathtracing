@@ -37,6 +37,8 @@
 ConstantBuffer<render_settings_shader_data_t> cb_settings : register(b0, space0);
 ConstantBuffer<view_shader_data_t> cb_view : register(b1, space0);
 
+SamplerState sampler_linear_wrap : register(s0, space0);
+
 /*
     Resource access
 */

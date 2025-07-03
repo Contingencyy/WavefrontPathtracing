@@ -19,42 +19,41 @@ namespace renderer
 
 	inline constexpr uint32_t MAX_INSTANCES = 1024;
 
-	enum render_view_mode : uint32_t
+	enum RENDER_VIEW_MODE : uint32_t
 	{
-		none,
+		RENDER_VIEW_MODE_NONE,
 
-		geometry_instance,
-		geometry_primitive,
-		geometry_barycentrics,
-		geometry_normal,
+		RENDER_VIEW_MODE_GEOMETRY_INSTANCE,
+		RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE,
+		RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS,
+		RENDER_VIEW_MODE_GEOMETRY_NORMAL,
 
-		material_albedo,
-		material_normal,
-		material_spec_refract,
-		material_absorption,
-		material_emissive,
+		RENDER_VIEW_MODE_MATERIAL_BASE_COLOR,
+		RENDER_VIEW_MODE_MATERIAL_NORMAL,
+		RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS,
+		RENDER_VIEW_MODE_MATERIAL_EMISSIVE,
 
-		world_normal,
-		world_tangent,
-		world_bitangent,
+		RENDER_VIEW_MODE_WORLD_NORMAL,
+		RENDER_VIEW_MODE_WORLD_TANGENT,
+		RENDER_VIEW_MODE_WORLD_BITANGENT,
 
-		path_depth,
+		RENDER_VIEW_MODE_PATH_DEPTH,
 
-		render_target_depth,
+		RENDER_VIEW_MODE_RENDER_TARGET_DEPTH,
 
-		count
+		RENDER_VIEW_MODE_COUNT
 	};
 
-	static const char* render_view_mode_labels[render_view_mode::count] =
+	static const char* render_view_mode_labels[RENDER_VIEW_MODE::RENDER_VIEW_MODE_COUNT] =
 	{
 		"None",
 		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics", "Geometry Normal",
-		"Material Albedo", "Material Normal", "Material Spec Refract", "Material Absorption", "Material Emissive",
+		"Material Albedo", "Material Normal", "Material Metallic Roughness", "Material Emissive",
 		"World Normal", "World Tangent", "World Bitangent",
 		"Path Depth",
 		"RenderTarget Depth"
 	};
-	static_assert(render_view_mode::count == ARRAY_SIZE(render_view_mode_labels));
+	static_assert(RENDER_VIEW_MODE::RENDER_VIEW_MODE_COUNT == ARRAY_SIZE(render_view_mode_labels));
 
 	struct render_texture_t
 	{
@@ -145,6 +144,18 @@ namespace renderer
 		render_settings_shader_data_t settings;
 		uint64_t frame_index;
 
+		struct defaults_t
+		{
+			render_texture_t* texture_base_color;
+			render_texture_handle_t texture_handle_base_color;
+			render_texture_t* texture_normal;
+			render_texture_handle_t texture_handle_normal;
+			render_texture_t* texture_metallic_roughness;
+			render_texture_handle_t texture_handle_metallic_roughness;
+			render_texture_t* texture_emissive;
+			render_texture_handle_t texture_handle_emissive;
+		} defaults;
+
 		struct wavefront_t
 		{
 			ID3D12CommandSignature* command_signature;
@@ -164,6 +175,7 @@ namespace renderer
 			// RGBA16 float, Alpha channel is unused
 			ID3D12Resource* texture_throughput;
 			ID3D12Resource* buffer_pixelpos;
+			ID3D12Resource* buffer_pixelpos_two;
 			ID3D12Resource* buffer_intersection;
 
 			d3d12::descriptor_allocation_t buffer_indirect_args_srv_uav;
@@ -172,6 +184,7 @@ namespace renderer
 			d3d12::descriptor_allocation_t texture_energy_srv_uav;
 			d3d12::descriptor_allocation_t texture_throughput_srv_uav;
 			d3d12::descriptor_allocation_t buffer_pixelpos_srv_uav;
+			d3d12::descriptor_allocation_t buffer_pixelpos_two_srv_uav;
 			d3d12::descriptor_allocation_t buffer_intersection_srv_uav;
 		} wavefront;
 

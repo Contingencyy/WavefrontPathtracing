@@ -36,3 +36,8 @@ struct cond_var_t
 {
 	void* ptr;
 };
+
+struct timer_t
+{
+	int64_t val;
+};
