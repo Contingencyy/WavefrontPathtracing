@@ -86,6 +86,8 @@ namespace renderer
 
 	struct frame_context_t
 	{
+		memory_arena_t arena;
+		
 		ID3D12Resource* scene_tlas_scratch_resource;
 		ID3D12Resource* scene_tlas_resource;
 		d3d12::descriptor_allocation_t scene_tlas_srv;
@@ -97,7 +99,6 @@ namespace renderer
 	struct renderer_inst_t
 	{
 		memory_arena_t arena;
-		memory_arena_t frame_arena;
 
 		uint32_t render_width;
 		uint32_t render_height;
@@ -191,8 +192,6 @@ namespace renderer
 		d3d12::frame_resource_t cb_render_settings;
 		d3d12::frame_resource_t cb_view;
 
-		uint32_t gpu_timer_readback_results_count;
-		gpu_timer_readback_result_t* gpu_timer_readback_results;
 		gpu_profile_scope_result_t* gpu_profile_scope_results;
 	};
 	extern renderer_inst_t* g_renderer;

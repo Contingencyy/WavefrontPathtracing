@@ -9,8 +9,9 @@ struct string_t;
 struct ID3D12CommandQueue;
 struct ID3D12GraphicsCommandList10;
 
-enum GPU_PROFILE_SCOPE : uint32_t
+enum GPU_PROFILE_SCOPE : uint16_t
 {
+	GPU_PROFILE_SCOPE_TOTAL_GPU_TIME,
 	GPU_PROFILE_SCOPE_TLAS_BUILD,
 	GPU_PROFILE_SCOPE_PATHTRACE_MEGAKERNEL,
 	GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_CLEAR,
@@ -25,7 +26,7 @@ enum GPU_PROFILE_SCOPE : uint32_t
 	GPU_PROFILE_SCOPE_COUNT
 };
 
-enum GPU_TIMESTAMP_QUERY_TYPE : uint32_t
+enum GPU_TIMESTAMP_QUERY_TYPE : uint8_t
 {
 	GPU_TIMESTAMP_QUERY_TYPE_BEGIN,
 	GPU_TIMESTAMP_QUERY_TYPE_END,
@@ -38,15 +39,9 @@ struct gpu_timer_query_t
 	GPU_PROFILE_SCOPE scope;
 	GPU_TIMESTAMP_QUERY_TYPE type;
 	uint32_t query_idx;
+	uint64_t timestamp;
 
 	ID3D12CommandQueue* d3d_command_queue;
-};
-
-struct gpu_timer_readback_result_t
-{
-	GPU_PROFILE_SCOPE scope;
-	GPU_TIMESTAMP_QUERY_TYPE type;
-	uint64_t timestamp;
 };
 
 struct gpu_profile_scope_result_t
@@ -59,6 +54,7 @@ struct gpu_profile_scope_result_t
 
 static const char* gpu_profile_scope_labels[GPU_PROFILE_SCOPE::GPU_PROFILE_SCOPE_COUNT] =
 {
+	"Total GPU Time",
 	"TLAS Build",
 	"Pathtrace Megakernel",
 	"Wavefront Clear", "Wavefront Init Args", "Wavefront Generate", "Wavefront Extend", "Wavefront Shade",

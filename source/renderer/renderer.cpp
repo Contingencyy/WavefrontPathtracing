@@ -288,7 +288,6 @@ namespace renderer
 		}
 
 		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
-		g_renderer->gpu_timer_readback_results = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, gpu_timer_readback_result_t, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
 		g_renderer->gpu_profile_scope_results = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, gpu_profile_scope_result_t, GPU_PROFILE_SCOPE_COUNT);
 
 		// Default render settings
@@ -498,7 +497,10 @@ namespace renderer
 
 	void exit()
 	{
-		ARENA_RELEASE(g_renderer->frame_arena);
+		for (uint32_t i = 0; i < d3d12::g_d3d->swapchain.back_buffer_count; ++i)
+		{
+			ARENA_RELEASE(g_renderer->frame_ctx[i].arena);
+		}
 		
 		slotmap::destroy(g_renderer->texture_slotmap);
 		slotmap::destroy(g_renderer->mesh_slotmap);
@@ -544,9 +546,13 @@ namespace renderer
 		gpu_profiler_parse_scope_results();
 		
 		// Clear arena for the current frame
-		ARENA_CLEAR(g_renderer->frame_arena);
 		frame_context_t& frame_ctx = get_frame_context();
-		frame_ctx.gpu_timer_queries = ARENA_ALLOC_ARRAY_ZERO(g_renderer->frame_arena, gpu_timer_query_t, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+		ARENA_CLEAR(frame_ctx.arena);
+		frame_ctx.gpu_timer_queries_at = 0;
+		frame_ctx.gpu_timer_queries = ARENA_ALLOC_ARRAY_ZERO(frame_ctx.arena, gpu_timer_query_t, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+
+		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
+		gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TOTAL_GPU_TIME);
 
 		if (g_renderer->change_raytracing_mode)
 		{
@@ -555,7 +561,7 @@ namespace renderer
 		
 		if (g_renderer->settings.use_software_rt)
 		{
-			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(g_renderer->frame_arena, bvh_instance_t, g_renderer->instance_data_capacity);
+			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(frame_ctx.arena, bvh_instance_t, g_renderer->instance_data_capacity);
 		}
 
 		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -575,7 +581,8 @@ namespace renderer
 		gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_IMGUI);
 		d3d12::render_imgui();
 		gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_IMGUI);
-		
+
+		gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TOTAL_GPU_TIME);
 		d3d12::end_frame();
 		d3d12::present();
 
