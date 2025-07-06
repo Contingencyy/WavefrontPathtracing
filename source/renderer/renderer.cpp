@@ -23,67 +23,9 @@ namespace renderer
 
 	renderer_inst_t* g_renderer = nullptr;
 
-	static frame_context_t& get_frame_context()
+	frame_context_t& get_frame_context()
 	{
 		return g_renderer->frame_ctx[d3d12::g_d3d->swapchain.back_buffer_index];
-	}
-
-	static inline void begin_gpu_timestamp(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, const string_t& key)
-	{
-		ASSERT_MSG(!hashmap::find(frame_ctx.gpu_timer_queries, key), "Tried to begin a gpu timestamp that already has an entry");
-		
-		gpu_timer_query_t* query = hashmap::emplace_zeroed(frame_ctx.gpu_timer_queries, key);
-		query->query_idx_begin = d3d12::begin_query_timestamp(command_list);
-
-		switch (command_list->GetType())
-		{
-		case D3D12_COMMAND_LIST_TYPE_DIRECT: query->d3d_command_queue = d3d12::g_d3d->command_queue_direct; break;
-		case D3D12_COMMAND_LIST_TYPE_COPY: query->d3d_command_queue = d3d12::g_d3d->upload_ctx.command_queue_copy; break;
-		default: FATAL_ERROR("Renderer", "Tried to begin a timestamp query on an unsupported command list type"); break;
-		}
-	}
-
-	static inline void end_gpu_timestamp(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, const string_t& key)
-	{
-		bool is_copy_queue = command_list->GetType() == D3D12_COMMAND_LIST_TYPE_COPY;
-		
-		gpu_timer_query_t* query = hashmap::find(frame_ctx.gpu_timer_queries, key);
-		ASSERT_MSG(query, "Called end_gpu_timestamp on a gpu timer query that has not begun yet");
-
-		query->query_idx_end = d3d12::end_query_timestamp(command_list);
-	}
-
-	static inline void readback_timestamp_queries()
-	{
-		d3d12::frame_context_t d3d_frame_ctx = d3d12::get_frame_context();
-		frame_context_t& frame_ctx = get_frame_context();
-
-		// Graphics queue GPU timestamp queries
-		if (frame_ctx.gpu_timer_queries.size > 0)
-		{
-			ID3D12Resource* readback_buffer = d3d_frame_ctx.readback_buffer_timestamps;
-			uint64_t* timestamp_values = (uint64_t*)d3d12::map_resource(readback_buffer);
-
-			hashmap_iter_t iter = hashmap::get_iter(frame_ctx.gpu_timer_queries);
-			while (hashmap::advance_iter(iter))
-			{
-				// TODO: This is dangerous, emplacing with a string key from another hashmap does not copy the string over,
-				// so when the first hashmap gets released, the keys from the second map will be invalid
-				// Also need to make sure that the keys are de-allocated somehow when hashmap entry is removed or reset.
-				// Its also a bit difficult to de-allocate keys with arenas, so maybe I just allocate a memory pool for keys in each hashmap?
-				// Should each hashmap have its own memory arena to allocate and re-use memory from for copying keys?
-				// Or should the user provide a string with the correct lifetime as a key?
-				// Or should the hashmap malloc the key in those cases?
-				// Or should the hashmap have a function for inserting/emplacing that takes a memory arena as a parameter to alloc the key from?
-				// Or should strings as keys in hashmap always have a fixed size? char[64] Maybe make a fixed size string type
-				// I think I like the fixed string better. Then I dont need to manually copy the string over for every key
-				gpu_timer_result_t* result = hashmap::emplace_zeroed(g_renderer->gpu_timer_results, *iter.key);
-				result->timestamp_begin = timestamp_values[iter.value->query_idx_begin];
-				result->timestamp_end = timestamp_values[iter.value->query_idx_end];
-			}
-
-			d3d12::unmap_resource(readback_buffer);
-		}
 	}
 
 	static render_settings_shader_data_t get_default_render_settings()
@@ -345,9 +287,9 @@ namespace renderer
 			g_renderer->tlas_instance_data_hardware = (D3D12_RAYTRACING_INSTANCE_DESC*)d3d12::map_resource(g_renderer->tlas_instance_data_buffer);
 		}
 
-		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
-
-		hashmap::init(g_renderer->gpu_timer_results, g_renderer->arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
+		g_renderer->gpu_timer_readback_results = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, gpu_timer_readback_result_t, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+		g_renderer->gpu_profile_scope_results = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, gpu_profile_scope_result_t, GPU_PROFILE_SCOPE_COUNT);
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
@@ -597,16 +539,14 @@ namespace renderer
 	{
 		d3d12::begin_frame();
 
-		// Read back the GPU timestamp queries from the buffer
-		hashmap::clear(g_renderer->gpu_timer_results);
-		readback_timestamp_queries();
+		// Read back the GPU timestamp queries from the buffer and parse the final gpu profile scopes
+		gpu_profiler_readback_timers();
+		gpu_profiler_parse_scope_results();
 		
 		// Clear arena for the current frame
 		ARENA_CLEAR(g_renderer->frame_arena);
-
-		// (Re-)Initialize the gpu timestamp queries for the current frame
 		frame_context_t& frame_ctx = get_frame_context();
-		hashmap::init(frame_ctx.gpu_timer_queries, g_renderer->frame_arena, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
+		frame_ctx.gpu_timer_queries = ARENA_ALLOC_ARRAY_ZERO(g_renderer->frame_arena, gpu_timer_query_t, d3d12::TIMESTAMP_QUERIES_DEFAULT_CAPACITY);
 
 		if (g_renderer->change_raytracing_mode)
 		{
@@ -628,13 +568,13 @@ namespace renderer
 		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
 		frame_context_t& frame_ctx = get_frame_context();
 		
-		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy Backbuffer"));
+		gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_COPY_BACKBUFFER);
 		d3d12::copy_to_back_buffer(g_renderer->rt_final_color, g_renderer->render_width, g_renderer->render_height);
-		end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Copy Backbuffer"));
+		gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_COPY_BACKBUFFER);
 		
-		begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("ImGui"));
+		gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_IMGUI);
 		d3d12::render_imgui();
-		end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("ImGui"));
+		gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_IMGUI);
 		
 		d3d12::end_frame();
 		d3d12::present();
@@ -713,7 +653,7 @@ namespace renderer
 			}
 			else
 			{
-				begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("TLAS Build"));
+				gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TLAS_BUILD);
 				// TODO: If the buffer size is sufficient, do not release it
 				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_scratch_resource);
 				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
@@ -729,7 +669,7 @@ namespace renderer
 				}
 				// Update the scene TLAS descriptor
 				d3d12::create_as_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0);
-				end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("TLAS Build"));
+				gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TLAS_BUILD);
 			}
 
 			{
@@ -784,10 +724,6 @@ namespace renderer
 		// Dispatch wavefront pathtracing compute shaders
 		if (g_renderer->settings.use_wavefront_pathtracing)
 		{
-			// TODO: The shaders should not be running if dispatch_id.x > ray_count, since those will be invalid, but we launch 64 threads at a time
-			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Wavefront"));
-			
-			// Init indirect arguments
 			{
 				D3D12_RESOURCE_BARRIER barriers[] =
 				{
@@ -801,6 +737,8 @@ namespace renderer
 				if (recursion_depth == 0)
 				{
 					// Clear wavefront buffers
+					gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_CLEAR);
+					
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_counts_index;
@@ -827,14 +765,19 @@ namespace renderer
 							d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts),
 							d3d12::barrier_uav(g_renderer->wavefront.texture_energy),
 							d3d12::barrier_uav(g_renderer->wavefront.texture_throughput),
-							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos),
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos_two)
 						};
 						d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					}
+					
+					gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_CLEAR);
 				}
 
 				{
 					// Init indirect arguments
+					gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_INIT_ARGS);
+					
 					struct shader_input_t
 					{
 						uint32_t recursion_depth;
@@ -858,11 +801,15 @@ namespace renderer
 						};
 						d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					}
+					
+					gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_INIT_ARGS);
 				}
 
 				if (recursion_depth == 0)
 				{
 					// Generate
+					gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_GENERATE);
+					
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_index;
@@ -881,9 +828,13 @@ namespace renderer
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+					
+					gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_GENERATE);
 				}
 				{
 					// Extend
+					gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_EXTEND);
+					
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_counts_index;
@@ -910,9 +861,13 @@ namespace renderer
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_intersection)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+					
+					gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_EXTEND);
 				}
 				{
 					// Shade
+					gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_SHADE);
+					
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_counts_index;
@@ -956,20 +911,20 @@ namespace renderer
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
 						d3d12::barrier_uav(g_renderer->wavefront.texture_energy),
 						d3d12::barrier_uav(g_renderer->wavefront.texture_throughput),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos)
+						d3d12::barrier_uav(recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixelpos_two : g_renderer->wavefront.buffer_pixelpos)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+					
+					gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_WAVEFRONT_SHADE);
 				}
 				{
 					// TODO: Connect (Next event estimation)
 				}
 			}
-			
-			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Wavefront"));
 		}
 		else
 		{
-			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Megakernel"));
+			gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_MEGAKERNEL);
 			
 			struct shader_input_t
 			{
@@ -999,12 +954,12 @@ namespace renderer
 			};
 			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 			
-			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Pathtrace Megakernel"));
+			gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_PATHTRACE_MEGAKERNEL);
 		}
 
 		// Dispatch post-process compute shader
 		{
-			begin_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
+			gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_POST_PROCESS);
 
 			// Bind shader input constant buffer
 			struct shader_input_t
@@ -1032,7 +987,7 @@ namespace renderer
 			};
 			d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 			
-			end_gpu_timestamp(frame_ctx, d3d_frame_ctx.command_list, STRING_LITERAL("Post-Process"));
+			gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_POST_PROCESS);
 		}
 	}
 
@@ -1055,20 +1010,7 @@ namespace renderer
 						 "any stalls introduced by VSync might affect them.");
 			ImGui::Text("Accumulator: %u", g_renderer->accum_count);
 
-			if (ImGui::CollapsingHeader("GPU Timers"))
-			{
-				// TODO: Get the correct timestamp frequency for each command queue, maybe store it inside the gpu timers
-				double timestamp_freq = (double)d3d12::get_timestamp_frequency();
-
-				hashmap_iter_t iter = hashmap::get_iter(g_renderer->gpu_timer_results);
-				while (hashmap::advance_iter(iter))
-				{
-					double timer_elapsed = (double)(iter.value->timestamp_end - iter.value->timestamp_begin);
-					double timer_ms = (timer_elapsed / timestamp_freq) * 1000.0;
-					
-					ImGui::Text("%.*s: %.3f ms", STRING_EXPAND(*iter.key), timer_ms);
-				}
-			}
+			gpu_profiler_render_ui();
 
 			// GPU memory usage
 			if (ImGui::CollapsingHeader("GPU Memory"))

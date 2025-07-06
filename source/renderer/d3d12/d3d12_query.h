@@ -4,7 +4,7 @@
 namespace d3d12
 {
 
-    inline constexpr uint32_t TIMESTAMP_QUERIES_DEFAULT_CAPACITY = 128;
+    inline constexpr uint32_t TIMESTAMP_QUERIES_DEFAULT_CAPACITY = 256;
 
     void init_queries(uint32_t timestamp_query_capacity);
     void exit_queries();

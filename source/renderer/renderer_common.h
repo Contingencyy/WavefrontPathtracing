@@ -6,10 +6,12 @@
 
 #include "shaders/shared.hlsl.h"
 
+#include "renderer/renderer_fwd.h"
 #include "renderer/acceleration_structure/tlas_builder.h"
 
 #include "renderer/d3d12/d3d12_descriptor.h"
 #include "renderer/d3d12/d3d12_frame.h"
+#include "renderer/gpu_profiler.h"
 
 struct material_t;
 struct bvh_instance_t;
@@ -82,27 +84,14 @@ namespace renderer
 		wstring_t debug_name;
 	};
 
-	struct gpu_timer_query_t
-	{
-		uint32_t query_idx_begin;
-		uint32_t query_idx_end;
-
-		ID3D12CommandQueue* d3d_command_queue;
-	};
-
-	struct gpu_timer_result_t
-	{
-		uint64_t timestamp_begin;
-		uint64_t timestamp_end;
-	};
-
 	struct frame_context_t
 	{
 		ID3D12Resource* scene_tlas_scratch_resource;
 		ID3D12Resource* scene_tlas_resource;
 		d3d12::descriptor_allocation_t scene_tlas_srv;
 
-		hashmap_t<string_t, gpu_timer_query_t> gpu_timer_queries;
+		gpu_timer_query_t* gpu_timer_queries;
+		uint32_t gpu_timer_queries_at;
 	};
 
 	struct renderer_inst_t
@@ -201,9 +190,13 @@ namespace renderer
 
 		d3d12::frame_resource_t cb_render_settings;
 		d3d12::frame_resource_t cb_view;
-		
-		hashmap_t<string_t, gpu_timer_result_t> gpu_timer_results;
+
+		uint32_t gpu_timer_readback_results_count;
+		gpu_timer_readback_result_t* gpu_timer_readback_results;
+		gpu_profile_scope_result_t* gpu_profile_scope_results;
 	};
 	extern renderer_inst_t* g_renderer;
+	
+	frame_context_t& get_frame_context();
 
 }

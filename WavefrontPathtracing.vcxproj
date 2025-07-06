@@ -234,6 +234,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\renderer\d3d12\d3d12_query.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_resource.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_upload.cpp" />
+    <ClCompile Include="source\renderer\gpu_profiler.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
     <ClCompile Include="source\core\allocators\ring_alloc.cpp" />
     <FxCompile Include="source\renderer\shaders\wavefront\clear_buffers.hlsl">
@@ -327,6 +328,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\renderer\d3d12\d3d12_query.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_resource.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_upload.h" />
+    <ClInclude Include="source\renderer\gpu_profiler.h" />
     <ClInclude Include="source\renderer\renderer.h" />
     <ClInclude Include="source\renderer\renderer_common.h" />
     <ClInclude Include="source\renderer\renderer_fwd.h" />
