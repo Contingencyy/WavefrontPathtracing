@@ -28,18 +28,18 @@ namespace application
 	{
 		s_should_close = !platform::window_poll_events();
 
-		if (!ImGui::GetIO().WantCaptureMouse)
-		{
-			if (!input::is_mouse_captured() && input::is_key_pressed(input::KEYCODE_LEFT_MOUSE))
-			{
-				platform::window_set_capture_mouse(true);
-			}
-		}
 		if (input::is_mouse_captured())
 		{
 			if (input::is_key_pressed(input::KEYCODE_RIGHT_MOUSE))
 			{
 				platform::window_set_capture_mouse(false);
+			}
+		}
+		if (!ImGui::GetIO().WantCaptureMouse)
+		{
+			if (!input::is_mouse_captured() && input::is_key_pressed(input::KEYCODE_LEFT_MOUSE))
+			{
+				platform::window_set_capture_mouse(true);
 			}
 		}
 	}

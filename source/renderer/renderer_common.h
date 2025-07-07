@@ -96,6 +96,14 @@ namespace renderer
 		gpu_timer_query_t* gpu_timer_queries;
 		uint32_t gpu_timer_queries_at;
 	};
+	
+	struct gpu_profiler_t
+	{
+		uint32_t history_write_offset;
+		uint32_t history_read_offset;
+		bool profile_scope_graph_hidden[GPU_PROFILE_SCOPE_COUNT];
+		gpu_profile_scope_result_t profile_scope_history[GPU_PROFILER_MAX_HISTORY][GPU_PROFILE_SCOPE_COUNT];
+	};
 
 	struct renderer_inst_t
 	{
@@ -193,12 +201,7 @@ namespace renderer
 		d3d12::frame_resource_t cb_render_settings;
 		d3d12::frame_resource_t cb_view;
 
-		struct gpu_profiler_t
-		{
-			uint32_t history_write_offset;
-			uint32_t history_read_offset;
-			gpu_profile_scope_result_t profile_scope_results[GPU_PROFILE_SCOPE_COUNT * GPU_PROFILER_MAX_HISTORY];
-		} gpu_profiler;
+		gpu_profiler_t gpu_profiler;
 	};
 	extern renderer_inst_t* g_renderer;
 	

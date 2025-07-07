@@ -63,19 +63,19 @@ namespace renderer
 
 	void gpu_profiler_parse_scope_results()
 	{
+		gpu_profiler_t& profiler = g_renderer->gpu_profiler;
 		frame_context_t& frame_ctx = get_frame_context();
 		uint32_t readback_begin_result_indices[GPU_PROFILE_SCOPE_COUNT];
-		uint32_t data_offset = g_renderer->gpu_profiler.history_write_offset * GPU_PROFILE_SCOPE_COUNT;
 
 		// TODO: Get the correct timestamp frequency for each command queue, maybe store it inside the gpu timers
 		double timestamp_freq = (double)d3d12::get_timestamp_frequency();
 
-		for (uint32_t i = 0; i < GPU_PROFILE_SCOPE_COUNT; ++i)
+		for (uint32_t scope = 0; scope < GPU_PROFILE_SCOPE_COUNT; ++scope)
 		{
-			readback_begin_result_indices[i] = UINT32_MAX;
+			readback_begin_result_indices[scope] = UINT32_MAX;
 
-			gpu_profile_scope_result_t& scope_result = g_renderer->gpu_profiler.profile_scope_results[data_offset + i];
-			scope_result.frame_index = 0;
+			gpu_profile_scope_result_t& scope_result = profiler.profile_scope_history[profiler.history_write_offset][scope];
+			scope_result.frame_index = 0.0;
 			scope_result.sample_count = 0u;
 			scope_result.total = 0.0;
 			scope_result.avg = 0.0;
@@ -83,16 +83,16 @@ namespace renderer
 			scope_result.max = 0.0;
 		}
 		
-		for (uint32_t i = 0; i < frame_ctx.gpu_timer_queries_at; ++i)
+		for (uint32_t query_idx = 0; query_idx < frame_ctx.gpu_timer_queries_at; ++query_idx)
 		{
-			const gpu_timer_query_t& readback = frame_ctx.gpu_timer_queries[i];
-			gpu_profile_scope_result_t& scope_result = g_renderer->gpu_profiler.profile_scope_results[data_offset + readback.scope];
+			const gpu_timer_query_t& readback = frame_ctx.gpu_timer_queries[query_idx];
+			gpu_profile_scope_result_t& scope_result = profiler.profile_scope_history[profiler.history_write_offset][readback.scope];
 			ASSERT(readback.scope < GPU_PROFILE_SCOPE_COUNT);
 
 			if (readback_begin_result_indices[readback.scope] == UINT32_MAX)
 			{
 				ASSERT_MSG(readback.type == GPU_TIMESTAMP_QUERY_TYPE_BEGIN, "GPU profile scope %s was ended before being started", gpu_profile_scope_labels[readback.scope]);
-				readback_begin_result_indices[readback.scope] = i;
+				readback_begin_result_indices[readback.scope] = query_idx;
 			}
 			else
 			{
@@ -110,30 +110,38 @@ namespace renderer
 			}
 		}
 
-		for (uint32_t i = 0; i < GPU_PROFILE_SCOPE_COUNT; ++i)
+		for (uint32_t scope = 0; scope < GPU_PROFILE_SCOPE_COUNT; ++scope)
 		{
-			ASSERT_MSG(readback_begin_result_indices[i] == UINT32_MAX, "GPU profile scope %s has outstanding samples", gpu_profile_scope_labels[i]);
+			ASSERT_MSG(readback_begin_result_indices[scope] == UINT32_MAX, "GPU profile scope %s has outstanding samples", gpu_profile_scope_labels[scope]);
+			gpu_profile_scope_result_t& scope_result = profiler.profile_scope_history[profiler.history_write_offset][scope];
 
-			gpu_profile_scope_result_t& scope_result = g_renderer->gpu_profiler.profile_scope_results[data_offset + i];
+			if (scope_result.sample_count == 0)
+				continue;
+
 			scope_result.avg = (scope_result.total / (double)scope_result.sample_count);
 		}
 	}
 
 	void gpu_profiler_render_ui()
 	{
+		gpu_profiler_t& profiler = g_renderer->gpu_profiler;
+		
 		if (ImGui::Begin("GPU Profiler"))
 		{
 			ImPlot::SetNextAxisToFit(ImAxis_Y1);
-			if (ImPlot::BeginPlot("##gpu_timer_graph", ImVec2(-1, 0), ImPlotFlags_Crosshairs | ImPlotFlags_NoMouseText))
+			if (ImPlot::BeginPlot("Real-time GPU graph", ImVec2(-1, 0), ImPlotFlags_Crosshairs | ImPlotFlags_NoMouseText))
 			{
-				double axis_min = MAX((int64_t)g_renderer->frame_index - (int32_t)d3d12::g_d3d->swapchain.back_buffer_count - (int32_t)GPU_PROFILER_MAX_HISTORY, 0.0);
-				double axis_max = (int64_t)g_renderer->frame_index - (int32_t)d3d12::g_d3d->swapchain.back_buffer_count;
+				// Draw GPU timer plot
+				ImPlot::SetupLegend(ImPlotLocation_NorthEast, ImPlotLegendFlags_Outside);
 
-				ImPlot::SetupAxis(ImAxis_X1, "Frame Index", ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_RangeFit | ImPlotAxisFlags_NoGridLines);
+				double axis_min = (double)profiler.profile_scope_history[profiler.history_read_offset][GPU_PROFILE_SCOPE_TOTAL_GPU_TIME].frame_index;
+				double axis_max = (double)profiler.profile_scope_history[profiler.history_write_offset][GPU_PROFILE_SCOPE_TOTAL_GPU_TIME].frame_index;
+
+				ImPlot::SetupAxis(ImAxis_X1, "Frame Index", ImPlotAxisFlags_Foreground | ImPlotAxisFlags_RangeFit);
 				ImPlot::SetupAxisFormat(ImAxis_X1, "%.0f");
 				ImPlot::SetupAxisLimits(ImAxis_X1, axis_min, axis_max, ImPlotCond_Always);
-
-				ImPlot::SetupAxis(ImAxis_Y1, "Milliseconds", ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoGridLines);
+				
+				ImPlot::SetupAxis(ImAxis_Y1, "Milliseconds", ImPlotAxisFlags_Foreground | ImPlotAxisFlags_RangeFit);
 				ImPlot::SetupAxisFormat(ImAxis_Y1, "%.3f ms");
 
 				ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
@@ -141,14 +149,83 @@ namespace renderer
 				int32_t data_offset = (int32_t)g_renderer->gpu_profiler.history_read_offset;
 				int32_t data_stride = GPU_PROFILE_SCOPE_COUNT * sizeof(gpu_profile_scope_result_t);
 
-				for (uint32_t i = 0; i < GPU_PROFILE_SCOPE_COUNT; ++i)
+				for (uint32_t scope = 0; scope < GPU_PROFILE_SCOPE_COUNT; ++scope)
 				{
-					const gpu_profile_scope_result_t& scope_result = g_renderer->gpu_profiler.profile_scope_results[i];
+					const gpu_profile_scope_result_t& scope_result_start = profiler.profile_scope_history[0][scope];
+					if (scope_result_start.sample_count == 0)
+						continue;
 
 					ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.5f);
-					ImPlot::PlotShaded(gpu_profile_scope_labels[i], &scope_result.frame_index, &scope_result.total, count, 0.0, 0, data_offset, data_stride);
-					ImPlot::PlotLine(gpu_profile_scope_labels[i], &scope_result.frame_index, &scope_result.total, count, 0, data_offset, data_stride);
+					ImPlot::PlotShaded(gpu_profile_scope_labels[scope], &scope_result_start.frame_index, &scope_result_start.total, count, 0.0, 0, data_offset, data_stride);
+					ImPlot::PlotLine(gpu_profile_scope_labels[scope], &scope_result_start.frame_index, &scope_result_start.total, count, 0, data_offset, data_stride);
 					ImPlot::PopStyleVar();
+
+					// Draw legend hover tooltip
+					if (ImPlot::IsLegendEntryHovered(gpu_profile_scope_labels[scope]))
+					{
+						if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+						{
+							profiler.profile_scope_graph_hidden[scope] = !profiler.profile_scope_graph_hidden[scope];
+						}
+
+						const gpu_profile_scope_result_t& scope_result = profiler.profile_scope_history[profiler.history_write_offset][scope];
+
+						ImGui::BeginTooltip();
+
+						ImGui::Text("Frame: %llu", (uint64_t)scope_result.frame_index);
+						ImGui::Text("Samples: %u", scope_result.sample_count);
+						ImGui::Text("Total: %.3f", scope_result.total);
+						ImGui::Text("Avg: %.3f", scope_result.avg);
+						ImGui::Text("Min: %.3f", scope_result.min);
+						ImGui::Text("Max: %.3f", scope_result.max);
+
+						ImGui::EndTooltip();
+					}
+				}
+
+				// Draw nearest plot data point hover tooltip
+				if (ImPlot::IsPlotHovered())
+				{
+					ImPlotPoint mouse_pos = ImPlot::GetPlotMousePos(ImAxis_X1, ImAxis_Y1);
+					uint32_t nearest_history_frame_index = (uint32_t)glm::round(mouse_pos.x) % GPU_PROFILER_MAX_HISTORY;
+					GPU_PROFILE_SCOPE nearest_history_scope = GPU_PROFILE_SCOPE_COUNT;
+
+					double prev_delta = DBL_MAX, delta = 0.0;
+					for (uint32_t scope = 0; scope < GPU_PROFILE_SCOPE_COUNT; ++scope)
+					{
+						if (profiler.profile_scope_graph_hidden[scope])
+							continue;
+
+						const gpu_profile_scope_result_t& history = profiler.profile_scope_history[nearest_history_frame_index][scope];
+
+						delta = fabs(mouse_pos.y - history.total);
+						if (delta < prev_delta)
+						{
+							nearest_history_scope = (GPU_PROFILE_SCOPE)scope;
+							prev_delta = delta;
+						}
+					}
+
+					const gpu_profile_scope_result_t& nearest_history = profiler.profile_scope_history[nearest_history_frame_index][nearest_history_scope];
+
+					ImPlot::PushPlotClipRect();
+					ImGui::BeginTooltip();
+					
+					ImGui::Text("%s", gpu_profile_scope_labels[nearest_history_scope]);
+					ImGui::Text("Frame: %llu", (uint64_t)nearest_history.frame_index);
+					ImGui::Text("Frame: %u", nearest_history.sample_count);
+					ImGui::Text("Total: %.3f", nearest_history.total);
+					ImGui::Text("Total: %.3f", nearest_history.avg);
+					ImGui::Text("Total: %.3f", nearest_history.min);
+					ImGui::Text("Total: %.3f", nearest_history.max);
+
+					ImGui::EndTooltip();
+
+					ImDrawList* draw_list = ImPlot::GetPlotDrawList();
+					ImVec2 nearest_history_marker_pos = ImPlot::PlotToPixels(nearest_history.frame_index, nearest_history.total, ImAxis_X1, ImAxis_Y1);
+					draw_list->AddCircleFilled(nearest_history_marker_pos, 5.0f, IM_COL32(192, 192, 192, 192), 20);
+
+					ImPlot::PopPlotClipRect();
 				}
 
 				ImPlot::EndPlot();

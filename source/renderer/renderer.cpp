@@ -587,11 +587,19 @@ namespace renderer
 		d3d12::end_frame();
 		d3d12::present();
 
+		// We don't have any profiling data to write back the first time each back buffer is used, so skip incrementing the history offsets
+		if (g_renderer->frame_index >= d3d12::g_d3d->swapchain.back_buffer_count)
+		{
+			g_renderer->gpu_profiler.history_write_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
+			g_renderer->gpu_profiler.history_read_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
+		}
+
 		g_renderer->frame_index++;
-		g_renderer->gpu_profiler.history_write_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
-		g_renderer->gpu_profiler.history_read_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
+
 		if (g_renderer->settings.accumulate)
+		{
 			g_renderer->accum_count++;
+		}
 	}
 
 	void begin_scene(const camera_t& scene_camera, render_texture_handle_t env_render_texture_handle)
