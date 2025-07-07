@@ -36,6 +36,7 @@ enum GPU_TIMESTAMP_QUERY_TYPE : uint8_t
 
 struct gpu_timer_query_t
 {
+	uint64_t frame_index;
 	GPU_PROFILE_SCOPE scope;
 	GPU_TIMESTAMP_QUERY_TYPE type;
 	uint32_t query_idx;
@@ -46,10 +47,12 @@ struct gpu_timer_query_t
 
 struct gpu_profile_scope_result_t
 {
+	double frame_index;
 	uint32_t sample_count;
-	uint64_t total;
-	uint64_t min;
-	uint64_t max;
+	double total;
+	double avg;
+	double min;
+	double max;
 };
 
 static const char* gpu_profile_scope_labels[GPU_PROFILE_SCOPE::GPU_PROFILE_SCOPE_COUNT] =

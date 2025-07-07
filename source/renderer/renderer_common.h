@@ -20,6 +20,7 @@ namespace renderer
 {
 
 	inline constexpr uint32_t MAX_INSTANCES = 1024;
+	inline constexpr uint32_t GPU_PROFILER_MAX_HISTORY = 512;
 
 	enum RENDER_VIEW_MODE : uint32_t
 	{
@@ -192,7 +193,12 @@ namespace renderer
 		d3d12::frame_resource_t cb_render_settings;
 		d3d12::frame_resource_t cb_view;
 
-		gpu_profile_scope_result_t* gpu_profile_scope_results;
+		struct gpu_profiler_t
+		{
+			uint32_t history_write_offset;
+			uint32_t history_read_offset;
+			gpu_profile_scope_result_t profile_scope_results[GPU_PROFILE_SCOPE_COUNT * GPU_PROFILER_MAX_HISTORY];
+		} gpu_profiler;
 	};
 	extern renderer_inst_t* g_renderer;
 	

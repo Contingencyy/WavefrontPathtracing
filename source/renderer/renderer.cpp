@@ -288,7 +288,8 @@ namespace renderer
 		}
 
 		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
-		g_renderer->gpu_profile_scope_results = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, gpu_profile_scope_result_t, GPU_PROFILE_SCOPE_COUNT);
+		g_renderer->gpu_profiler.history_write_offset = 0;
+		g_renderer->gpu_profiler.history_read_offset = 1;
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
@@ -587,6 +588,8 @@ namespace renderer
 		d3d12::present();
 
 		g_renderer->frame_index++;
+		g_renderer->gpu_profiler.history_write_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
+		g_renderer->gpu_profiler.history_read_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
 		if (g_renderer->settings.accumulate)
 			g_renderer->accum_count++;
 	}
@@ -1005,6 +1008,8 @@ namespace renderer
 
 	void render_ui()
 	{
+		gpu_profiler_render_ui();
+
 		if (ImGui::Begin("Renderer"))
 		{
 			bool should_reset_accumulators = false;
@@ -1016,8 +1021,6 @@ namespace renderer
 			ImGui::SetItemTooltip("When VSync is enabled, GPU timers cannot be trusted because depending on hardware/drivers,"
 						 "any stalls introduced by VSync might affect them.");
 			ImGui::Text("Accumulator: %u", g_renderer->accum_count);
-
-			gpu_profiler_render_ui();
 
 			// GPU memory usage
 			if (ImGui::CollapsingHeader("GPU Memory"))
