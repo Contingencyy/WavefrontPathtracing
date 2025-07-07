@@ -101,9 +101,14 @@ namespace renderer
 	{
 		uint32_t history_write_offset;
 		uint32_t history_read_offset;
-		bool profile_scope_graph_hidden[GPU_PROFILE_SCOPE_COUNT];
-		bool autofit_timers;
 		gpu_profile_scope_result_t profile_scope_history[GPU_PROFILER_MAX_HISTORY][GPU_PROFILE_SCOPE_COUNT];
+
+		struct ui_t
+		{
+			bool paused;
+			bool autofit_graph_yaxis;
+			bool disabled_scopes[GPU_PROFILE_SCOPE_COUNT];
+		} ui;
 	};
 
 	struct renderer_inst_t
