@@ -31,6 +31,37 @@ namespace renderer
 		}
 	}
 
+	void gpu_profiler_init()
+	{
+		gpu_profiler_t& profiler = g_renderer->gpu_profiler;
+		profiler.history_write_offset = 0;
+		profiler.history_read_offset = 1;
+		profiler.autofit_timers = true;
+	}
+
+	void gpu_profiler_exit()
+	{
+	}
+
+	void gpu_profiler_begin_frame()
+	{
+		// Read back the GPU timestamp queries from the buffer and parse the final gpu profile scopes
+		gpu_profiler_readback_timers();
+		gpu_profiler_parse_scope_results();
+	}
+
+	void gpu_profiler_end_frame()
+	{
+		gpu_profiler_t& profiler = g_renderer->gpu_profiler;
+		
+		// We don't have any profiling data to write back the first time each back buffer is used, so skip incrementing the history offsets
+		if (g_renderer->frame_index >= d3d12::g_d3d->swapchain.back_buffer_count)
+		{
+			profiler.history_write_offset = (profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
+			profiler.history_read_offset = (profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
+		}
+	}
+
 	void gpu_profiler_begin_scope(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, GPU_PROFILE_SCOPE scope)
 	{
 		do_timestamp_query(frame_ctx, command_list, scope, true);
@@ -128,7 +159,12 @@ namespace renderer
 		
 		if (ImGui::Begin("GPU Profiler"))
 		{
-			ImPlot::SetNextAxisToFit(ImAxis_Y1);
+			ImGui::Checkbox("Autofit Timers", &profiler.autofit_timers);
+			if (profiler.autofit_timers)
+			{
+				ImPlot::SetNextAxisToFit(ImAxis_Y1);
+			}
+			
 			if (ImPlot::BeginPlot("Real-time GPU graph", ImVec2(-1, 0), ImPlotFlags_Crosshairs | ImPlotFlags_NoMouseText))
 			{
 				// Draw GPU timer plot
@@ -143,7 +179,8 @@ namespace renderer
 				
 				ImPlot::SetupAxis(ImAxis_Y1, "Milliseconds", ImPlotAxisFlags_Foreground | ImPlotAxisFlags_RangeFit);
 				ImPlot::SetupAxisFormat(ImAxis_Y1, "%.3f ms");
-
+				ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, 0.0, 1000.0);
+				
 				ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
 				int32_t count = GPU_PROFILER_MAX_HISTORY;
 				int32_t data_offset = (int32_t)g_renderer->gpu_profiler.history_read_offset;
@@ -155,7 +192,7 @@ namespace renderer
 					if (scope_result_start.sample_count == 0)
 						continue;
 
-					ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.5f);
+					ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
 					ImPlot::PlotShaded(gpu_profile_scope_labels[scope], &scope_result_start.frame_index, &scope_result_start.total, count, 0.0, 0, data_offset, data_stride);
 					ImPlot::PlotLine(gpu_profile_scope_labels[scope], &scope_result_start.frame_index, &scope_result_start.total, count, 0, data_offset, data_stride);
 					ImPlot::PopStyleVar();
@@ -197,6 +234,8 @@ namespace renderer
 							continue;
 
 						const gpu_profile_scope_result_t& history = profiler.profile_scope_history[nearest_history_frame_index][scope];
+						if (history.sample_count == 0)
+							continue;
 
 						delta = fabs(mouse_pos.y - history.total);
 						if (delta < prev_delta)

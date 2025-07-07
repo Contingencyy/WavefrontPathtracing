@@ -69,6 +69,11 @@ static_assert(GPU_PROFILE_SCOPE::GPU_PROFILE_SCOPE_COUNT == ARRAY_SIZE(gpu_profi
 namespace renderer
 {
 
+	void gpu_profiler_init();
+	void gpu_profiler_exit();
+	void gpu_profiler_begin_frame();
+	void gpu_profiler_end_frame();
+	
 	void gpu_profiler_begin_scope(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, GPU_PROFILE_SCOPE scope);
 	void gpu_profiler_end_scope(frame_context_t& frame_ctx, ID3D12GraphicsCommandList10* command_list, GPU_PROFILE_SCOPE scope);
 	void gpu_profiler_readback_timers();

@@ -288,8 +288,7 @@ namespace renderer
 		}
 
 		g_renderer->frame_ctx = ARENA_ALLOC_ARRAY_ZERO(g_renderer->arena, frame_context_t, backend_params.back_buffer_count);
-		g_renderer->gpu_profiler.history_write_offset = 0;
-		g_renderer->gpu_profiler.history_read_offset = 1;
+		gpu_profiler_init();
 
 		// Default render settings
 		g_renderer->settings = get_default_render_settings();
@@ -498,6 +497,8 @@ namespace renderer
 
 	void exit()
 	{
+		gpu_profiler_exit();
+		
 		for (uint32_t i = 0; i < d3d12::g_d3d->swapchain.back_buffer_count; ++i)
 		{
 			ARENA_RELEASE(g_renderer->frame_ctx[i].arena);
@@ -542,9 +543,7 @@ namespace renderer
 	{
 		d3d12::begin_frame();
 
-		// Read back the GPU timestamp queries from the buffer and parse the final gpu profile scopes
-		gpu_profiler_readback_timers();
-		gpu_profiler_parse_scope_results();
+		gpu_profiler_begin_frame();
 		
 		// Clear arena for the current frame
 		frame_context_t& frame_ctx = get_frame_context();
@@ -587,13 +586,7 @@ namespace renderer
 		d3d12::end_frame();
 		d3d12::present();
 
-		// We don't have any profiling data to write back the first time each back buffer is used, so skip incrementing the history offsets
-		if (g_renderer->frame_index >= d3d12::g_d3d->swapchain.back_buffer_count)
-		{
-			g_renderer->gpu_profiler.history_write_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
-			g_renderer->gpu_profiler.history_read_offset = (g_renderer->gpu_profiler.history_write_offset + 1) % GPU_PROFILER_MAX_HISTORY;
-		}
-
+		gpu_profiler_end_frame();
 		g_renderer->frame_index++;
 
 		if (g_renderer->settings.accumulate)
