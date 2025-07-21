@@ -23,10 +23,10 @@ struct shader_input_t
 
 ConstantBuffer<shader_input_t> cb_in : register(b2, space0);
 
-float4 sample_hdr_env(float3 dir, float2 texture_resolution)
+float4 sample_hdr_env(float3 dir, float2 tex_dim)
 {
     Texture2D<float4> env_texture = get_resource<Texture2D>(cb_in.hdr_env_index);
-    uint2 sample_pos = direction_to_equirect_uv(dir) * texture_resolution;
+    uint2 sample_pos = direction_to_equirect_uv(dir) * tex_dim;
     
     return env_texture[sample_pos];
 }

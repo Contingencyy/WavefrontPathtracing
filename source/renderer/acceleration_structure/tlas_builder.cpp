@@ -30,7 +30,7 @@ void tlas_builder_t::build(memory_arena_t& arena, bvh_instance_t* bvh_instances,
 		m_node_at++;
 	}
 
-	// Apply agglomerative clustering to build the tlas_t
+	// Apply agglomerative clustering to build the tlas
 	uint32_t A = 0;
 	uint32_t B = find_best_match(A, node_idx, node_indices);
 
@@ -88,7 +88,7 @@ uint32_t tlas_builder_t::find_best_match(uint32_t A, const uint32_t* indices, ui
 	float smallest_area = FLT_MAX;
 	uint32_t best_fit_idx = ~0u;
 
-	// find the combination of node at index A and any other node that yields the smallest bounding box
+	// Find the combination of node at index A and any other node that yields the smallest bounding box
 	for (size_t B = 0; B < index_count; ++B)
 	{
 		if (B != A)

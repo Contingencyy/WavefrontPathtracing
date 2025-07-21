@@ -279,8 +279,8 @@ namespace renderer
 
 				ImPlot::EndPlot();
 			}
-
-			ImGui::End();
 		}
+
+		ImGui::End();
 	}
 }

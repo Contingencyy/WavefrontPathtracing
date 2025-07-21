@@ -246,12 +246,15 @@ namespace renderer
 			params.channel_count = 4;
 			params.format = TEXTURE_FORMAT_RGBA8_SRGB;
 			params.ptr_data = (uint8_t*)(&texture_data);
+			params.debug_name = WSTRING_LITERAL(L"Default Texture Base Color/Emissive");
 			g_renderer->defaults.texture_handle_base_color = create_render_texture(params);
 			g_renderer->defaults.texture_base_color = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_base_color);
 
-			texture_data = (127 << 24) | (127 << 16) | (255 << 8) | (255 << 0);
+			// ABRG
+			texture_data = (255 << 24) | (255 << 16) | (127 << 8) | (127 << 0);
 			params.format = TEXTURE_FORMAT_RGBA8;
 			params.ptr_data = (uint8_t*)(&texture_data);
+			params.debug_name = WSTRING_LITERAL(L"Default Texture Normal");
 			g_renderer->defaults.texture_handle_normal = create_render_texture(params);
 			g_renderer->defaults.texture_normal = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_normal);
 
@@ -259,15 +262,12 @@ namespace renderer
 			params.channel_count = 2;
 			params.format = TEXTURE_FORMAT_RG8;
 			params.ptr_data = (uint8_t*)(&texture_data_16);
+			params.debug_name = WSTRING_LITERAL(L"Default Texture Metallic Roughness");
 			g_renderer->defaults.texture_handle_metallic_roughness = create_render_texture(params);
 			g_renderer->defaults.texture_metallic_roughness = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_metallic_roughness);
 
-			texture_data = 0xffffffff;
-			params.channel_count = 4;
-			params.format = TEXTURE_FORMAT_RGBA8_SRGB;
-			params.ptr_data = (uint8_t*)(&texture_data);
-			g_renderer->defaults.texture_handle_emissive = create_render_texture(params);
-			g_renderer->defaults.texture_emissive = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_emissive);
+			g_renderer->defaults.texture_handle_emissive = g_renderer->defaults.texture_handle_base_color;
+			g_renderer->defaults.texture_emissive = g_renderer->defaults.texture_emissive;
 		}
 		
 		// Create instance buffer
@@ -497,6 +497,9 @@ namespace renderer
 
 	void exit()
 	{
+		// Wait for all potential in-flight frames to finish operations on the GPU
+		d3d12::flush();
+
 		gpu_profiler_exit();
 		
 		for (uint32_t i = 0; i < d3d12::g_d3d->swapchain.back_buffer_count; ++i)
@@ -506,10 +509,6 @@ namespace renderer
 		
 		slotmap::destroy(g_renderer->texture_slotmap);
 		slotmap::destroy(g_renderer->mesh_slotmap);
-		
-		// Wait for all potential in-flight frames to finish operations on the GPU
-		d3d12::wait_on_fence(d3d12::g_d3d->sync.fence, d3d12::g_d3d->sync.fence_value);
-		d3d12::flush_uploads();
 		
 		DX_RELEASE_OBJECT(g_renderer->wavefront.command_signature);
 		
@@ -1191,6 +1190,7 @@ namespace renderer
 		render_texture.width = (uint32_t)dst_desc.Width;
 		render_texture.height = dst_desc.Height;
 		render_texture.depth = dst_desc.DepthOrArraySize;
+		ARENA_COPY_WSTR(g_renderer->arena, texture_params.debug_name, render_texture.debug_name);
 		d3d12::create_texture_2d_srv(render_texture.texture_buffer, render_texture.texture_srv, 0);
 
 		render_texture_handle_t handle = slotmap::add(g_renderer->texture_slotmap, render_texture);

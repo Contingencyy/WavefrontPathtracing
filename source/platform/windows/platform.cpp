@@ -19,7 +19,7 @@ namespace platform
 	static FILE* s_file_stdout;
 	static FILE* s_file_stderr;
 	
-	static inline void console_create()
+	static void console_create()
 	{
 		bool result = AllocConsole();
 		if (!result)
@@ -31,7 +31,7 @@ namespace platform
 		s_file_stderr = freopen("conout$", "w", stderr);
 	}
 
-	static inline void console_destroy()
+	static void console_destroy()
 	{
 		fclose(s_file_stdin);
 		fclose(s_file_stdout);

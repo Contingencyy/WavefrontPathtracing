@@ -150,6 +150,10 @@ namespace d3d12
 		g_d3d->sync.fence = create_fence(L"Frame Fence");
 		g_d3d->sync.fence_value = 0ull;
 
+		// Set up device removal handling
+		g_d3d->device_removed_event = ::CreateEvent(NULL, FALSE, FALSE, "Device Removed Event Handle");
+		DX_CHECK_HR(g_d3d->sync.fence->SetEventOnCompletion(UINT64_MAX, g_d3d->device_removed_event));
+
 		// Initialize descriptor heaps, descriptor allocation
 		g_d3d->descriptor_heaps.heap_sizes.rtv = g_d3d->swapchain.back_buffer_count;
 		g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav = 1024;
@@ -174,7 +178,7 @@ namespace d3d12
 		DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&g_d3d->shader_compiler.dxc_utils));
 		g_d3d->shader_compiler.dxc_utils->CreateDefaultIncludeHandler(&g_d3d->shader_compiler.dxc_include_handler);
 
-		// Initialize Dear ImGui
+		// Initialize ImGui/ImPlot/ImGuizmo
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		ImPlot::CreateContext();
@@ -256,26 +260,36 @@ namespace d3d12
 	{
 		LOG_INFO("D3D12", "Exit");
 
-		exit_queries();
-		destroy_frame_contexts();
-		destroy_upload_context();
-		exit_descriptors();
-
+		// ImGui/ImPlot/ImGuizmo
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImPlot::DestroyContext();
 		ImGui::DestroyContext();
+
+		::CloseHandle(g_d3d->device_removed_event);
+
+		exit_queries();
+		destroy_frame_contexts();
+		destroy_upload_context();
+		exit_descriptors();
 	}
 
 	void begin_frame()
 	{
 		frame_context_t& frame_ctx = get_frame_context();
 
+		// Handle device removal event being triggered, and display the device removal reason
+		if (::WaitForSingleObject(g_d3d->device_removed_event, 0) == WAIT_OBJECT_0)
+		{
+			FATAL_ERROR("D3D12", "Device Removed Reason: %s", get_hr_message(g_d3d->device->GetDeviceRemovedReason()));
+		}
+
 		// Wait for in-flight frame for the current back buffer
 		wait_on_fence(g_d3d->sync.fence, frame_ctx.fence_value);
 		reset_frame_context();
 		reset_queries();
 
+		// ImGui/ImPlot/ImGuizmo
 		ImGui_ImplWin32_NewFrame();
 		ImGui_ImplDX12_NewFrame();
 		ImGui::NewFrame();
@@ -464,6 +478,7 @@ namespace d3d12
 
 		if (fence->GetCompletedValue() < wait_on_fence_value)
 		{
+			// If hEvent parameter of ID3D12Fence::SetEventOnCompletion is NULL, it will wait until the fence reached that value
 			DX_CHECK_HR(fence->SetEventOnCompletion(wait_on_fence_value, NULL));
 		}
 	}

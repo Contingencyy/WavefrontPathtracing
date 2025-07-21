@@ -17,6 +17,7 @@ namespace d3d12
 
 		IDXGIAdapter4* dxgi_adapter;
 		ID3D12Device14* device;
+		HANDLE device_removed_event;
 		ID3D12CommandQueue* command_queue_direct;
 
 		bool vsync;
