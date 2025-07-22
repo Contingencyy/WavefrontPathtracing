@@ -15,10 +15,12 @@ namespace d3d12
 	{
 		memory_arena_t arena;
 
+		IDXGIFactory7* dxgi_factory;
 		IDXGIAdapter4* dxgi_adapter;
 		ID3D12Device14* device;
 		HANDLE device_removed_event;
 		ID3D12CommandQueue* command_queue_direct;
+		DWORD callback_cookie;
 
 		bool vsync;
 

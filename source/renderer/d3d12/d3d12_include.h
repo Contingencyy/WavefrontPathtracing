@@ -2,6 +2,7 @@
 
 #include "d3d12.h"
 #include "dxgi1_6.h"
+#include "dxgidebug.h"
 #include "dxcompiler/inc/d3d12shader.h"
 #include "dxcompiler/inc/dxcapi.h"
 
@@ -12,10 +13,15 @@
 #define D3D12_GPU_BASED_VALIDATION 0
 #define D3D12_MAP_FULL_RANGE ~0ull
 
-inline void dx_check_hr(int32_t Line, const char* File, HRESULT HR)
+inline bool dx_check_hr(int32_t Line, const char* File, HRESULT HR)
 {
 	if (FAILED(HR))
+	{
 		_fatal_error(Line, File, "DX12 Backend", get_hr_message(HR));
+		return false;
+	}
+
+	return true;
 }
 
 #define DX_CHECK_HR(hr) dx_check_hr(__LINE__, __FILE__, hr)

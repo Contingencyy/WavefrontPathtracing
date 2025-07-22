@@ -26,6 +26,19 @@ namespace d3d12
 
 	d3d12_instance_t* g_d3d = nullptr;
 
+	static void d3d12_message_callback(D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity,
+		D3D12_MESSAGE_ID id, LPCSTR description, void* context)
+	{
+		switch (severity)
+		{
+		case D3D12_MESSAGE_SEVERITY_MESSAGE:	LOG_VERBOSE("D3D12", description); break;
+		case D3D12_MESSAGE_SEVERITY_INFO:		LOG_INFO("D3D12", description); break;
+		case D3D12_MESSAGE_SEVERITY_WARNING:	LOG_WARN("D3D12", description); break;
+		case D3D12_MESSAGE_SEVERITY_ERROR:		LOG_ERR("D3D12", description); break;
+		case D3D12_MESSAGE_SEVERITY_CORRUPTION: LOG_ERR("D3D12", description); break;
+		}
+	}
+
 	void init(const init_params_t& init_params)
 	{
 		LOG_INFO("D3D12", "Init");
@@ -53,8 +66,7 @@ namespace d3d12
 #endif
 
 		// Create factory
-		IDXGIFactory7* dxgi_factory7 = nullptr;
-		DX_CHECK_HR(CreateDXGIFactory2(factory_create_flags, IID_PPV_ARGS(&dxgi_factory7)));
+		DX_CHECK_HR(CreateDXGIFactory2(factory_create_flags, IID_PPV_ARGS(&g_d3d->dxgi_factory)));
 
 		// Select adapter
 		D3D_FEATURE_LEVEL d3d_min_feature_level = D3D_FEATURE_LEVEL_12_2;
@@ -62,7 +74,7 @@ namespace d3d12
 		IDXGIAdapter1* dxgi_adapter1 = nullptr;
 		uint64_t max_dedicated_video_mem = 0;
 
-		for (uint32_t adapter_idx = 0; dxgi_factory7->EnumAdapters1(adapter_idx, &dxgi_adapter1) != DXGI_ERROR_NOT_FOUND; ++adapter_idx)
+		for (uint32_t adapter_idx = 0; g_d3d->dxgi_factory->EnumAdapters1(adapter_idx, &dxgi_adapter1) != DXGI_ERROR_NOT_FOUND; ++adapter_idx)
 		{
 			DXGI_ADAPTER_DESC1 dxgi_adapter_desc = {};
 			DX_CHECK_HR(dxgi_adapter1->GetDesc1(&dxgi_adapter_desc));
@@ -102,16 +114,19 @@ namespace d3d12
 
 #ifdef _DEBUG
 		// Set info queue behavior and filters
-		ID3D12InfoQueue* d3d12_info_queue = nullptr;
+		ID3D12InfoQueue1* d3d12_info_queue = nullptr;
 		DX_CHECK_HR(g_d3d->device->QueryInterface(IID_PPV_ARGS(&d3d12_info_queue)));
 		DX_CHECK_HR(d3d12_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE));
 		DX_CHECK_HR(d3d12_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE));
 		DX_CHECK_HR(d3d12_info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE));
+		
+		// Callback cookie is used for UnregisterMessageCallback
+		DX_CHECK_HR(d3d12_info_queue->RegisterMessageCallback(d3d12_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &g_d3d->callback_cookie));
 #endif
-
+		
 		// Check for tearing support
 		BOOL allow_tearing = FALSE;
-		DX_CHECK_HR(dxgi_factory7->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(BOOL)));
+		DX_CHECK_HR(g_d3d->dxgi_factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(BOOL)));
 		g_d3d->swapchain.supports_tearing = (allow_tearing == TRUE);
 
 		// Create swap chain command queue
@@ -141,9 +156,9 @@ namespace d3d12
 		swapchain_desc.Flags = g_d3d->swapchain.supports_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 		IDXGISwapChain1* dxgi_swapchain1 = nullptr;
-		DX_CHECK_HR(dxgi_factory7->CreateSwapChainForHwnd(g_d3d->command_queue_direct, hwnd, &swapchain_desc, nullptr, nullptr, &dxgi_swapchain1));
+		DX_CHECK_HR(g_d3d->dxgi_factory->CreateSwapChainForHwnd(g_d3d->command_queue_direct, hwnd, &swapchain_desc, nullptr, nullptr, &dxgi_swapchain1));
 		DX_CHECK_HR(dxgi_swapchain1->QueryInterface(&g_d3d->swapchain.dxgi_swapchain));
-		DX_CHECK_HR(dxgi_factory7->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
+		DX_CHECK_HR(g_d3d->dxgi_factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
 		g_d3d->swapchain.back_buffer_index = g_d3d->swapchain.dxgi_swapchain->GetCurrentBackBufferIndex();
 
 		// Create fence and fence event
@@ -260,6 +275,13 @@ namespace d3d12
 	{
 		LOG_INFO("D3D12", "Exit");
 
+#ifdef _DEBUG
+		// Set info queue behavior and filters
+		ID3D12InfoQueue1* d3d12_info_queue = nullptr;
+		DX_CHECK_HR(g_d3d->device->QueryInterface(IID_PPV_ARGS(&d3d12_info_queue)));
+		d3d12_info_queue->UnregisterMessageCallback(g_d3d->callback_cookie);
+#endif
+
 		// ImGui/ImPlot/ImGuizmo
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
@@ -272,6 +294,28 @@ namespace d3d12
 		destroy_frame_contexts();
 		destroy_upload_context();
 		exit_descriptors();
+
+		release_object(g_d3d->swapchain.dxgi_swapchain);
+		release_object(g_d3d->sync.fence);
+		release_object(g_d3d->descriptor_heaps.rtv);
+		release_object(g_d3d->descriptor_heaps.cbv_srv_uav);
+		release_object(g_d3d->shader_compiler.dx_compiler);
+		release_object(g_d3d->shader_compiler.dxc_utils);
+		release_object(g_d3d->shader_compiler.dxc_include_handler);
+		release_object(g_d3d->immediate.fence);
+		release_object(g_d3d->immediate.command_allocator);
+		release_object(g_d3d->immediate.command_list);
+		release_object(g_d3d->command_queue_direct);
+
+		release_object(g_d3d->dxgi_adapter);
+		//release_object(g_d3d->device);
+		//release_object(g_d3d->dxgi_factory);
+
+		/*IDXGIDebug1* dxgi_debug = nullptr;
+		if (DX_CHECK_HR(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgi_debug))))
+		{
+			DX_CHECK_HR(dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL));
+		}*/
 	}
 
 	void begin_frame()
@@ -422,7 +466,7 @@ namespace d3d12
 		flush_uploads();
 	}
 
-	void release_object(ID3D12Object* object)
+	void release_object(IUnknown* object)
 	{
 		DX_RELEASE_OBJECT(object);
 		object = nullptr;

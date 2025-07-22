@@ -22,7 +22,7 @@ namespace d3d12
 	void present();
 
 	void flush();
-	void release_object(ID3D12Object* object);
+	void release_object(IUnknown* object);
 
 	ID3D12CommandQueue* create_command_queue(const wchar_t* debug_name, D3D12_COMMAND_LIST_TYPE type);
 	ID3D12CommandAllocator* create_command_allocator(const wchar_t* debug_name, D3D12_COMMAND_LIST_TYPE type);

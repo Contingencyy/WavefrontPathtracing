@@ -2,8 +2,6 @@
 #include "core/common.h"
 #include "core/string/string.h"
 
-#include <iostream>
-
 namespace logger
 {
 
@@ -43,14 +41,14 @@ namespace logger
 
 			va_end(args);
 
-			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s][%s] %s", log_severity_to_string(severity), sender, string::make_nullterm(arena_scratch, formatted_log_message));
-			std::cout << string::make_nullterm(arena_scratch, full_log_message) << std::endl;
+			string_t full_log_message = ARENA_PRINTF(arena_scratch, "[%s][%s] %.*s", log_severity_to_string(severity), sender, STRING_EXPAND(formatted_log_message));
+			printf("%.*s\n", STRING_EXPAND(full_log_message));
 		}
 	}
 
 }
 
-#define LOG_VERBOSE(...) logger::log(logger::LOG_SEVERITY_VERBOSE, __VA_ARGS__)
-#define LOG_INFO(...)	 logger::log(logger::LOG_SEVERITY_INFO,    __VA_ARGS__)
-#define LOG_WARN(...)	 logger::log(logger::LOG_SEVERITY_WARN,	  __VA_ARGS__)
-#define LOG_ERR(...)	 logger::log(logger::LOG_SEVERITY_ERROR,	  __VA_ARGS__)
+#define LOG_VERBOSE(...) logger::log(logger::LOG_SEVERITY_VERBOSE,	__VA_ARGS__)
+#define LOG_INFO(...)	 logger::log(logger::LOG_SEVERITY_INFO,		__VA_ARGS__)
+#define LOG_WARN(...)	 logger::log(logger::LOG_SEVERITY_WARN,		__VA_ARGS__)
+#define LOG_ERR(...)	 logger::log(logger::LOG_SEVERITY_ERROR,	__VA_ARGS__)

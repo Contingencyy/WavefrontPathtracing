@@ -9,36 +9,58 @@
 #include "imgui/imgui_impl_win32.h"
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT Message, WPARAM WParam, LPARAM LParam);
 
+#include <io.h>
+#include <fcntl.h>
+
 namespace platform
 {
 
-	static HWND s_hwnd = {};
-	static LONGLONG s_perf_frequency = 0;
+	struct internal_t
+	{
+		HWND hwnd;
+		LONGLONG perf_freq;
 
-	static FILE* s_file_stdin;
-	static FILE* s_file_stdout;
-	static FILE* s_file_stderr;
+		HANDLE conin;
+		HANDLE conout;
+
+		FILE* filein;
+		FILE* fileout;
+		FILE* fileerr;
+	} static internal;
 	
 	static void console_create()
 	{
-		bool result = AllocConsole();
-		if (!result)
+		if (!AllocConsole())
 			FATAL_ERROR("Console", "Failed to allocate console");
 
 		SetConsoleTitle("Wavefront Pathtracer Console");
-		s_file_stdin = freopen("conin$", "r", stdin);
-		s_file_stdout = freopen("conout$", "w", stdout);
-		s_file_stderr = freopen("conout$", "w", stderr);
+		freopen_s(&internal.filein, "CONIN$", "r", stdin);
+		freopen_s(&internal.fileout, "CONOUT$", "w", stdout);
+		freopen_s(&internal.fileerr, "CONOUT$", "w", stderr);
+
+		/*HANDLE handle_con_in = CreateFile("CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		HANDLE handle_con_out = CreateFile("CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);*/
+
+		SetStdHandle(STD_INPUT_HANDLE, internal.filein);
+		SetStdHandle(STD_OUTPUT_HANDLE, internal.fileout);
+		SetStdHandle(STD_ERROR_HANDLE, internal.fileerr);
+
+		internal.conin = GetStdHandle(STD_INPUT_HANDLE);
+		internal.conout = GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
 	static void console_destroy()
 	{
-		fclose(s_file_stdin);
-		fclose(s_file_stdout);
-		fclose(s_file_stderr);
+		/*DeleteFile("CONIN$");
+		DeleteFile("CONOUT$");*/
 
-		bool result = FreeConsole();
-		if (!result)
+		fclose(internal.filein);
+		fclose(internal.fileout);
+		fclose(internal.fileerr);
+
+		if (!FreeConsole())
 			FATAL_ERROR("Console", "Failed to free console");
 	}
 	
@@ -103,7 +125,7 @@ namespace platform
 	void window_get_client_area(int32_t& out_window_width, int32_t& out_window_height)
 	{
 		RECT client_rect = {};
-		GetClientRect(s_hwnd, &client_rect);
+		GetClientRect(internal.hwnd, &client_rect);
 
 		out_window_width = client_rect.right - client_rect.left;
 		out_window_height = client_rect.bottom - client_rect.top;
@@ -112,10 +134,10 @@ namespace platform
 	void window_get_center(int32_t& out_centerX, int32_t& out_centerY)
 	{
 		RECT window_rect = {};
-		GetWindowRect(s_hwnd, &window_rect);
+		GetWindowRect(internal.hwnd, &window_rect);
 
 		RECT client_rect = {};
-		GetClientRect(s_hwnd, &client_rect);
+		GetClientRect(internal.hwnd, &client_rect);
 
 		client_rect.left = window_rect.left;
 		client_rect.right += window_rect.left;
@@ -136,10 +158,10 @@ namespace platform
 	void window_set_capture_mouse(bool capture)
 	{
 		RECT window_rect = {};
-		GetWindowRect(s_hwnd, &window_rect);
+		GetWindowRect(internal.hwnd, &window_rect);
 
 		RECT client_rect = {};
-		GetClientRect(s_hwnd, &client_rect);
+		GetClientRect(internal.hwnd, &client_rect);
 
 		client_rect.left = window_rect.left;
 		client_rect.right += window_rect.left;
@@ -186,7 +208,7 @@ namespace platform
 	double get_elapsed_seconds(timer_t begin, timer_t end)
 	{
 		ASSERT(begin.val <= end.val);
-		return (double)(end.val - begin.val) / (double)s_perf_frequency;
+		return (double)(end.val - begin.val) / (double)internal.perf_freq;
 	}
 
 	void window_create(int32_t desired_width, int32_t desired_height)
@@ -229,16 +251,16 @@ namespace platform
 		int32_t windowX = glm::max(0, (screen_width - window_width) / 2);
 		int32_t windowY = glm::max(0, (screen_height - window_height) / 2);
 		
-		s_hwnd = CreateWindowExW(
+		internal.hwnd = CreateWindowExW(
 			0, L"WavefrontPathtracerWindowClass", L"Wavefront Pathtracer", WS_OVERLAPPEDWINDOW,
 			windowX, windowY, window_width, window_height,
 			NULL, NULL, NULL, NULL
 		);
 
-		if (!s_hwnd)
+		if (!internal.hwnd)
 			FATAL_ERROR("Window", "Failed to create window");
 
-		ShowWindow(s_hwnd, TRUE);
+		ShowWindow(internal.hwnd, TRUE);
 	}
 
 	void fatal_error(int32_t line, const char* error_msg)
@@ -356,7 +378,7 @@ namespace platform
 		{
 			FATAL_ERROR("Platform", "Failed call to QueryPerformanceFrequency");
 		}
-		s_perf_frequency = freq.QuadPart; // / 1000.0; // for milliseconds
+		internal.perf_freq = freq.QuadPart; // / 1000.0; // for milliseconds
 
 		console_create();
 	}

@@ -1018,7 +1018,7 @@ namespace renderer
 			// GPU timestamps increase when vsync is enabled. Seems that the driver is doing stalls related to VSync that affect timings
 			// See https://gamedev.net/forums/topic/706827-issue-with-directx12-timestamps/
 			ImGui::Checkbox("VSync", &d3d12::g_d3d->vsync);
-			ImGui::SetItemTooltip("When VSync is enabled, GPU timers cannot be trusted because depending on hardware/drivers,"
+			ImGui::SetItemTooltip("When VSync is enabled, GPU timers cannot be trusted because depending on hardware/drivers, "
 						 "any stalls introduced by VSync might affect them.");
 			ImGui::Text("Accumulator: %u", g_renderer->accum_count);
 

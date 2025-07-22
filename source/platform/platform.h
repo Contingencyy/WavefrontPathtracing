@@ -18,7 +18,7 @@ namespace platform
     bool window_poll_events();
     void window_reset_mouse_to_center();
     void window_get_center(int32_t& out_centerX, int32_t& out_centerY);
-	
+
     timer_t get_ticks();
     double get_elapsed_seconds(timer_t begin, timer_t end);
 

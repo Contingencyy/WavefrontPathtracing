@@ -2,6 +2,7 @@
 #include "d3d12_query.h"
 #include "d3d12_common.h"
 #include "d3d12_resource.h"
+#include "d3d12_backend.h"
 
 namespace d3d12
 {
@@ -39,10 +40,10 @@ namespace d3d12
         for (uint32_t i = 0; i < g_d3d->swapchain.back_buffer_count; ++i)
         {
             frame_context_t& frame_ctx = g_d3d->frame_ctx[i];
-            DX_RELEASE_OBJECT(frame_ctx.readback_buffer_timestamps);
+            release_object(frame_ctx.readback_buffer_timestamps);
         }
         
-        DX_RELEASE_OBJECT(g_d3d->queries.timestamp_heap);
+        release_object(g_d3d->queries.timestamp_heap);
     }
 
     void reset_queries()

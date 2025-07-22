@@ -46,7 +46,9 @@ namespace d3d12
 			// Destroy per-frame linear allocator and resource
 			linear_alloc::destroy(frame_ctx.frame_linear_allocator);
 			unmap_resource(frame_ctx.frame_allocator_resource);
-			DX_RELEASE_OBJECT(frame_ctx.frame_allocator_resource);
+			release_object(frame_ctx.frame_allocator_resource);
+			release_object(frame_ctx.command_allocator);
+			release_object(frame_ctx.command_list);
 		}
 	}
 
