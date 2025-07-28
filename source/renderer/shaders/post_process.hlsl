@@ -39,7 +39,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     float4 color_accum = texture_color_accum[pixel_pos];
     float sample_weight = 1.0f / cb_in.sample_count;
 
-    if (cb_settings.accumulate)
+    if (cb_settings.accumulate && cb_settings.render_view_mode == RENDER_VIEW_MODE_NONE)
     {
         texture_color_accum[pixel_pos] = color_accum * (1.0f - sample_weight) + float4(energy, 1.0) * sample_weight;
     }
@@ -51,12 +51,15 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     // Write final LDR color
     RWTexture2D<float4> texture_color_final = get_resource<RWTexture2D<float4> >(cb_in.texture_color_final_index);
     float4 final_color = texture_color_accum[pixel_pos];
+
+    if (cb_settings.render_view_mode == RENDER_VIEW_MODE_NONE)
+    {
+        // Apply tone mapping
+        final_color.xyz = final_color.xyz / (1.0f + final_color.xyz);
     
-    // Apply tone mapping
-    final_color.xyz = final_color.xyz / (1.0f + final_color.xyz);
-    
-    // Convert from linear to sRGB
-    final_color.xyz = linear_to_srgb(final_color.xyz);
+        // Convert from linear to sRGB
+        final_color.xyz = linear_to_srgb(final_color.xyz);
+    }
     
     texture_color_final[pixel_pos] = final_color;
 }

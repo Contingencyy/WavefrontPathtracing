@@ -14,6 +14,17 @@
 #define float4x4 glm::mat4
 #endif
 
+#define RENDER_VIEW_MODE_NONE							0
+#define RENDER_VIEW_MODE_GEOMETRY_INSTANCE				(RENDER_VIEW_MODE_NONE + 1)
+#define RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE				(RENDER_VIEW_MODE_GEOMETRY_INSTANCE + 1)
+#define RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS			(RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE + 1)
+#define RENDER_VIEW_MODE_MATERIAL_BASE_COLOR			(RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS + 1)
+#define RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS	(RENDER_VIEW_MODE_MATERIAL_BASE_COLOR + 1)
+#define RENDER_VIEW_MODE_MATERIAL_EMISSIVE				(RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS + 1)
+#define RENDER_VIEW_MODE_WORLD_NORMAL					(RENDER_VIEW_MODE_MATERIAL_EMISSIVE + 1)
+#define RENDER_VIEW_MODE_RENDER_TARGET_DEPTH			(RENDER_VIEW_MODE_WORLD_NORMAL + 1)
+#define RENDER_VIEW_MODE_COUNT							(RENDER_VIEW_MODE_RENDER_TARGET_DEPTH + 1)
+
 struct render_settings_shader_data_t
 {
 	uint use_wavefront_pathtracing;
@@ -22,6 +33,8 @@ struct render_settings_shader_data_t
 	uint max_bounces;
 	uint cosine_weighted_diffuse;
 	uint accumulate;
+
+	float hdr_env_strength;
 };
 
 struct view_shader_data_t
@@ -32,12 +45,15 @@ struct view_shader_data_t
     float4x4 clip_to_view;  // Inverse projection matrix
 
     float2 render_dim; // Render dimensions/resolution in pixels
+	float near_plane;
+	float far_plane;
 };
 
 struct vertex_t
 {
 	float3 position;
 	float3 normal;
+	float4 tangent;
 	float2 tex_coord;
 };
 

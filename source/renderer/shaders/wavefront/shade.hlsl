@@ -1,5 +1,7 @@
 #include "../common.hlsl"
 #include "../sample.hlsl"
+#include "../material.hlsl"
+#include "../brdf.hlsl"
 
 struct shader_input_t
 {
@@ -19,14 +21,6 @@ struct shader_input_t
 };
 
 ConstantBuffer<shader_input_t> cb_in : register(b2, space0);
-
-bool intersection_result_valid(intersection_result_t intersection_result)
-{
-    return (
-        intersection_result.instance_idx != INSTANCE_IDX_INVALID &&
-        intersection_result.primitive_idx != PRIMITIVE_IDX_INVALID
-    );
-}
 
 float4 sample_hdr_env(float3 dir, float2 tex_dim)
 {
@@ -65,140 +59,101 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     [branch]
     if (!intersection_result_valid(intersection_result))
     {
-        energy += sample_hdr_env(ray.Direction, float2(cb_in.texture_hdr_env_width, cb_in.texture_hdr_env_height)).xyz * throughput;
+        float3 hdr_env_color = sample_hdr_env(ray.Direction, float2(cb_in.texture_hdr_env_width, cb_in.texture_hdr_env_height)).xyz;
+        energy += throughput * cb_settings.hdr_env_strength * hdr_env_color;
         terminate_path = true;
     }
 
-    ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(cb_in.buffer_instance_index);
-    instance_data_t instance = load_instance(instance_buffer, intersection_result.instance_idx);
+    hit_surface_t hit_surface = get_hit_surface(intersection_result, cb_in.buffer_instance_index);
+    sampled_material_t sampled_material = sample_material(hit_surface.instance.material, hit_surface.tex_coord);
     
-    ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(instance.triangle_buffer_idx);
-    triangle_t hit_tri = load_triangle(triangle_buffer, intersection_result.primitive_idx);
-    
+    [branch]
+    if (any(sampled_material.emissive_color) > 0.0)
+    {
+        energy += throughput * sampled_material.emissive_color;
+        terminate_path = true;
+    }
+
     [branch]
     if (!terminate_path)
     {
-        Texture2D<float4> base_color_texture = get_resource<Texture2D>(instance.material.base_color_index);
-        float2 tex_coord = triangle_interpolate(hit_tri.v0.tex_coord, hit_tri.v1.tex_coord, hit_tri.v2.tex_coord, intersection_result.bary);
-        energy += base_color_texture.Sample(sampler_linear_wrap, tex_coord).xyz * throughput;
-    }
-    
-    //[branch]
-    //if (instance.material.emissive)
-    //{
-    //    energy += instance.material.emissive_color * instance.material.emissive_intensity * throughput;
-    //    terminate_path = true;
-    //}
+        uint seed = cb_in.random_seed + dispatch_id.x;
+        float r_path = rand_float(seed);
 
-    //[branch]
-    //if (!terminate_path)
-    //{
-    //    ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(instance.triangle_buffer_idx);
-    //    triangle_t hit_tri = load_triangle(triangle_buffer, intersection_result.primitive_idx);
-    
-    //    float3 hit_pos = ray.Origin + ray.Direction * intersection_result.t;
-    //    float3 hit_normal = triangle_interpolate(hit_tri.v0.normal, hit_tri.v1.normal, hit_tri.v2.normal, intersection_result.bary);
-    //    hit_normal = normalize(mul(float4(hit_normal, 0.0f), instance.local_to_world).xyz);
+        float3 V = -ray.Direction;
+        float3 F0 = float3(0.04, 0.04, 0.04);
+        F0 = lerp(F0, sampled_material.base_color, sampled_material.metallic);
+        float specular_probability = max(F0.x, max(F0.y, F0.z));
+        bool specular_bounce = r_path <= specular_probability;
         
-    //    uint seed = cb_in.random_seed + dispatch_id.x;
-    //    float r = rand_float(seed);
+        /*[branch]
+        if (specular_bounce)
+        {
+            float2 r_spec = float2(rand_float(seed), rand_float(seed));
+            
+            float3 N = hit_surface.normal;
+            float3 L = sample_ggxv_ndf(V, sampled_material.roughness, r_spec.x, r_spec.y);
+            float3 H = normalize(V + L);
+            
+            float NoL = max(0.0, dot(N, L));
+            float HoV = max(0.0, dot(H, V));
+            
+            float G1_NoL = G1_Smith(NoL, sampled_material.roughness);
+            float3 F = F_Schlick(HoV, F0);
+            throughput *= (G1_NoL * F) / specular_probability;
+            ray = make_ray(hit_surface.position, L);
+        }
+        else*/
+        {
+            float r_diffuse = rand_float(seed);
+            
+            float3 N = hit_surface.normal;
+            float3 L;
+            float pdf;
+            
+            if (cb_settings.cosine_weighted_diffuse)
+            {
+                L = cosine_weighted_hemisphere_sample(N, r_diffuse);
+            }
+            else
+            {
+                L = uniform_hemisphere_sample(N, r_diffuse);
+            }
+            
+            float NoL = max(0.0, dot(N, L));
 
-    //    // Specular path
-    //    [branch]
-    //    if (r < instance.material.specular)
-    //    {
-    //        float3 reflect_dir = reflect(ray.Direction, hit_normal);
-    //        ray = make_ray(hit_pos + reflect_dir * RAY_NUDGE_MULTIPLIER, reflect_dir);
-            
-    //        throughput *= instance.material.albedo;
-    //    }
-    //    // Refract path
-    //    else if (r < instance.material.specular + instance.material.refractivity)
-    //    {
-    //        float3 N = hit_normal;
-    //        float cosi = clamp(dot(N, ray.Direction), -1.0f, 1.0f);
-    //        float etai = 1.0f, etat = instance.material.ior;
-            
-    //        float Fr = 1.0f;
-    //        bool inside = true;
-            
-    //        // Figure out if we are currently inside or outside the object we have hit
-    //        if (cosi < 0.0f)
-    //        {
-    //            cosi = -cosi;
-    //            inside = false;
-    //        }
-    //        else
-    //        {
-    //            float temp = etai;
-    //            etai = etat;
-    //            etat = temp;
-    //            N = -N;
-    //        }
-            
-    //        float eta = etai / etat;
-    //        float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
-            
-    //        // Follow either the reflected/specular or refracted path
-    //        if (k >= 0.0f)
-    //        {
-    //            float3 refract_dir = refract(ray.Direction, N, eta, cosi, k);
-    //            float cos_in = dot(ray.Direction, hit_normal);
-    //            float cos_out = dot(refract_dir, hit_normal);
-                
-    //            Fr = fresnel(cos_in, cos_out, etai, etat);
-                
-    //            if (rand_float(seed) > Fr)
-    //            {
-    //                throughput *= instance.material.albedo;
-                    
-    //                if (inside)
-    //                {
-    //                    float3 absorption = float3(
-    //                        exp(-instance.material.absorption.x * intersection_result.t),
-    //                        exp(-instance.material.absorption.y * intersection_result.t),
-    //                        exp(-instance.material.absorption.z * intersection_result.t)
-    //                    );
-    //                    throughput *= absorption;
-    //                }
-                    
-    //                ray = make_ray(hit_pos + refract_dir * RAY_NUDGE_MULTIPLIER, refract_dir);
-    //            }
-    //            else
-    //            {
-    //                float3 reflect_dir = reflect(ray.Direction, hit_normal);
-    //                ray = make_ray(hit_pos + reflect_dir * RAY_NUDGE_MULTIPLIER, reflect_dir);
-    //                throughput *= instance.material.albedo;
-    //            }
-    //        }
-    //    }
-    //    // Diffuse path
-    //    else
-    //    {
-    //        float2 random_sample = float2(rand_float(seed), rand_float(seed));
-    //        float3 diffuse_dir = (float3) 0;
-    //        float hemisphere_pdf = 0.0f;
-            
-    //        if (cb_settings.cosine_weighted_diffuse)
-    //        {
-    //            cosine_weighted_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
-    //        }
-    //        else
-    //        {
-    //            uniform_hemisphere_sample(hit_normal, random_sample, diffuse_dir, hemisphere_pdf);
-    //        }
-            
-    //        float3 diffuse_brdf = instance.material.albedo * INV_PI;
-    //        float NdotR = max(dot(diffuse_dir, hit_normal), 0.0f);
-            
-    //        ray = make_ray(hit_pos + diffuse_dir * RAY_NUDGE_MULTIPLIER, diffuse_dir);
-    //        throughput *= (NdotR * diffuse_brdf) * (1.0 / hemisphere_pdf);
-    //    }
-    //}
+            if (cb_settings.cosine_weighted_diffuse)
+            {
+                pdf = cosine_weighted_hemisphere_pdf(NoL);
+            }
+            else
+            {
+                pdf = uniform_hemisphere_pdf();
+            }
+
+            float3 diffuse_brdf = sampled_material.base_color * INV_PI;
+            throughput *= (NoL * diffuse_brdf) * (1.0 / pdf);// * (1.0 - specular_probability);
+            ray = make_ray(hit_surface.position, L);
+        }
+    }
+
+    switch (cb_settings.render_view_mode)
+    {
+    case RENDER_VIEW_MODE_GEOMETRY_INSTANCE:            energy = int_to_color(intersection_result.instance_idx); break;
+    case RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE:           energy = int_to_color(intersection_result.primitive_idx); break;
+    case RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS:        energy = float3(intersection_result.bary, 0.0); break;
+    case RENDER_VIEW_MODE_MATERIAL_BASE_COLOR:          energy = sampled_material.base_color; break;
+    case RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS:  energy = float3(0.0, sampled_material.roughness, sampled_material.metallic); break;
+    case RENDER_VIEW_MODE_MATERIAL_EMISSIVE:            energy = sampled_material.emissive_color; break;
+    case RENDER_VIEW_MODE_WORLD_NORMAL:                 energy = abs(hit_surface.normal); break;
+    case RENDER_VIEW_MODE_RENDER_TARGET_DEPTH:          energy = float3(intersection_result.t, intersection_result.t, intersection_result.t) / cb_view.far_plane;
+    }
     
     // Write new ray to output buffer if we need to do another recursion
     [branch]
-    if (cb_in.recursion_depth < cb_settings.max_bounces && !terminate_path)
+    if (!terminate_path &&
+        cb_in.recursion_depth < cb_settings.max_bounces &&
+        cb_settings.render_view_mode == RENDER_VIEW_MODE_NONE)
     {
         // Update indirect args for next recursion
         uint write_offset;

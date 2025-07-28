@@ -301,5 +301,7 @@
     <FxCompile Include="source\renderer\shaders\wavefront\shade.hlsl" />
     <FxCompile Include="source\renderer\shaders\wavefront\clear_buffers.hlsl" />
     <FxCompile Include="source\renderer\shaders\wavefront\init_args.hlsl" />
+    <FxCompile Include="source\renderer\shaders\material.hlsl" />
+    <FxCompile Include="source\renderer\shaders\brdf.hlsl" />
   </ItemGroup>
 </Project>

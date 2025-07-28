@@ -27,6 +27,7 @@
 #define RANDOM_USE_WANG_HASH 1
 #define RANDOM_USE_XOR_SHIFT !RANDOM_USE_WANG_HASH
 
+#define SMALL_FLOAT 1e-8
 #define INTERSECT_EPSILON 1e-8
 #define TRIANGLE_BACKFACE_CULLING 1
 
@@ -105,12 +106,6 @@ instance_data_t load_instance(ByteAddressBuffer buffer, uint instance_idx)
     uint byte_offset = sizeof(instance_data_t) * instance_idx;
     instance_data_t instance_data = buffer.Load<instance_data_t>(byte_offset);
     return instance_data;
-}
-
-template<typename T>
-T triangle_interpolate(T v0, T v1, T v2, float2 bary)
-{
-    return v0 + bary.x * (v1 - v0) + bary.y * (v2 - v0);
 }
 
 struct hit_result_t
@@ -216,6 +211,50 @@ RayDesc raydesc2_to_raydesc(RayDesc2 ray_desc2)
 }
 #endif
 
+bool intersection_result_valid(intersection_result_t intersection_result)
+{
+    return (
+        intersection_result.instance_idx != INSTANCE_IDX_INVALID &&
+        intersection_result.primitive_idx != PRIMITIVE_IDX_INVALID
+    );
+}
+
+template<typename T>
+T interpolate(T v0, T v1, T v2, float2 bary)
+{
+    return v0 + bary.x * (v1 - v0) + bary.y * (v2 - v0);
+}
+
+struct hit_surface_t
+{
+    float3 position;
+    float3 normal;
+    float2 tex_coord;
+
+    instance_data_t instance;
+};
+
+hit_surface_t get_hit_surface(intersection_result_t intersection_result, uint buffer_instance_index)
+{
+    ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(buffer_instance_index);
+    instance_data_t instance = load_instance(instance_buffer, intersection_result.instance_idx);
+
+    ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(instance.triangle_buffer_idx);
+    triangle_t hit_tri = load_triangle(triangle_buffer, intersection_result.primitive_idx);
+    
+    hit_surface_t hit_surface = (hit_surface_t) 0;
+    hit_surface.position = interpolate(hit_tri.v0.position, hit_tri.v1.position, hit_tri.v2.position, intersection_result.bary);
+    hit_surface.position = mul(float4(hit_surface.position, 1.0), instance.local_to_world).xyz;
+    // TODO: Calculate bitangent, do normal mapping
+    hit_surface.normal = interpolate(hit_tri.v0.normal, hit_tri.v1.normal, hit_tri.v2.normal, intersection_result.bary);
+    hit_surface.normal = mul(float4(hit_surface.normal, 0.0), instance.local_to_world).xyz;
+    //hit_surface.tangent = interpolate(hit_tri.v0.tangent, hit_tri.v1.tangent, hit_tri.v2.tangent, intersection_result.bary);
+    hit_surface.tex_coord = interpolate(hit_tri.v0.tex_coord, hit_tri.v1.tex_coord, hit_tri.v2.tex_coord, intersection_result.bary);
+    hit_surface.instance = instance;
+    
+    return hit_surface;
+}
+
 /*
     Misc
 */
@@ -243,4 +282,25 @@ float3 srgb_to_linear(float3 color)
 bool is_nan(float x)
 {
     return (asuint(x) & 0x7fffffff) > 0x7f800000;
+}
+
+uint murmur_mix(uint hash)
+{
+    hash ^= hash >> 16;
+    hash *= 0x85ebca6b;
+    hash ^= hash >> 13;
+    hash *= 0xc2b2ae35;
+    hash ^= hash >> 16;
+    return hash;
+}
+
+float3 int_to_color(uint value)
+{
+    uint hash = murmur_mix(value);
+    float3 color = float3(
+        (hash >> 0) & 255,
+        (hash >> 8) & 255,
+        (hash >> 16) & 255
+    );
+    return color * (1.0 / 255.0);
 }

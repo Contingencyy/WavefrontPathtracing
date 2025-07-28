@@ -333,6 +333,8 @@ namespace asset_loader
 						}
 					}
 
+					uint32_t attr_indices[4] = { UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX };
+
 					for (uint32_t attr_idx = 0; attr_idx < prim_gltf.attributes_count; ++attr_idx)
 					{
 						const cgltf_attribute& attr_gltf = prim_gltf.attributes[attr_idx];
@@ -340,34 +342,29 @@ namespace asset_loader
 
 						switch (attr_gltf.type)
 						{
-						case cgltf_attribute_type_position:
-						{
-							glm::vec3* ptr_src = cgltf_get_data_ptr<glm::vec3>(attr_gltf.data);
-
-							for (uint32_t vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
-							{
-								vertices[vert_idx].position = ptr_src[vert_idx];
-							}
-						} break;
-						case cgltf_attribute_type_normal:
-						{
-							glm::vec3* ptr_src = cgltf_get_data_ptr<glm::vec3>(attr_gltf.data);
-
-							for (uint32_t vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
-							{
-								vertices[vert_idx].normal = ptr_src[vert_idx];
-							}
-						} break;
-						case cgltf_attribute_type_texcoord:
-						{
-							glm::vec2* ptr_src = cgltf_get_data_ptr<glm::vec2>(attr_gltf.data);
-
-							for (uint32_t vert_idx = 0; vert_idx < attr_gltf.data->count; ++vert_idx)
-							{
-								vertices[vert_idx].tex_coord = ptr_src[vert_idx];
-							}
-						} break;
+						case cgltf_attribute_type_position: attr_indices[0] = attr_idx; break;
+						case cgltf_attribute_type_normal:	attr_indices[1] = attr_idx; break;
+						case cgltf_attribute_type_tangent:	attr_indices[2] = attr_idx; break;
+						case cgltf_attribute_type_texcoord: attr_indices[3] = attr_idx; break;
 						}
+					}
+
+					ASSERT_MSG(attr_indices[0] != UINT32_MAX, "GLTF %s is missing vertex attribute position", filepath);
+					ASSERT_MSG(attr_indices[1] != UINT32_MAX, "GLTF %s is missing vertex attribute normal", filepath);
+					//ASSERT_MSG(attr_indices[2] != UINT32_MAX, "GLTF %s is missing vertex attribute tangent", filepath);
+					ASSERT_MSG(attr_indices[3] != UINT32_MAX, "GLTF %s is missing vertex attribute texcoord", filepath);
+
+					for (uint32_t vert_idx = 0; vert_idx < vertex_count; ++vert_idx)
+					{
+						glm::vec3* ptr_pos = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[0]].data);
+						glm::vec3* ptr_normal = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[1]].data);
+						//glm::vec4* ptr_tangent = cgltf_get_data_ptr<glm::vec4>(prim_gltf.attributes[attr_indices[2]].data);
+						glm::vec2* ptr_tex_coord = cgltf_get_data_ptr<glm::vec2>(prim_gltf.attributes[attr_indices[3]].data);
+
+						vertices[vert_idx].position = ptr_pos[vert_idx];
+						vertices[vert_idx].normal = ptr_normal[vert_idx];
+						//vertices[vert_idx].tangent = ptr_tangent[vert_idx];
+						vertices[vert_idx].tex_coord = ptr_tex_coord[vert_idx];
 					}
 
 					// Create render mesh

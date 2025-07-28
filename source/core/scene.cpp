@@ -81,9 +81,9 @@ namespace scene
 		create_scene_object(scene, render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));*/
 
 		// HDR environment map
-		//scene.hdr_env = asset_loader::load_image_hdr(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
-		//scene.hdr_env = asset_loader::load_image_hdr(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
-		scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
+		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
+		scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
+		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
 
 		// Dragon asset and objects
 		/*scene.dragon_scene_asset = asset_loader::load_gltf(scene.arena, "assets/gltf/dragon/DragonAttenuation.gltf");

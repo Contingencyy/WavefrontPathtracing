@@ -22,41 +22,15 @@ namespace renderer
 	inline constexpr uint32_t MAX_INSTANCES = 1024;
 	inline constexpr uint32_t GPU_PROFILER_MAX_HISTORY = 512;
 
-	enum RENDER_VIEW_MODE : uint32_t
-	{
-		RENDER_VIEW_MODE_NONE,
-
-		RENDER_VIEW_MODE_GEOMETRY_INSTANCE,
-		RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE,
-		RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS,
-		RENDER_VIEW_MODE_GEOMETRY_NORMAL,
-
-		RENDER_VIEW_MODE_MATERIAL_BASE_COLOR,
-		RENDER_VIEW_MODE_MATERIAL_NORMAL,
-		RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS,
-		RENDER_VIEW_MODE_MATERIAL_EMISSIVE,
-
-		RENDER_VIEW_MODE_WORLD_NORMAL,
-		RENDER_VIEW_MODE_WORLD_TANGENT,
-		RENDER_VIEW_MODE_WORLD_BITANGENT,
-
-		RENDER_VIEW_MODE_PATH_DEPTH,
-
-		RENDER_VIEW_MODE_RENDER_TARGET_DEPTH,
-
-		RENDER_VIEW_MODE_COUNT
-	};
-
-	static const char* render_view_mode_labels[RENDER_VIEW_MODE::RENDER_VIEW_MODE_COUNT] =
+	static const char* render_view_mode_labels[RENDER_VIEW_MODE_COUNT] =
 	{
 		"None",
-		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics", "Geometry Normal",
-		"Material Albedo", "Material Normal", "Material Metallic Roughness", "Material Emissive",
-		"World Normal", "World Tangent", "World Bitangent",
-		"Path Depth",
+		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics",
+		"Material Base Color", "Material Metallic Roughness", "Material Emissive",
+		"World Normal",
 		"RenderTarget Depth"
 	};
-	static_assert(RENDER_VIEW_MODE::RENDER_VIEW_MODE_COUNT == ARRAY_SIZE(render_view_mode_labels));
+	static_assert(RENDER_VIEW_MODE_COUNT == ARRAY_SIZE(render_view_mode_labels));
 
 	struct render_texture_t
 	{

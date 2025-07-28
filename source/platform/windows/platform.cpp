@@ -107,6 +107,7 @@ namespace platform
 		} break;
 		case WM_KILLFOCUS:
 		{
+			platform::window_set_capture_mouse(false);
 			input::set_window_focus(false);
 		} break;
 		case WM_DESTROY:

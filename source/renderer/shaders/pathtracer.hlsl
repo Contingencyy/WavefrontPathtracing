@@ -49,7 +49,7 @@ float3 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, 
     
     while (ray_depth <= cb_settings.max_bounces)
     {
-        // Prepare hit result and trace TLAS
+        /*// Prepare hit result and trace TLAS
         hit_result_t hit = make_hit_result();
         trace_ray_tlas(scene_tlas, ray, hit);
         
@@ -67,12 +67,12 @@ float3 trace_path(RaytracingAccelerationStructure scene_tlas, float2 pixel_pos, 
         triangle_t hit_tri = load_triangle(triangle_buffer, hit.primitive_idx);
         
         float3 hit_pos = ray.Origin + ray.Direction * hit.t;
-        float3 hit_normal = triangle_interpolate(hit_tri.v0.normal, hit_tri.v1.normal, hit_tri.v2.normal, hit.bary);
+        float3 hit_normal = interpolate(hit_tri.v0.normal, hit_tri.v1.normal, hit_tri.v2.normal, hit.bary);
         hit_normal = normalize(mul(float4(hit_normal, 0.0f), instance.local_to_world).xyz);
         
         Texture2D<float4> base_color_texture = get_resource<Texture2D>(instance.material.base_color_index);
-        float2 tex_coord = triangle_interpolate(hit_tri.v0.tex_coord, hit_tri.v1.tex_coord, hit_tri.v2.tex_coord, hit.bary);
-        energy += base_color_texture.Sample(sampler_linear_wrap, tex_coord).xyz * throughput;
+        float2 tex_coord = interpolate(hit_tri.v0.tex_coord, hit_tri.v1.tex_coord, hit_tri.v2.tex_coord, hit.bary);
+        energy += base_color_texture.Sample(sampler_linear_wrap, tex_coord).xyz * throughput;*/
         
         // If the surface is an emissive material, treat it as a light source and stop tracing
         //if (instance.material.emissive)

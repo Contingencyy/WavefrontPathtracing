@@ -237,6 +237,14 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\renderer\gpu_profiler.cpp" />
     <ClCompile Include="source\renderer\renderer.cpp" />
     <ClCompile Include="source\core\allocators\ring_alloc.cpp" />
+    <FxCompile Include="source\renderer\shaders\brdf.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="source\renderer\shaders\material.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="source\renderer\shaders\wavefront\clear_buffers.hlsl">
       <ObjectFileOutput>C:\Projects\WavefrontPathtracing\bin\x64\Debug\init_args.cso</ObjectFileOutput>
       <TrackerLogDirectory>C:\Projects\WavefrontPathtracing\build\x64\Debug\Wavefron.59D7F158.tlog\</TrackerLogDirectory>

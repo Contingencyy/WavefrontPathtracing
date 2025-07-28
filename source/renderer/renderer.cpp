@@ -33,10 +33,12 @@ namespace renderer
 		render_settings_shader_data_t defaults = {};
 		defaults.use_wavefront_pathtracing = true;
 		defaults.use_software_rt = false;
-		defaults.render_view_mode = RENDER_VIEW_MODE::RENDER_VIEW_MODE_NONE;
+		defaults.render_view_mode = RENDER_VIEW_MODE_NONE;
 		defaults.max_bounces = 3;
 		defaults.accumulate = true;
 		defaults.cosine_weighted_diffuse = true;
+
+		defaults.hdr_env_strength = 1.0f;
 
 		return defaults;
 	}
@@ -606,6 +608,8 @@ namespace renderer
 		ASSERT(g_renderer->scene_hdr_env_texture);
 
 		// Set new camera data for the view constant buffer
+		float near_plane = 0.001f;
+		float far_plane = 10000.0f;
 		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(g_renderer->scene_camera.vfov_deg),
 			(float)g_renderer->render_width, (float)g_renderer->render_height, 0.001f, 10000.0f);
 		
@@ -618,6 +622,8 @@ namespace renderer
 		view_cb->clip_to_view = glm::inverse(proj_mat);
 		view_cb->render_dim.x = (float)g_renderer->render_width;
 		view_cb->render_dim.y = (float)g_renderer->render_height;
+		view_cb->near_plane = near_plane;
+		view_cb->far_plane = far_plane;
 	}
 
 	void render()
@@ -1051,18 +1057,18 @@ namespace renderer
 				ImGui::Text("Render data visualization mode");
 				if (ImGui::BeginCombo("##Render data visualization mode", render_view_mode_labels[g_renderer->settings.render_view_mode], ImGuiComboFlags_None))
 				{
-					for (uint32_t i = 0; i < RENDER_VIEW_MODE::RENDER_VIEW_MODE_COUNT; ++i)
+					for (uint32_t i = 0; i < RENDER_VIEW_MODE_COUNT; ++i)
 					{
 						bool selected = i == g_renderer->settings.render_view_mode;
-
 						if (ImGui::Selectable(render_view_mode_labels[i], selected))
 						{
-							g_renderer->settings.render_view_mode = (RENDER_VIEW_MODE)i;
+							g_renderer->settings.render_view_mode = i;
 							should_reset_accumulators = true;
 						}
-
 						if (selected)
+						{
 							ImGui::SetItemDefaultFocus();
+						}
 					}
 					ImGui::EndCombo();
 				}
@@ -1095,6 +1101,7 @@ namespace renderer
 				if (ImGui::Checkbox("Accumulate", (bool*)&g_renderer->settings.accumulate)) should_reset_accumulators = true;
 				// Enable/disable cosine weighted diffuse reflections, uses uniform hemisphere sample if disabled
 				if (ImGui::Checkbox("Cosine weighted diffuse", (bool*)&g_renderer->settings.cosine_weighted_diffuse)) should_reset_accumulators = true;
+				if (ImGui::DragFloat("HDR env strength", &g_renderer->settings.hdr_env_strength, 0.05f, 0.0f, 100.0f)) should_reset_accumulators = true;
 
 				ImGui::Unindent(10.0f);
 			}
