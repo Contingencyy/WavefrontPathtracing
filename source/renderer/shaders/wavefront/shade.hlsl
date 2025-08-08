@@ -105,10 +105,10 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         }
         else*/
         {
-            float r_diffuse = rand_float(seed);
+            float2 r_diffuse = float2(rand_float(seed), rand_float(seed));
             
             float3 N = hit_surface.normal;
-            float3 L;
+            float3 L = 0;
             float pdf;
             
             if (cb_settings.cosine_weighted_diffuse)

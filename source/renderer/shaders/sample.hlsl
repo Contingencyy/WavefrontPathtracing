@@ -44,13 +44,13 @@ float uniform_hemisphere_pdf()
 
 float3 cosine_weighted_hemisphere_sample(float3 normal, float2 r)
 {
-    float sin_theta = sqrt(1.0 - r.x);
+    float sin_theta = sqrt(r.x);
     float phi = 2.0 * PI * r.y;
     
     float x = sin_theta * cos(phi);
     float z = sin_theta * sin(phi);
 
-    return mul(normalize(float3(x, sqrt(r.x), z)), create_orthonormal_basis(normal));
+    return mul(normalize(float3(x, sqrt(1.0 - r.x), z)), create_orthonormal_basis(normal));
 }
 
 float cosine_weighted_hemisphere_pdf(float NoL)
