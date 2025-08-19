@@ -47,13 +47,13 @@ namespace d3d12
 		g_d3d->vsync = init_params.vsync;
 
 		// Enable debug layer
-#ifdef _DEBUG
+#ifdef D3D12_ENABLE_DEBUG_LAYER
 		ID3D12Debug* debug_interface = nullptr;
 		DX_CHECK_HR(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_interface)));
 		debug_interface->EnableDebugLayer();
 
 		// Enable GPU based validation
-#if D3D12_GPU_BASED_VALIDATION
+#if D3D12_ENABLE_GPU_BASED_VALIDATION
 		ID3D12Debug1* debug_interface1 = nullptr;
 		DX_CHECK_HR(debug_interface->QueryInterface(IID_PPV_ARGS(&debug_interface1)));
 		debug_interface1->SetEnableGPUBasedValidation(true);
@@ -61,7 +61,7 @@ namespace d3d12
 #endif
 
 		uint32_t factory_create_flags = 0;
-#ifdef _DEBUG
+#ifdef D3D12_ENABLE_DEBUG_LAYER
 		factory_create_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
 
@@ -112,7 +112,7 @@ namespace d3d12
 				FATAL_ERROR("D3D12", "DirectX 12 Feature not supported: Enhanced Barriers");
 		}
 
-#ifdef _DEBUG
+#ifdef D3D12_ENABLE_DEBUG_LAYER
 		// Set info queue behavior and filters
 		ID3D12InfoQueue1* d3d12_info_queue = nullptr;
 		DX_CHECK_HR(g_d3d->device->QueryInterface(IID_PPV_ARGS(&d3d12_info_queue)));
@@ -171,7 +171,7 @@ namespace d3d12
 
 		// Initialize descriptor heaps, descriptor allocation
 		g_d3d->descriptor_heaps.heap_sizes.rtv = g_d3d->swapchain.back_buffer_count;
-		g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav = 1024;
+		g_d3d->descriptor_heaps.heap_sizes.cbv_srv_uav = 65536;
 		init_descriptors();
 
 		g_d3d->immediate.command_allocator = create_command_allocator(L"Immediate Command Allocator", D3D12_COMMAND_LIST_TYPE_DIRECT);

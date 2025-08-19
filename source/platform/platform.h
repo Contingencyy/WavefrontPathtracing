@@ -24,5 +24,6 @@ namespace platform
 
     void fatal_error(int32_t line, const char* error_msg);
     bool show_message_box(const char* title, const char* message);
+    void debug_break();
     
 }

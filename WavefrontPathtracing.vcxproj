@@ -208,6 +208,10 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="extern\ufbx\ufbx.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="source\core\allocators\linear_alloc.cpp" />
     <ClCompile Include="source\core\assets\asset_loader.cpp" />
     <ClCompile Include="source\core\memory\memory_arena.cpp" />
@@ -303,6 +307,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="extern\imgui\imgui_internal.h" />
     <ClInclude Include="extern\implot\implot.h" />
     <ClInclude Include="extern\implot\implot_internal.h" />
+    <ClInclude Include="extern\ufbx\ufbx.h" />
     <ClInclude Include="source\core\allocators\linear_alloc.h" />
     <ClInclude Include="source\core\api_types.h" />
     <ClInclude Include="source\core\assets\asset_loader.h" />

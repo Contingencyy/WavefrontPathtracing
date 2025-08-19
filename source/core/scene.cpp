@@ -10,49 +10,36 @@
 namespace scene
 {
 
-	static void create_scene_object_from_scene_node(scene_t& scene, const scene_asset_t& asset, const scene_node_t& node, const glm::mat4& node_transform)
-	{
-		for (uint32_t i = 0; i < node.mesh_count; ++i)
-		{
-			ASSERT(scene.scene_object_at < scene.scene_object_count);
-			scene_object_t* new_object = &scene.scene_objects[scene.scene_object_at];
-
-			new_object->transform_mat = node_transform;
-			new_object->mesh = &asset.mesh_assets[node.mesh_indices[i]];
-			new_object->material = &asset.material_assets[node.material_indices[i]];
-
-			++scene.scene_object_at;
-		}
-
-		for (uint32_t i = 0; i < node.child_count; ++i)
-		{
-			const scene_node_t& child_node = asset.nodes[node.children[i]];
-			glm::mat4 child_transform = node_transform * child_node.transform;
-
-			create_scene_object_from_scene_node(scene, asset, child_node, child_transform);
-		}
-	}
-
 	static void create_scene_objects_from_scene_asset(scene_t& scene, const scene_asset_t& scene_asset, const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale)
 	{
-		glm::mat4 transform = glm::translate(glm::identity<glm::mat4>(), position);
-		transform = transform * glm::mat4_cast(glm::quat(glm::radians(rotation)));
-		transform = transform * glm::scale(glm::identity<glm::mat4>(), scale);
+		glm::mat4 mat_translation = glm::translate(glm::identity<glm::mat4>(), position);
+		glm::mat4 mat_rotation = glm::mat4_cast(glm::quat(glm::radians(rotation)));
+		glm::mat4 mat_scale = glm::scale(glm::identity<glm::mat4>(), scale);
 
-		for (uint32_t i = 0; i < scene_asset.root_node_count; ++i)
+		glm::mat4 object_transform = mat_translation * mat_rotation * mat_scale;
+
+		for (uint32_t node_idx = 0; node_idx < scene_asset.node_count; ++node_idx)
 		{
-			uint32_t root_node_index = scene_asset.root_node_indices[i];
-			const scene_node_t& root_node = scene_asset.nodes[root_node_index];
-			glm::mat4 root_transform = transform * root_node.transform;
+			const scene_node_t& node = scene_asset.nodes[node_idx];
 
-			create_scene_object_from_scene_node(scene, scene_asset, root_node, root_transform);
+			for (uint32_t mesh_idx = 0; mesh_idx < node.mesh_count; ++mesh_idx)
+			{
+				ASSERT(scene.scene_object_at < scene.scene_object_count);
+				scene_object_t* new_object = &scene.scene_objects[scene.scene_object_at];
+
+				new_object->transform_mat = object_transform * node.node_to_world;
+				new_object->mesh = &scene_asset.mesh_assets[node.mesh_indices[mesh_idx]];
+				new_object->material = &scene_asset.material_assets[node.material_indices[mesh_idx]];
+
+				++scene.scene_object_at;
+			}
 		}
 	}
 
 	void create(scene_t& scene)
 	{
 		// Scene objects
-		scene.scene_object_count = 1024;
+		scene.scene_object_count = 16384;
 		scene.scene_object_at = 0;
 		scene.scene_objects = ARENA_ALLOC_ARRAY_ZERO(scene.arena, scene_object_t, scene.scene_object_count);
 
@@ -82,20 +69,38 @@ namespace scene
 
 		// HDR environment map
 		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
-		scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
-		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
+		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
+		scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
 
 		// Dragon asset and objects
-		/*scene.dragon_scene_asset = asset_loader::load_gltf(scene.arena, "assets/gltf/dragon/DragonAttenuation.gltf");
+		/*scene.dragon_scene_asset = asset_loader::load_mesh(scene.arena, "assets/meshes/dragon/DragonAttenuation.gltf");
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(-20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(2.0f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.5f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(3.5f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));*/
 
+#if 0
 		// Sponza
-		scene.sponza_scene_asset = asset_loader::load_gltf(scene.arena, "assets/gltf/sponza/Sponza.gltf");
-		create_scene_objects_from_scene_asset(scene, *scene.sponza_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(100.0f));
+		scene.sponza_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/sponza/Sponza.gltf");
+		create_scene_objects_from_scene_asset(scene, *scene.sponza_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+#endif
+
+#if 0
+		// Bistro
+		scene.bistro_exterior_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroExterior.fbx");
+		create_scene_objects_from_scene_asset(scene, *scene.bistro_exterior_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+		scene.bistro_interior_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroInterior.fbx");
+		create_scene_objects_from_scene_asset(scene, *scene.bistro_interior_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+		scene.bistro_wine_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroInterior_Wine.fbx");
+		create_scene_objects_from_scene_asset(scene, *scene.bistro_wine_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+#endif
+
+#if 1
+		// Sun Temple
+		scene.sun_temple_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/sun_temple/SunTemple.fbx");
+		create_scene_objects_from_scene_asset(scene, *scene.sun_temple_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+#endif
 	}
 
 	void destroy(scene_t& scene)

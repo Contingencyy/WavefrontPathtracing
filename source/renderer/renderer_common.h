@@ -19,14 +19,14 @@ struct bvh_instance_t;
 namespace renderer
 {
 
-	inline constexpr uint32_t MAX_INSTANCES = 1024;
+	inline constexpr uint32_t MAX_INSTANCES = 65536;
 	inline constexpr uint32_t GPU_PROFILER_MAX_HISTORY = 512;
 
 	static const char* render_view_mode_labels[RENDER_VIEW_MODE_COUNT] =
 	{
 		"None",
-		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics",
-		"Material Base Color", "Material Metallic Roughness", "Material Emissive",
+		"Geometry Instance", "Geometry Primitive", "Geometry Barycentrics", "Geometry Normal", "Geometry TexCoord",
+		"Material Base Color", "Material Normal", "Material Metallic Roughness", "Material Emissive",
 		"World Normal",
 		"RenderTarget Depth"
 	};

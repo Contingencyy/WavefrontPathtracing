@@ -232,25 +232,25 @@ struct hit_surface_t
     float2 tex_coord;
 
     instance_data_t instance;
+    triangle_t tri;
 };
 
 hit_surface_t get_hit_surface(intersection_result_t intersection_result, uint buffer_instance_index)
 {
-    ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(buffer_instance_index);
-    instance_data_t instance = load_instance(instance_buffer, intersection_result.instance_idx);
-
-    ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(instance.triangle_buffer_idx);
-    triangle_t hit_tri = load_triangle(triangle_buffer, intersection_result.primitive_idx);
-    
     hit_surface_t hit_surface = (hit_surface_t) 0;
-    hit_surface.position = interpolate(hit_tri.v0.position, hit_tri.v1.position, hit_tri.v2.position, intersection_result.bary);
-    hit_surface.position = mul(float4(hit_surface.position, 1.0), instance.local_to_world).xyz;
+    
+    ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(buffer_instance_index);
+    hit_surface.instance = load_instance(instance_buffer, intersection_result.instance_idx);
+    ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(hit_surface.instance.triangle_buffer_idx);
+    hit_surface.tri = load_triangle(triangle_buffer, intersection_result.primitive_idx);
+    
+    hit_surface.position = interpolate(hit_surface.tri.v0.position, hit_surface.tri.v1.position, hit_surface.tri.v2.position, intersection_result.bary);
+    hit_surface.position = mul(float4(hit_surface.position, 1.0), hit_surface.instance.local_to_world).xyz;
     // TODO: Calculate bitangent, do normal mapping
-    hit_surface.normal = interpolate(hit_tri.v0.normal, hit_tri.v1.normal, hit_tri.v2.normal, intersection_result.bary);
-    hit_surface.normal = mul(float4(hit_surface.normal, 0.0), instance.local_to_world).xyz;
+    hit_surface.normal = interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, intersection_result.bary);
+    hit_surface.normal = normalize(mul(float4(hit_surface.normal, 0.0), hit_surface.instance.local_to_world).xyz);
     //hit_surface.tangent = interpolate(hit_tri.v0.tangent, hit_tri.v1.tangent, hit_tri.v2.tangent, intersection_result.bary);
-    hit_surface.tex_coord = interpolate(hit_tri.v0.tex_coord, hit_tri.v1.tex_coord, hit_tri.v2.tex_coord, intersection_result.bary);
-    hit_surface.instance = instance;
+    hit_surface.tex_coord = interpolate(hit_surface.tri.v0.tex_coord, hit_surface.tri.v1.tex_coord, hit_surface.tri.v2.tex_coord, intersection_result.bary);
     
     return hit_surface;
 }

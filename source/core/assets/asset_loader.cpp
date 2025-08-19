@@ -4,6 +4,7 @@
 #include "renderer/renderer.h"
 #include "renderer/shaders/shared.hlsl.h"
 #include "core/logger.h"
+#include "core/scene.h"
 
 namespace asset_loader
 {
@@ -19,6 +20,8 @@ namespace asset_loader
 
 #define CGLTF_IMPLEMENTATION
 #include "cgltf/cgltf.h"
+
+#include "ufbx/ufbx.h"
 
 namespace asset_loader
 {
@@ -136,42 +139,6 @@ namespace asset_loader
 		return (T*)ptr_base;
 	}
 
-	struct gltf_load_result_t
-	{
-		cgltf_data* data;
-	};
-
-	static gltf_load_result_t gltf_load_from_file(memory_arena_t& arena, const char* filepath)
-	{
-		gltf_load_result_t ret = {};
-
-		// Parse the GLTF file
-		cgltf_options options = {};
-
-		// Make CGLTF use our arena for allocations
-		options.memory.user_data = &arena;
-		options.memory.alloc_func = [](void* user, cgltf_size size)
-			{
-				memory_arena_t* arena = (memory_arena_t*)user;
-				return ARENA_ALLOC_ZERO(*arena, size, 16);
-			};
-		// No-op, freeing is done by the arena itself
-		options.memory.free_func = [](void* user, void* ptr)
-			{
-				(void)user; (void)ptr;
-			};
-
-		cgltf_result result = cgltf_parse_file(&options, filepath, &ret.data);
-
-		if (result != cgltf_result_success)
-		{
-			FATAL_ERROR("asset_loader::gltf_load_from_file", "Failed to load GLTF: %s", filepath);
-		}
-
-		cgltf_load_buffers(&options, ret.data, filepath);
-		return ret;
-	}
-
 	static char* gltf_get_path(memory_arena_t& arena, const char* filepath, const char* uri)
 	{
 		char* ret = ARENA_ALLOC_ARRAY_ZERO(arena, char, strlen(filepath) + strlen(uri));
@@ -194,203 +161,14 @@ namespace asset_loader
 		return *load_texture_rgba(arena, image_filepath, format);
 	}
 
-	struct gltf_load_materials_result_t
+	static texture_asset_t fbx_load_texture(memory_arena_t& arena, const ufbx_texture& fbx_texture, TEXTURE_FORMAT format)
 	{
-		material_asset_t* material_assets;
-		uint32_t material_asset_count;
-	};
-
-	static gltf_load_materials_result_t gltf_load_materials(memory_arena_t& arena, const char* filepath, gltf_load_result_t& loaded_gltf)
-	{
-		// GLTF 2.0 Spec states that:
-		// - Base color textures are encoded in SRGB
-		// - Normal textures are encoded in linear
-		// - Metallic roughness textures are encoded in linear
-		// - Emissive textures are encoded in SRGB
-		gltf_load_materials_result_t ret = {};
-		ret.material_assets = ARENA_ALLOC_ARRAY_ZERO(arena, material_asset_t, loaded_gltf.data->materials_count);
-
-		for (uint32_t mat_idx = 0; mat_idx < loaded_gltf.data->materials_count; ++mat_idx)
-		{
-			cgltf_material& gltf_material = loaded_gltf.data->materials[mat_idx];
-			material_asset_t& asset = ret.material_assets[mat_idx];
-
-			if (gltf_material.has_pbr_metallic_roughness)
-			{
-				asset.base_color_factor = *(glm::vec4*)gltf_material.pbr_metallic_roughness.base_color_factor;
-				asset.metallic_factor = gltf_material.pbr_metallic_roughness.metallic_factor;
-				asset.roughness_factor = gltf_material.pbr_metallic_roughness.roughness_factor;
-				asset.emissive_factor = *(glm::vec3*)gltf_material.emissive_factor;
-				asset.emissive_strength = gltf_material.emissive_strength.emissive_strength;
-
-				ARENA_MEMORY_SCOPE(arena)
-				{
-					if (gltf_material.pbr_metallic_roughness.base_color_texture.texture)
-					{
-						cgltf_image* gltf_image = gltf_material.pbr_metallic_roughness.base_color_texture.texture->image;
-						if (gltf_image)
-						{
-							asset.base_color_texture = gltf_load_texture(arena, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8_SRGB);
-						}
-					}
-
-					if (gltf_material.normal_texture.texture)
-					{
-						cgltf_image* gltf_image = gltf_material.normal_texture.texture->image;
-						if (gltf_image)
-						{
-							asset.normal_texture = gltf_load_texture(arena, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8);
-						}
-					}
-
-					if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.texture)
-					{
-						cgltf_image* gltf_image = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.texture->image;
-						if (gltf_image)
-						{
-							asset.metallic_roughness_texture = gltf_load_texture(arena, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8);
-						}
-					}
-
-					if (gltf_material.has_emissive_strength)
-					{
-						cgltf_image* gltf_image = gltf_material.emissive_texture.texture->image;
-						if (gltf_image)
-						{
-							asset.emissive_texture = gltf_load_texture(arena, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8_SRGB);
-						}
-					}
-				}
-			}
-			else
-			{
-				// If the material has no metallic roughness properties, pick sensible defaults and log warning
-				LOG_WARN("Loaded a material for GLTF %s that has no PBR metallic roughness properties", filepath);
-
-				asset.base_color_factor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-				asset.metallic_factor = 1.0f;
-				asset.roughness_factor = 1.0f;
-				asset.emissive_factor = glm::vec3(0.0f, 0.0f, 0.0f);
-				asset.emissive_strength = 0.0f;
-				asset.base_color_texture.render_texture_handle.handle = ~0u;
-				asset.normal_texture.render_texture_handle.handle = ~0u;
-				asset.metallic_roughness_texture.render_texture_handle.handle = ~0u;
-				asset.emissive_texture.render_texture_handle.handle = ~0u;
-			}
-
-			++ret.material_asset_count;
-		}
-
-		return ret;
+		texture_asset_t temp = {};
+		temp.render_texture_handle.handle = INVALID_HANDLE;
+		return temp;
+		/*const char* image_filepath = fbx_texture->absolute_filename.data;
+		return *load_texture_dds(arena, image_filepath, format);*/
 	}
-
-	struct gltf_load_meshes_result_t
-	{
-		mesh_asset_t* mesh_assets;
-		uint32_t mesh_asset_count;
-	};
-
-	static gltf_load_meshes_result_t gltf_load_meshes(memory_arena_t& arena, const char* filepath, gltf_load_result_t& loaded_gltf)
-	{
-		gltf_load_meshes_result_t ret = {};
-
-		uint32_t mesh_count = 0;
-		for (uint32_t mesh_idx = 0; mesh_idx < loaded_gltf.data->meshes_count; ++mesh_idx)
-		{
-			const cgltf_mesh& mesh_gltf = loaded_gltf.data->meshes[mesh_idx];
-			mesh_count += mesh_gltf.primitives_count;
-		}
-
-		ret.mesh_assets = ARENA_ALLOC_ARRAY_ZERO(arena, mesh_asset_t, mesh_count);
-
-		ARENA_MEMORY_SCOPE(arena)
-		{
-			for (uint32_t mesh_idx = 0; mesh_idx < loaded_gltf.data->meshes_count; ++mesh_idx)
-			{
-				const cgltf_mesh& mesh_gltf = loaded_gltf.data->meshes[mesh_idx];
-
-				for (uint32_t prim_idx = 0; prim_idx < mesh_gltf.primitives_count; ++prim_idx)
-				{
-					const cgltf_primitive& prim_gltf = mesh_gltf.primitives[prim_idx];
-
-					uint32_t index_count = prim_gltf.indices->count;
-					uint32_t vertex_count = prim_gltf.attributes[0].data->count;
-
-					uint32_t* indices = ARENA_ALLOC_ARRAY(arena, uint32_t, index_count);
-					vertex_t* vertices = ARENA_ALLOC_ARRAY(arena, vertex_t, vertex_count);
-
-					if (prim_gltf.indices->component_type == cgltf_component_type_r_32u)
-					{
-						memcpy(indices, cgltf_get_data_ptr<uint32_t>(prim_gltf.indices), sizeof(uint32_t) * prim_gltf.indices->count);
-					}
-					else if (prim_gltf.indices->component_type == cgltf_component_type_r_16u)
-					{
-						uint16_t* ptr_src = cgltf_get_data_ptr<uint16_t>(prim_gltf.indices);
-
-						for (uint32_t index = 0; index < prim_gltf.indices->count; ++index)
-						{
-							indices[index] = ptr_src[index];
-						}
-					}
-
-					uint32_t attr_indices[4] = { UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX };
-
-					for (uint32_t attr_idx = 0; attr_idx < prim_gltf.attributes_count; ++attr_idx)
-					{
-						const cgltf_attribute& attr_gltf = prim_gltf.attributes[attr_idx];
-						ASSERT(attr_gltf.data->count == vertex_count);
-
-						switch (attr_gltf.type)
-						{
-						case cgltf_attribute_type_position: attr_indices[0] = attr_idx; break;
-						case cgltf_attribute_type_normal:	attr_indices[1] = attr_idx; break;
-						case cgltf_attribute_type_tangent:	attr_indices[2] = attr_idx; break;
-						case cgltf_attribute_type_texcoord: attr_indices[3] = attr_idx; break;
-						}
-					}
-
-					ASSERT_MSG(attr_indices[0] != UINT32_MAX, "GLTF %s is missing vertex attribute position", filepath);
-					ASSERT_MSG(attr_indices[1] != UINT32_MAX, "GLTF %s is missing vertex attribute normal", filepath);
-					//ASSERT_MSG(attr_indices[2] != UINT32_MAX, "GLTF %s is missing vertex attribute tangent", filepath);
-					ASSERT_MSG(attr_indices[3] != UINT32_MAX, "GLTF %s is missing vertex attribute texcoord", filepath);
-
-					for (uint32_t vert_idx = 0; vert_idx < vertex_count; ++vert_idx)
-					{
-						glm::vec3* ptr_pos = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[0]].data);
-						glm::vec3* ptr_normal = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[1]].data);
-						//glm::vec4* ptr_tangent = cgltf_get_data_ptr<glm::vec4>(prim_gltf.attributes[attr_indices[2]].data);
-						glm::vec2* ptr_tex_coord = cgltf_get_data_ptr<glm::vec2>(prim_gltf.attributes[attr_indices[3]].data);
-
-						vertices[vert_idx].position = ptr_pos[vert_idx];
-						vertices[vert_idx].normal = ptr_normal[vert_idx];
-						//vertices[vert_idx].tangent = ptr_tangent[vert_idx];
-						vertices[vert_idx].tex_coord = ptr_tex_coord[vert_idx];
-					}
-
-					// Create render mesh
-					renderer::render_mesh_params_t rmesh_params = {};
-					rmesh_params.vertex_count = vertex_count;
-					rmesh_params.vertices = vertices;
-					rmesh_params.index_count = index_count;
-					rmesh_params.indices = indices;
-					rmesh_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
-
-					ret.mesh_assets[ret.mesh_asset_count].render_mesh_handle = renderer::create_render_mesh(rmesh_params);
-					++ret.mesh_asset_count;
-				}
-			}
-		}
-
-		return ret;
-	}
-
-	struct gltf_load_nodes_result_t
-	{
-		uint32_t* root_node_indices;
-		uint32_t root_node_count;
-		scene_node_t* nodes;
-		uint32_t node_count;
-	};
 	
 	static glm::mat4 gltf_node_get_transform(const cgltf_node& node)
 	{
@@ -433,81 +211,625 @@ namespace asset_loader
 		return transform;
 	}
 
-	static gltf_load_nodes_result_t gltf_load_nodes(memory_arena_t& arena, gltf_load_result_t& loaded_gltf)
+	static glm::mat4 fbx_node_get_transform(const ufbx_node& node)
 	{
-		gltf_load_nodes_result_t ret = {};
+		glm::mat4 transform = glm::identity<glm::mat4>();
+		transform = glm::translate(transform, *(glm::vec3*)&node.local_transform.translation);
+		transform = transform * glm::mat4_cast(*(glm::quat*)&node.local_transform.rotation);
+		transform = glm::scale(transform, *(glm::vec3*)&node.local_transform.scale);
 
-		uint32_t root_node_count = 0;
-		uint32_t node_count = loaded_gltf.data->nodes_count;
+		return transform;
+	}
 
-		for (uint32_t node_idx = 0; node_idx < loaded_gltf.data->nodes_count; ++node_idx)
+	enum SCENE_MESH_SOURCE_FORMAT : uint8_t
+	{
+		SCENE_MESH_SOURCE_FORMAT_GLTF,
+		SCENE_MESH_SOURCE_FORMAT_FBX,
+		SCENE_MESH_SOURCE_FORMAT_INVALID = 255
+	};
+
+	static SCENE_MESH_SOURCE_FORMAT get_source_format_from_filepath(const char* filepath)
+	{
+		const char* extension_delim = strrchr(filepath, '.');
+		if (!extension_delim || extension_delim == filepath)
 		{
-			cgltf_node& gltf_node = loaded_gltf.data->nodes[node_idx];
+			return SCENE_MESH_SOURCE_FORMAT_INVALID;
+		}
 
-			if (!gltf_node.parent)
+		const char* extension = extension_delim + 1;
+		if (strcmp(extension_delim, ".gltf") == 0)
+		{
+			return SCENE_MESH_SOURCE_FORMAT_GLTF;
+		}
+		if (strcmp(extension_delim, ".fbx") == 0)
+		{
+			return SCENE_MESH_SOURCE_FORMAT_FBX;
+		}
+		
+		return SCENE_MESH_SOURCE_FORMAT_INVALID;
+	}
+
+	static scene_asset_t load_scene_gltf(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath)
+	{
+		scene_asset_t ret = {};
+
+		// -------------------------------------------------------------------------------------------------------------
+		// Load GLTF file
+		cgltf_data* loaded_gltf = nullptr;
+		{
+			// Parse the GLTF file
+			cgltf_options options = {};
+
+			// Make CGLTF use our arena for allocations
+			options.memory.user_data = &arena_scratch;
+			options.memory.alloc_func = [](void* user, cgltf_size size)
 			{
-				++root_node_count;
+				memory_arena_t* arena = (memory_arena_t*)user;
+				return ARENA_ALLOC_ZERO(*arena, size, 16);
+			};
+			// No-op, freeing is done by the arena automatically
+			options.memory.free_func = [](void* user, void* ptr)
+			{
+				(void)user; (void)ptr;
+			};
+
+			cgltf_result result = cgltf_parse_file(&options, filepath, &loaded_gltf);
+
+			if (result != cgltf_result_success)
+			{
+				FATAL_ERROR("Assets", "Failed to load GLTF: %s", filepath);
+			}
+
+			cgltf_load_buffers(&options, loaded_gltf, filepath);
+		}
+
+		// -------------------------------------------------------------------------------------------------------------
+		// Parse materials/textures and upload to GPU
+		{
+			// GLTF 2.0 Spec states that:
+			// - Base color textures are encoded in SRGB
+			// - Normal textures are encoded in linear
+			// - Metallic roughness textures are encoded in linear
+			// - Emissive textures are encoded in SRGB
+			ret.material_assets = ARENA_ALLOC_ARRAY_ZERO(arena, material_asset_t, loaded_gltf->materials_count);
+
+			for (uint32_t mat_idx = 0; mat_idx < loaded_gltf->materials_count; ++mat_idx)
+			{
+				cgltf_material& gltf_material = loaded_gltf->materials[mat_idx];
+				material_asset_t& asset = ret.material_assets[mat_idx];
+
+				asset.base_color_factor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+				asset.metallic_factor = 1.0f;
+				asset.roughness_factor = 1.0f;
+				asset.emissive_factor = glm::vec3(0.0f, 0.0f, 0.0f);
+				asset.emissive_strength = 0.0f;
+				asset.base_color_texture.render_texture_handle.handle = INVALID_HANDLE;
+				asset.normal_texture.render_texture_handle.handle = INVALID_HANDLE;
+				asset.metallic_roughness_texture.render_texture_handle.handle = INVALID_HANDLE;
+				asset.emissive_texture.render_texture_handle.handle = INVALID_HANDLE;
+
+				if (gltf_material.has_pbr_metallic_roughness)
+				{
+					asset.base_color_factor = *(glm::vec4*)gltf_material.pbr_metallic_roughness.base_color_factor;
+					asset.metallic_factor = gltf_material.pbr_metallic_roughness.metallic_factor;
+					asset.roughness_factor = gltf_material.pbr_metallic_roughness.roughness_factor;
+					asset.emissive_factor = *(glm::vec3*)gltf_material.emissive_factor;
+					asset.emissive_strength = gltf_material.emissive_strength.emissive_strength;
+
+					if (gltf_material.pbr_metallic_roughness.base_color_texture.texture)
+					{
+						cgltf_image* gltf_image = gltf_material.pbr_metallic_roughness.base_color_texture.texture->image;
+						if (gltf_image)
+						{
+							asset.base_color_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8_SRGB);
+						}
+					}
+
+					if (gltf_material.normal_texture.texture)
+					{
+						cgltf_image* gltf_image = gltf_material.normal_texture.texture->image;
+						if (gltf_image)
+						{
+							asset.normal_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8);
+						}
+					}
+
+					if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.texture)
+					{
+						cgltf_image* gltf_image = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.texture->image;
+						if (gltf_image)
+						{
+							asset.metallic_roughness_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8);
+						}
+					}
+
+					if (gltf_material.has_emissive_strength)
+					{
+						cgltf_image* gltf_image = gltf_material.emissive_texture.texture->image;
+						if (gltf_image)
+						{
+							asset.emissive_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8_SRGB);
+						}
+					}
+				}
+
+				++ret.material_asset_count;
 			}
 		}
 
-		ret.root_node_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, root_node_count);
-		ret.nodes = ARENA_ALLOC_ARRAY_ZERO(arena, scene_node_t, node_count);
-
-		for (uint32_t node_idx = 0; node_idx < loaded_gltf.data->nodes_count; ++node_idx)
+		// -------------------------------------------------------------------------------------------------------------
+		// Parse meshes and upload to GPU
 		{
-			cgltf_node& gltf_node = loaded_gltf.data->nodes[node_idx];
-			ASSERT(gltf_node.mesh);
-
-			scene_node_t& scene_node = ret.nodes[node_idx];
-			scene_node.transform = gltf_node_get_transform(gltf_node);
-			scene_node.children = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, gltf_node.children_count);
-			scene_node.child_count = gltf_node.children_count;
-			scene_node.mesh_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, gltf_node.mesh->primitives_count);
-			scene_node.material_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, gltf_node.mesh->primitives_count);
-			scene_node.mesh_count = gltf_node.mesh->primitives_count;
-
-			if (!gltf_node.parent)
+			uint32_t mesh_count = 0;
+			for (uint32_t mesh_idx = 0; mesh_idx < loaded_gltf->meshes_count; ++mesh_idx)
 			{
-				ret.root_node_indices[ret.root_node_count] = node_idx;
-				++ret.root_node_count;
+				const cgltf_mesh& mesh_gltf = loaded_gltf->meshes[mesh_idx];
+				mesh_count += mesh_gltf.primitives_count;
 			}
 
-			for (uint32_t i = 0; i < gltf_node.mesh->primitives_count; ++i)
+			ret.mesh_assets = ARENA_ALLOC_ARRAY_ZERO(arena, mesh_asset_t, mesh_count);
+
+			for (uint32_t mesh_idx = 0; mesh_idx < loaded_gltf->meshes_count; ++mesh_idx)
 			{
-				scene_node.mesh_indices[i] = gltf_get_index<cgltf_primitive>(gltf_node.mesh->primitives, &gltf_node.mesh->primitives[i]);
-				scene_node.material_indices[i] = gltf_get_index<cgltf_material>(loaded_gltf.data->materials, gltf_node.mesh->primitives[i].material);
+				const cgltf_mesh& mesh_gltf = loaded_gltf->meshes[mesh_idx];
+
+				for (uint32_t prim_idx = 0; prim_idx < mesh_gltf.primitives_count; ++prim_idx)
+				{
+					const cgltf_primitive& prim_gltf = mesh_gltf.primitives[prim_idx];
+
+					uint32_t index_count = prim_gltf.indices->count;
+					uint32_t vertex_count = prim_gltf.attributes[0].data->count;
+
+					uint32_t* indices = ARENA_ALLOC_ARRAY(arena_scratch, uint32_t, index_count);
+					vertex_t* vertices = ARENA_ALLOC_ARRAY(arena_scratch, vertex_t, vertex_count);
+					
+					if (prim_gltf.indices->component_type == cgltf_component_type_r_32u)
+					{
+						memcpy(indices, cgltf_get_data_ptr<uint32_t>(prim_gltf.indices), sizeof(uint32_t) * prim_gltf.indices->count);
+					}
+					else if (prim_gltf.indices->component_type == cgltf_component_type_r_16u)
+					{
+						uint16_t* ptr_src = cgltf_get_data_ptr<uint16_t>(prim_gltf.indices);
+
+						for (uint32_t index = 0; index < prim_gltf.indices->count; ++index)
+						{
+							indices[index] = ptr_src[index];
+						}
+					}
+
+					uint32_t attr_indices[4] = { UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX };
+
+					for (uint32_t attr_idx = 0; attr_idx < prim_gltf.attributes_count; ++attr_idx)
+					{
+						const cgltf_attribute& attr_gltf = prim_gltf.attributes[attr_idx];
+						ASSERT(attr_gltf.data->count == vertex_count);
+
+						switch (attr_gltf.type)
+						{
+						case cgltf_attribute_type_position: attr_indices[0] = attr_idx; break;
+						case cgltf_attribute_type_normal:	attr_indices[1] = attr_idx; break;
+						case cgltf_attribute_type_tangent:	attr_indices[2] = attr_idx; break;
+						case cgltf_attribute_type_texcoord: attr_indices[3] = attr_idx; break;
+						}
+					}
+
+					ASSERT_MSG(attr_indices[0] != UINT32_MAX, "GLTF %s is missing vertex attribute position", filepath);
+					ASSERT_MSG(attr_indices[1] != UINT32_MAX, "GLTF %s is missing vertex attribute normal", filepath);
+					//ASSERT_MSG(attr_indices[2] != UINT32_MAX, "GLTF %s is missing vertex attribute tangent", filepath);
+					ASSERT_MSG(attr_indices[3] != UINT32_MAX, "GLTF %s is missing vertex attribute tex_coord", filepath);
+
+					for (uint32_t vert_idx = 0; vert_idx < vertex_count; ++vert_idx)
+					{
+						glm::vec3* ptr_pos = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[0]].data);
+						glm::vec3* ptr_normal = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[1]].data);
+						//glm::vec4* ptr_tangent = cgltf_get_data_ptr<glm::vec4>(prim_gltf.attributes[attr_indices[2]].data);
+						glm::vec2* ptr_tex_coord = cgltf_get_data_ptr<glm::vec2>(prim_gltf.attributes[attr_indices[3]].data);
+
+						vertices[vert_idx].position = ptr_pos[vert_idx];
+						vertices[vert_idx].normal = ptr_normal[vert_idx];
+						//vertices[vert_idx].tangent = ptr_tangent[vert_idx];
+						vertices[vert_idx].tex_coord = ptr_tex_coord[vert_idx];
+					}
+
+					// Create render mesh
+					renderer::render_mesh_params_t rmesh_params = {};
+					rmesh_params.vertex_count = vertex_count;
+					rmesh_params.vertices = vertices;
+					rmesh_params.index_count = index_count;
+					rmesh_params.indices = indices;
+					rmesh_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
+
+					ret.mesh_assets[ret.mesh_asset_count].render_mesh_handle = renderer::create_render_mesh(rmesh_params);
+					++ret.mesh_asset_count;
+				}
+			}
+		}
+
+		// -------------------------------------------------------------------------------------------------------------
+		// Parse nodes and node hierarchy
+		{
+			uint32_t root_node_count = 0;
+			uint32_t node_count = 0;
+
+			for (uint32_t node_idx = 0; node_idx < loaded_gltf->nodes_count; ++node_idx)
+			{
+				cgltf_node& gltf_node = loaded_gltf->nodes[node_idx];
+
+				if (gltf_node.mesh)
+				{
+					++node_count;
+				}
 			}
 
-			++ret.node_count;
+			ret.nodes = ARENA_ALLOC_ARRAY_ZERO(arena, scene_node_t, node_count);
+
+			for (uint32_t node_idx = 0; node_idx < loaded_gltf->nodes_count; ++node_idx)
+			{
+				cgltf_node& gltf_node = loaded_gltf->nodes[node_idx];
+				if (!gltf_node.mesh)
+					continue;
+
+				scene_node_t& scene_node = ret.nodes[node_idx];
+				cgltf_float gltf_node_to_world[16];
+				cgltf_node_transform_world(&gltf_node, gltf_node_to_world);
+				scene_node.node_to_world = *(glm::mat4*)gltf_node_to_world;
+				scene_node.mesh_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, gltf_node.mesh->primitives_count);
+				scene_node.material_indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, gltf_node.mesh->primitives_count);
+				scene_node.mesh_count = gltf_node.mesh->primitives_count;
+
+				scene_node.children = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, gltf_node.children_count);
+				scene_node.child_count = gltf_node.children_count;
+				for (uint32_t i = 0; i < gltf_node.children_count; ++i)
+				{
+					scene_node.children[i] = cgltf_node_index(loaded_gltf, &loaded_gltf->nodes[node_idx]);
+				}
+
+				for (uint32_t i = 0; i < gltf_node.mesh->primitives_count; ++i)
+				{
+					scene_node.mesh_indices[i] = gltf_get_index<cgltf_primitive>(gltf_node.mesh->primitives, &gltf_node.mesh->primitives[i]);
+					scene_node.material_indices[i] = gltf_get_index<cgltf_material>(loaded_gltf->materials, gltf_node.mesh->primitives[i].material);
+				}
+
+				++ret.node_count;
+			}
 		}
 
 		return ret;
 	}
 
-	scene_asset_t* load_gltf(memory_arena_t& arena, const char* filepath)
+	static scene_asset_t load_scene_fbx(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath)
 	{
-		scene_asset_t* asset = ARENA_ALLOC_STRUCT_ZERO(arena, scene_asset_t);
+		scene_asset_t ret = {};
 
-		ARENA_SCRATCH_SCOPE()
+		// -------------------------------------------------------------------------------------------------------------
+		// Load FBX file
+		ufbx_scene* loaded_fbx = nullptr;
 		{
-			gltf_load_result_t loaded_gltf = gltf_load_from_file(arena_scratch, filepath);
-			gltf_load_materials_result_t loaded_materials = gltf_load_materials(arena_scratch, filepath, loaded_gltf);
-			gltf_load_meshes_result_t loaded_meshes = gltf_load_meshes(arena_scratch, filepath, loaded_gltf);
-			gltf_load_nodes_result_t loaded_nodes = gltf_load_nodes(arena, loaded_gltf);
+			ufbx_allocator_opts temp_alloc = {};
+			temp_alloc.allocator.user = &arena_scratch;
+			temp_alloc.allocator.alloc_fn = [](void* user, size_t size)
+				{
+					memory_arena_t* arena = (memory_arena_t*)user;
+					return ARENA_ALLOC_ZERO(*arena, size, 8);
+				};
+			temp_alloc.allocator.realloc_fn = [](void* user, void* old_ptr, size_t old_size, size_t new_size)
+				{
+					memory_arena_t* arena = (memory_arena_t*)user;
+					void* ptr_new = ARENA_ALLOC_ZERO(*arena, new_size, 8);
+					memcpy(ptr_new, old_ptr, old_size);
+					return ptr_new;
+				};
+			temp_alloc.allocator.free_fn = [](void* user, void* ptr, size_t size)
+				{
+					(void)user; (void)ptr; (void)size;
+				};
+			temp_alloc.allocator.free_allocator_fn = [](void* user)
+				{
+					(void)user;
+				};
+			temp_alloc.memory_limit = SIZE_MAX;
+			temp_alloc.allocation_limit = SIZE_MAX;
+			temp_alloc.huge_threshold = MB(1);
+			temp_alloc.max_chunk_size = MB(16);
 
-			asset->material_assets = ARENA_ALLOC_ARRAY_ZERO(arena, material_asset_t, loaded_materials.material_asset_count);
-			memcpy(asset->material_assets, loaded_materials.material_assets, sizeof(material_asset_t) * loaded_materials.material_asset_count);
-			asset->material_asset_count = loaded_materials.material_asset_count;
-			asset->mesh_assets = ARENA_ALLOC_ARRAY_ZERO(arena, mesh_asset_t, loaded_meshes.mesh_asset_count);
-			memcpy(asset->mesh_assets, loaded_meshes.mesh_assets, sizeof(mesh_asset_t) * loaded_meshes.mesh_asset_count);
-			asset->mesh_asset_count = loaded_meshes.mesh_asset_count;
+			ufbx_allocator_opts result_alloc = {};
+			result_alloc.allocator.user = &arena_scratch;
+			result_alloc.allocator.alloc_fn = [](void* user, size_t size)
+				{
+					memory_arena_t* arena = (memory_arena_t*)user;
+					return ARENA_ALLOC_ZERO(*arena, size, 8);
+				};
+			result_alloc.allocator.realloc_fn = [](void* user, void* old_ptr, size_t old_size, size_t new_size)
+				{
+					memory_arena_t* arena = (memory_arena_t*)user;
+					void* ptr_new = ARENA_ALLOC_ZERO(*arena, new_size, 8);
+					memcpy(ptr_new, old_ptr, old_size);
+					return ptr_new;
+				};
+			result_alloc.allocator.free_fn = [](void* user, void* ptr, size_t size)
+				{
+					(void)user; (void)ptr; (void)size;
+				};
+			result_alloc.allocator.free_allocator_fn = [](void* user)
+				{
+					(void)user;
+				};
+			result_alloc.memory_limit = SIZE_MAX;
+			result_alloc.allocation_limit = SIZE_MAX;
+			result_alloc.huge_threshold = MB(1);
+			result_alloc.max_chunk_size = MB(16);
 
-			asset->root_node_indices = loaded_nodes.root_node_indices;
-			asset->root_node_count = loaded_nodes.root_node_count;
-			asset->nodes = loaded_nodes.nodes;
-			asset->node_count = loaded_nodes.node_count;
+			ufbx_load_opts opts = {};
+			opts.target_unit_meters = 1.0f;
+			//opts.load_external_files = true;
+			//opts.ignore_missing_external_files = true;
+			opts.generate_missing_normals = true;
+			/*opts.normalize_normals = true;
+			opts.normalize_tangents = true;*/
+			opts.target_axes = {
+				.right = UFBX_COORDINATE_AXIS_POSITIVE_X,
+				.up = UFBX_COORDINATE_AXIS_POSITIVE_Y,
+				.front = UFBX_COORDINATE_AXIS_POSITIVE_Z
+			};
+			opts.temp_allocator = temp_alloc;
+			opts.result_allocator = result_alloc;
+
+			ufbx_error error = {};
+			loaded_fbx = ufbx_load_file(filepath, &opts, &error);
+			if (!loaded_fbx || error.type != UFBX_ERROR_NONE)
+			{
+				FATAL_ERROR("Assets", "Failed to load FBX: %s", filepath);
+			}
 		}
 
+		// -------------------------------------------------------------------------------------------------------------
+		// Parse materials/textures and upload to GPU
+		{
+			ret.material_assets = ARENA_ALLOC_ARRAY_ZERO(arena, material_asset_t, loaded_fbx->materials.count);
+			for (uint32_t mat_idx = 0; mat_idx < loaded_fbx->materials.count; ++mat_idx)
+			{
+				ufbx_material* fbx_material = loaded_fbx->materials[mat_idx];
+				material_asset_t& asset = ret.material_assets[mat_idx];
+
+				asset.base_color_factor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+				asset.metallic_factor = 0.0f;
+				asset.roughness_factor = 0.5f;
+				asset.emissive_factor = glm::vec3(0.0f, 0.0f, 0.0f);
+				asset.emissive_strength = 0.0f;
+				asset.base_color_texture.render_texture_handle.handle = INVALID_HANDLE;
+				asset.normal_texture.render_texture_handle.handle = INVALID_HANDLE;
+				asset.metallic_roughness_texture.render_texture_handle.handle = INVALID_HANDLE;
+				asset.emissive_texture.render_texture_handle.handle = INVALID_HANDLE;
+
+				if (fbx_material->features.pbr.enabled)
+				{
+					asset.base_color_factor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+					asset.metallic_factor = 1.0f;
+					asset.roughness_factor = 1.0f;
+					asset.emissive_factor = glm::vec3(1.0f, 1.0f, 1.0f);
+					asset.emissive_strength = 1.0f;
+
+					if (fbx_material->pbr.base_color.texture_enabled)
+					{
+						ufbx_texture* fbx_texture = fbx_material->pbr.base_color.texture;
+						if (fbx_texture)
+						{
+							asset.base_color_texture = fbx_load_texture(arena_scratch, *fbx_texture, TEXTURE_FORMAT_RGBA8_SRGB);
+						}
+					}
+
+					if (fbx_material->pbr.normal_map.texture_enabled)
+					{
+						ufbx_texture* fbx_texture = fbx_material->pbr.normal_map.texture;
+						if (fbx_texture)
+						{
+							asset.normal_texture = fbx_load_texture(arena_scratch, *fbx_texture, TEXTURE_FORMAT_RGBA8);
+						}
+					}
+
+					if (fbx_material->pbr.metalness.texture_enabled || fbx_material->pbr.roughness.texture_enabled)
+					{
+						ufbx_texture* fbx_texture_metalness = fbx_material->pbr.metalness.texture;
+						ufbx_texture* fbx_texture_roughness = fbx_material->pbr.roughness.texture;
+						if (fbx_texture_metalness && fbx_texture_roughness && fbx_texture_metalness == fbx_texture_roughness)
+						{
+							asset.metallic_roughness_texture = fbx_load_texture(arena_scratch, *fbx_texture_metalness, TEXTURE_FORMAT_RGBA8);
+						}
+					}
+
+					if (fbx_material->pbr.emission_color.texture_enabled)
+					{
+						ufbx_texture* fbx_texture = fbx_material->pbr.emission_color.texture;
+						if (fbx_texture)
+						{
+							asset.emissive_texture = fbx_load_texture(arena_scratch, *fbx_texture, TEXTURE_FORMAT_RGBA8_SRGB);
+						}
+					}
+				}
+
+				++ret.material_asset_count;
+			}
+		}
+
+		// -------------------------------------------------------------------------------------------------------------
+		// Parse meshes and upload to GPU
+		{
+			uint32_t mesh_count = 0;
+			uint32_t max_triangles = 0;
+
+			for (uint32_t mesh_idx = 0; mesh_idx < loaded_fbx->meshes.count; ++mesh_idx)
+			{
+				const ufbx_mesh* fbx_mesh = loaded_fbx->meshes.data[mesh_idx];
+				if (fbx_mesh->instances.count == 0 || fbx_mesh->material_parts.count == 0) continue;
+
+				for (uint32_t part_idx = 0; part_idx < fbx_mesh->material_parts.count; ++part_idx)
+				{
+					const ufbx_mesh_part& fbx_mesh_part = fbx_mesh->material_parts.data[part_idx];
+					if (fbx_mesh_part.num_triangles == 0) continue;
+
+					++mesh_count;
+					max_triangles = MAX(max_triangles, fbx_mesh_part.num_triangles);
+				}
+			}
+
+			ret.mesh_assets = ARENA_ALLOC_ARRAY_ZERO(arena, mesh_asset_t, mesh_count);
+
+			for (uint32_t mesh_idx = 0; mesh_idx < loaded_fbx->meshes.count; ++mesh_idx)
+			{
+				const ufbx_mesh* fbx_mesh = loaded_fbx->meshes.data[mesh_idx];
+				if (fbx_mesh->instances.count == 0 || fbx_mesh->material_parts.count == 0) continue;
+
+				ASSERT_MSG(fbx_mesh->vertex_position.exists, "FBX %s is missing vertex attribute position", filepath);
+				ASSERT_MSG(fbx_mesh->vertex_normal.exists, "FBX %s is missing vertex attribute normal", filepath);
+				//ASSERT_MSG(fbx_mesh->vertex_tangent.exists, "FBX %s is missing vertex attribute tangent", filepath);
+				ASSERT_MSG(fbx_mesh->vertex_uv.exists, "FBX %s is missing vertex attribute tex_coord", filepath);
+
+				uint32_t tri_index_count = fbx_mesh->max_face_triangles * 3;
+				uint32_t* tri_indices = ARENA_ALLOC_ARRAY_ZERO(arena_scratch, uint32_t, tri_index_count);
+				vertex_t* vertices = ARENA_ALLOC_ARRAY_ZERO(arena_scratch, vertex_t, max_triangles * 3);
+				uint32_t* indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, max_triangles * 3);
+				
+				for (uint32_t part_idx = 0; part_idx < fbx_mesh->material_parts.count; ++part_idx)
+				{
+					const ufbx_mesh_part& fbx_mesh_part = fbx_mesh->material_parts.data[part_idx];
+					if (fbx_mesh_part.num_triangles == 0) continue;
+
+					uint32_t index_count = 0;
+
+					for (uint32_t face_idx = 0; face_idx < fbx_mesh_part.num_faces; ++face_idx)
+					{
+						const ufbx_face& fbx_face = fbx_mesh->faces.data[fbx_mesh_part.face_indices.data[face_idx]];
+						uint32_t triangle_count = ufbx_triangulate_face(tri_indices, tri_index_count, fbx_mesh, fbx_face);
+
+						for (uint32_t vert_idx = 0; vert_idx < triangle_count * 3; ++vert_idx)
+						{
+							uint32_t tri_idx = tri_indices[vert_idx];
+							
+							ufbx_vec3 src_pos = ufbx_get_vertex_vec3(&fbx_mesh->vertex_position, tri_idx);
+							ufbx_vec3 src_normal = ufbx_get_vertex_vec3(&fbx_mesh->vertex_normal, tri_idx);
+							//ufbx_vec3 src_tangent = ufbx_get_vertex_vec3(&fbx_mesh->vertex_tangent, tri_idx);
+							ufbx_vec2 src_tex_coord = ufbx_get_vertex_vec2(&fbx_mesh->vertex_uv, tri_idx);
+							
+							vertices[index_count].position = glm::vec3(src_pos.x, src_pos.y, src_pos.z);
+							vertices[index_count].normal = glm::vec3(src_normal.x, src_normal.y, src_normal.z);
+							//vertices[index_count].tangent = glm::vec4(src_tangent.x, src_tangent.y, src_tangent.z, 1.0f);
+							vertices[index_count].tex_coord = glm::vec2(src_tex_coord.x, src_tex_coord.y);
+
+							index_count++;
+						}
+					}
+
+					ufbx_vertex_stream vertex_stream = {};
+					vertex_stream.data = vertices;
+					vertex_stream.vertex_count = index_count;
+					vertex_stream.vertex_size = sizeof(vertex_t);
+					
+					uint32_t vertex_count = ufbx_generate_indices(&vertex_stream, 1, indices, index_count, NULL, NULL);
+
+					// Create render mesh
+					renderer::render_mesh_params_t rmesh_params = {};
+					rmesh_params.vertex_count = vertex_count;
+					rmesh_params.vertices = vertices;
+					rmesh_params.index_count = index_count;
+					rmesh_params.indices = indices;
+					rmesh_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
+
+					ret.mesh_assets[ret.mesh_asset_count].render_mesh_handle = renderer::create_render_mesh(rmesh_params);
+					++ret.mesh_asset_count;
+				}
+			}
+		}
+		
+		// -------------------------------------------------------------------------------------------------------------
+		// Parse nodes and node hierarchy
+		{
+			uint32_t node_count = 0;
+			for (uint32_t mesh_idx = 0; mesh_idx < loaded_fbx->meshes.count; ++mesh_idx)
+			{
+				const ufbx_mesh* fbx_mesh = loaded_fbx->meshes.data[mesh_idx];
+				if (fbx_mesh->instances.count == 0 || fbx_mesh->material_parts.count == 0) continue;
+
+				for (uint32_t instance_idx = 0; instance_idx < fbx_mesh->instances.count; ++instance_idx)
+				{
+					const ufbx_node* fbx_node = fbx_mesh->instances.data[instance_idx];
+					if (!fbx_node->visible) continue;
+				
+					++node_count;
+				}
+			}
+			
+			ret.nodes = ARENA_ALLOC_ARRAY_ZERO(arena, scene_node_t, node_count);
+			
+			uint32_t mesh_part_offset = 0;
+			uint32_t node_offset = 0;
+			for (uint32_t mesh_idx = 0; mesh_idx < loaded_fbx->meshes.count; ++mesh_idx)
+			{
+				const ufbx_mesh* fbx_mesh = loaded_fbx->meshes.data[mesh_idx];
+				if (fbx_mesh->instances.count == 0 || fbx_mesh->material_parts.count == 0) continue;
+
+				for (uint32_t instance_idx = 0; instance_idx < fbx_mesh->instances.count; ++instance_idx)
+				{
+					const ufbx_node* fbx_node = fbx_mesh->instances.data[instance_idx];
+					if (!fbx_node->visible) continue;
+
+					scene_node_t& scene_node = ret.nodes[node_offset];
+					scene_node.node_to_world = glm::mat4(
+						fbx_node->node_to_world.m00, fbx_node->node_to_world.m10, fbx_node->node_to_world.m20, 0.0,
+						fbx_node->node_to_world.m01, fbx_node->node_to_world.m11, fbx_node->node_to_world.m21, 0.0,
+						fbx_node->node_to_world.m02, fbx_node->node_to_world.m12, fbx_node->node_to_world.m22, 0.0,
+						fbx_node->node_to_world.m03, fbx_node->node_to_world.m13, fbx_node->node_to_world.m23, 1.0
+					);
+					scene_node.mesh_indices = ARENA_ALLOC_ARRAY(arena, uint32_t, fbx_mesh->material_parts.count);
+					scene_node.material_indices = ARENA_ALLOC_ARRAY(arena, uint32_t, fbx_mesh->material_parts.count);
+					scene_node.mesh_count = fbx_mesh->material_parts.count;
+
+					scene_node.children = ARENA_ALLOC_ARRAY(arena, uint32_t, fbx_node->children.count);
+					scene_node.child_count = fbx_node->children.count;
+					for (uint32_t i = 0; i < fbx_node->children.count; ++i)
+					{
+						scene_node.children[i] = fbx_node->children.data[i]->typed_id;
+					}
+
+					for (uint32_t i = 0; i < fbx_mesh->material_parts.count; ++i)
+					{
+						scene_node.mesh_indices[i] = mesh_part_offset;
+						scene_node.material_indices[i] = fbx_mesh->materials[i]->typed_id;
+
+						++mesh_part_offset;
+					}
+
+					++node_offset;
+					++ret.node_count;
+				}
+			}
+		}
+
+		ufbx_free_scene(loaded_fbx);
+		return ret;
+	}
+
+	static scene_asset_t load_scene_from_file(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath)
+	{
+		scene_asset_t ret = {};
+		SCENE_MESH_SOURCE_FORMAT source_format = get_source_format_from_filepath(filepath);
+
+		switch (source_format)
+		{
+			case SCENE_MESH_SOURCE_FORMAT_GLTF:		ret = load_scene_gltf(arena, arena_scratch, filepath); break;
+			case SCENE_MESH_SOURCE_FORMAT_FBX:		ret = load_scene_fbx(arena, arena_scratch, filepath); break;
+			case SCENE_MESH_SOURCE_FORMAT_INVALID:	ASSERT_MSG(false, "Tried to load scene asset %s with invalid source format", filepath); break;
+		}
+
+		return ret;
+	}
+
+	scene_asset_t* load_scene(memory_arena_t& arena, const char* filepath)
+	{
+		scene_asset_t* asset = ARENA_ALLOC_STRUCT_ZERO(arena, scene_asset_t);
+		ARENA_SCRATCH_SCOPE()
+		{
+			*asset = load_scene_from_file(arena, arena_scratch, filepath);
+		}
 		return asset;
 	}
 

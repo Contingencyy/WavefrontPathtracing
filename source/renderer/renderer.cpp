@@ -229,8 +229,8 @@ namespace renderer
 		g_renderer->inv_render_width = 1.0f / (float)g_renderer->render_width;
 		g_renderer->inv_render_height = 1.0f / (float)g_renderer->render_height;
 
-		slotmap::init(g_renderer->texture_slotmap, g_renderer->arena);
-		slotmap::init(g_renderer->mesh_slotmap, g_renderer->arena);
+		slotmap::init(g_renderer->texture_slotmap, g_renderer->arena, 65536);
+		slotmap::init(g_renderer->mesh_slotmap, g_renderer->arena, 16384);
 
 		// The d3d12 backend use the same arena as the front-end renderer since the renderer initializes the backend and they have the same lifetimes
 		d3d12::init_params_t backend_params = {};
@@ -240,7 +240,7 @@ namespace renderer
 
 		// Create defaults
 		{
-			uint32_t texture_data = 0xffffffff;
+			uint32_t texture_data = (255 << 24) | (255 << 16) | (255 << 8) | (255 << 0);
 			render_texture_params_t params = {};
 			params.width = 1;
 			params.height = 1;
@@ -260,7 +260,7 @@ namespace renderer
 			g_renderer->defaults.texture_handle_normal = create_render_texture(params);
 			g_renderer->defaults.texture_normal = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_normal);
 
-			uint16_t texture_data_16 = (127 << 8) | (127 << 0);
+			uint16_t texture_data_16 = (255 << 8) | (255 << 0);
 			params.channel_count = 2;
 			params.format = TEXTURE_FORMAT_RG8;
 			params.ptr_data = (uint8_t*)(&texture_data_16);
@@ -269,7 +269,7 @@ namespace renderer
 			g_renderer->defaults.texture_metallic_roughness = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_metallic_roughness);
 
 			g_renderer->defaults.texture_handle_emissive = g_renderer->defaults.texture_handle_base_color;
-			g_renderer->defaults.texture_emissive = g_renderer->defaults.texture_emissive;
+			g_renderer->defaults.texture_emissive = g_renderer->defaults.texture_base_color;
 		}
 		
 		// Create instance buffer
@@ -608,10 +608,10 @@ namespace renderer
 		ASSERT(g_renderer->scene_hdr_env_texture);
 
 		// Set new camera data for the view constant buffer
-		float near_plane = 0.001f;
+		float near_plane = 0.1f;
 		float far_plane = 10000.0f;
 		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(g_renderer->scene_camera.vfov_deg),
-			(float)g_renderer->render_width, (float)g_renderer->render_height, 0.001f, 10000.0f);
+			(float)g_renderer->render_width, (float)g_renderer->render_height, near_plane, far_plane);
 		
 		g_renderer->cb_view = d3d12::allocate_frame_resource(sizeof(view_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 		view_shader_data_t* view_cb = (view_shader_data_t*)g_renderer->cb_view.ptr;
@@ -1307,7 +1307,7 @@ namespace renderer
 			tlas_instance_hardware.Flags = 0; // D3D12_RAYTRACING_INSTANCE_FLAGS
 		}
 
-		g_renderer->instance_data_at++;
+		++g_renderer->instance_data_at;
 	}
 
 }

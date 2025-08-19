@@ -37,6 +37,9 @@ bld/
 !extern/dxcompiler/**
 !extern/d3d12_agility/**
 
+# Assets that should stay local
+assets/scenes/bistro/**
+
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 # IntelliJ Idea

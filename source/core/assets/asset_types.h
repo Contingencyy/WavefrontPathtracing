@@ -26,9 +26,11 @@ struct mesh_asset_t
 
 struct scene_node_t
 {
-	glm::mat4 transform;
+	glm::mat4 node_to_world;
+
 	uint32_t* children;
 	uint32_t child_count;
+	
 	uint32_t* mesh_indices;
 	uint32_t* material_indices;
 	uint32_t mesh_count;
@@ -41,8 +43,6 @@ struct scene_asset_t
 	mesh_asset_t* mesh_assets;
 	uint32_t mesh_asset_count;
 
-	uint32_t* root_node_indices;
-	uint32_t root_node_count;
 	scene_node_t* nodes;
 	uint32_t node_count;
 };

@@ -44,13 +44,20 @@ inline bool _show_message_box(const char* title, const char* sender, const char*
 	return result;
 }
 
+inline void _debug_break()
+{
+	platform::debug_break();
+}
+
 #define ASSERT_MSG(expr, msg, ...) ((expr) ? true : (_fatal_error(__LINE__, __FILE__, "Assertion", msg, ##__VA_ARGS__), false))
 #define ASSERT(expr) ASSERT_MSG(expr, "Assertion failed: " #expr)
 
 #ifdef _DEBUG
+#define DEBUG_BREAK _debug_break()
 #define DEBUG_ASSERT_MSG(expr, msg, ...) ASSERT_MSG(expr, msg, ##__VA_ARGS__)
 #define DEBUG_ASSERT(expr) ASSERT_MSG(expr)
 #else
+#define DEBUG_BREAK
 #define DEBUG_ASSERT_MSG(expr, msg, ...)
 #define DEBUG_ASSERT(expr)
 #endif

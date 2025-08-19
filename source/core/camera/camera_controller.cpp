@@ -9,7 +9,7 @@ namespace camera_controller
 	void create(camera_controller_t& controller, camera_t* camera)
 	{
 		controller.camera = camera;
-		controller.move_speed = 10.0f;
+		controller.move_speed = 1.0f;
 		controller.look_speed = 0.001f;
 	}
 

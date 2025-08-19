@@ -23,6 +23,10 @@ struct scene_t
 	texture_asset_t* hdr_env;
 	scene_asset_t* dragon_scene_asset;
 	scene_asset_t* sponza_scene_asset;
+	scene_asset_t* bistro_exterior_scene_asset;
+	scene_asset_t* bistro_interior_scene_asset;
+	scene_asset_t* bistro_wine_scene_asset;
+	scene_asset_t* sun_temple_scene_asset;
 
 	camera_t camera;
 

@@ -57,7 +57,7 @@ namespace input
 		s_curr_mouseX = mouse_pos.x;
 		s_curr_mouseY = mouse_pos.y;
 
-		if (s_capturing_mouse)
+		if (s_capturing_mouse && s_window_focused)
 		{
 			// If we are capturing the mouse, we reset the mouse position to the center of the window
 			// However, this would mess with our mouse movement, so we need to move the mouse over artificially while preserving the delta
@@ -105,7 +105,7 @@ namespace input
 		s_capturing_mouse = bCapture;
 
 		// reset the mouse positions so there is no instant teleportation once mouse capture starts
-		if (s_capturing_mouse)
+		if (s_capturing_mouse && s_window_focused)
 		{
 			POINT mousePos = {};
 			GetCursorPos(&mousePos);
@@ -117,12 +117,17 @@ namespace input
 
 	bool is_mouse_captured()
 	{
-		return s_capturing_mouse && s_window_focused;
+		return s_capturing_mouse;
 	}
 
 	void set_window_focus(bool bFocus)
 	{
 		s_window_focused = bFocus;
+	}
+
+	bool is_window_focused()
+	{
+		return s_window_focused;
 	}
 
 	void reset()

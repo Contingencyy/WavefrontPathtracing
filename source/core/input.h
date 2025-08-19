@@ -33,6 +33,7 @@ namespace input
 	void set_mouse_capture(bool capture);
 	bool is_mouse_captured();
 	void set_window_focus(bool focus);
+	bool is_window_focused();
 
 	void reset();
 

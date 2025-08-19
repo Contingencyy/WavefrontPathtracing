@@ -9,8 +9,10 @@
 // Note: Windows.h needs to be included after d3d12.h, otherwise it will complain about redefinitions from the agility sdk
 #include "platform/windows/windows_common.h"
 
+#define D3D12_ENABLE_DEBUG_LAYER 1
+#define D3D12_ENABLE_GPU_BASED_VALIDATION 0
+
 #define D3D12_VALIDATE_RESOURCE_VIEWS 1
-#define D3D12_GPU_BASED_VALIDATION 0
 #define D3D12_MAP_FULL_RANGE ~0ull
 
 inline bool dx_check_hr(int32_t Line, const char* File, HRESULT HR)

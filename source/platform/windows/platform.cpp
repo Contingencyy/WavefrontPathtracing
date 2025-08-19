@@ -17,7 +17,6 @@ namespace platform
 
 	struct internal_t
 	{
-		HWND hwnd;
 		LONGLONG perf_freq;
 
 		HANDLE conin;
@@ -26,6 +25,12 @@ namespace platform
 		FILE* filein;
 		FILE* fileout;
 		FILE* fileerr;
+
+		struct window_t
+		{
+			HWND hwnd;
+			bool cursor_hidden;
+		} window;
 	} static internal;
 	
 	static void console_create()
@@ -104,11 +109,15 @@ namespace platform
 		case WM_SETFOCUS:
 		{
 			input::set_window_focus(true);
+			if (input::is_mouse_captured())
+			{
+				platform::window_set_capture_mouse(true);
+			}
 		} break;
 		case WM_KILLFOCUS:
 		{
-			platform::window_set_capture_mouse(false);
 			input::set_window_focus(false);
+			platform::window_set_capture_mouse(false);
 		} break;
 		case WM_DESTROY:
 		{
@@ -126,7 +135,7 @@ namespace platform
 	void window_get_client_area(int32_t& out_window_width, int32_t& out_window_height)
 	{
 		RECT client_rect = {};
-		GetClientRect(internal.hwnd, &client_rect);
+		GetClientRect(internal.window.hwnd, &client_rect);
 
 		out_window_width = client_rect.right - client_rect.left;
 		out_window_height = client_rect.bottom - client_rect.top;
@@ -135,10 +144,10 @@ namespace platform
 	void window_get_center(int32_t& out_centerX, int32_t& out_centerY)
 	{
 		RECT window_rect = {};
-		GetWindowRect(internal.hwnd, &window_rect);
+		GetWindowRect(internal.window.hwnd, &window_rect);
 
 		RECT client_rect = {};
-		GetClientRect(internal.hwnd, &client_rect);
+		GetClientRect(internal.window.hwnd, &client_rect);
 
 		client_rect.left = window_rect.left;
 		client_rect.right += window_rect.left;
@@ -159,20 +168,29 @@ namespace platform
 	void window_set_capture_mouse(bool capture)
 	{
 		RECT window_rect = {};
-		GetWindowRect(internal.hwnd, &window_rect);
+		GetWindowRect(internal.window.hwnd, &window_rect);
 
 		RECT client_rect = {};
-		GetClientRect(internal.hwnd, &client_rect);
+		GetClientRect(internal.window.hwnd, &client_rect);
 
 		client_rect.left = window_rect.left;
 		client_rect.right += window_rect.left;
 		client_rect.top = window_rect.top;
 		client_rect.bottom += window_rect.top;
 
-		ShowCursor(!capture);
+		if (internal.window.cursor_hidden != capture)
+		{
+			// ShowCursor has an internal int counter, >= 0 will display the cursor
+			// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showcursor
+			ShowCursor(!capture);
+			internal.window.cursor_hidden = capture;
+		}
 		ClipCursor(capture ? &client_rect : nullptr);
 
-		window_reset_mouse_to_center();
+		if (capture)
+		{
+			window_reset_mouse_to_center();
+		}
 
 		input::set_mouse_capture(capture);
 	}
@@ -252,16 +270,16 @@ namespace platform
 		int32_t windowX = glm::max(0, (screen_width - window_width) / 2);
 		int32_t windowY = glm::max(0, (screen_height - window_height) / 2);
 		
-		internal.hwnd = CreateWindowExW(
+		internal.window.hwnd = CreateWindowExW(
 			0, L"WavefrontPathtracerWindowClass", L"Wavefront Pathtracer", WS_OVERLAPPEDWINDOW,
 			windowX, windowY, window_width, window_height,
 			NULL, NULL, NULL, NULL
 		);
 
-		if (!internal.hwnd)
+		if (!internal.window.hwnd)
 			FATAL_ERROR("Window", "Failed to create window");
 
-		ShowWindow(internal.hwnd, TRUE);
+		ShowWindow(internal.window.hwnd, TRUE);
 	}
 
 	void fatal_error(int32_t line, const char* error_msg)
@@ -291,6 +309,11 @@ namespace platform
 		default:
 			return false;
 		}
+	}
+
+	void debug_break()
+	{
+		DebugBreak();
 	}
 
 	static void parse_next_command_arg(string_t& cmd_line_cur, string_t& arg_str, string_t& param_str)

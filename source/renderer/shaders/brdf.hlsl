@@ -9,8 +9,6 @@ float d_ggx(float NoH, float roughness)
     return a / (PI * f * f);
 }
 
-
-
 // Fresnel
 float3 f_schlick(float u, float3 F0)
 {
