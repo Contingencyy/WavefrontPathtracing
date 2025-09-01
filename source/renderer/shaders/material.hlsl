@@ -4,6 +4,7 @@
 struct sampled_material_t
 {
     float3 base_color;
+    float opacity;
     float metallic;
     float3 normal;
     float roughness;
@@ -18,6 +19,7 @@ sampled_material_t sample_material(material_t material, float2 tex_coord)
     Texture2D texture_base_color = get_resource<Texture2D>(material.base_color_index);
     float4 base_color = texture_base_color.Sample(sampler_linear_wrap, tex_coord);
     sampled_material.base_color = material.base_color_factor * base_color.xyz;
+    sampled_material.opacity = base_color.w;
     
     Texture2D texture_metallic_roughness = get_resource<Texture2D>(material.metallic_roughness_index);
     float4 metallic_roughness = texture_metallic_roughness.Sample(sampler_linear_wrap, tex_coord);

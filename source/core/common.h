@@ -26,3 +26,15 @@ inline constexpr glm::vec3 DEFAULT_FORWARD_VECTOR = glm::vec3(0.0f, 0.0f, 1.0f);
 #define IS_BIT_FLAG_SET(flags, bitflag) ((flags & bitflag) == bitflag)
 
 #define PTR_OFFSET(ptr, offset) ((uint8_t*)ptr + (offset))
+
+static inline uint32_t log2_u32(uint32_t x)
+{
+    uint32_t result = 0;
+    while (x)
+    {
+        x = x >> 1;
+        ++result;
+    }
+
+    return result;
+}

@@ -149,7 +149,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     case RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS:  energy = float3(0.0, sampled_material.roughness, sampled_material.metallic); break;
     case RENDER_VIEW_MODE_MATERIAL_EMISSIVE:            energy = sampled_material.emissive_color; break;
     case RENDER_VIEW_MODE_WORLD_NORMAL:                 energy = abs(hit_surface.normal); break;
-    case RENDER_VIEW_MODE_RENDER_TARGET_DEPTH:          energy = float3(intersection_result.t, intersection_result.t, intersection_result.t) / cb_view.far_plane;
+    case RENDER_VIEW_MODE_RENDER_TARGET_DEPTH:          energy = float3(intersection_result.t, intersection_result.t, intersection_result.t) / cb_view.far_plane; break;
     }
     
     // Write new ray to output buffer if we need to do another recursion

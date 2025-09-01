@@ -132,6 +132,9 @@
     <ClCompile Include="extern\ufbx\ufbx.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\core\assets\dds_loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\core\application.h">
@@ -291,6 +294,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="extern\ufbx\ufbx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\core\assets\dds_loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -68,17 +68,26 @@ namespace scene
 		create_scene_object(scene, render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));*/
 
 		// HDR environment map
-		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
-		//scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
-		scene.hdr_env = asset_loader::load_texture_hdr(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr", TEXTURE_FORMAT_RGBA32_FLOAT);
+#if 1
+		//scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr");
+		//scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr");
+		scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr");
+#endif
 
+#if 0
 		// Dragon asset and objects
-		/*scene.dragon_scene_asset = asset_loader::load_mesh(scene.arena, "assets/meshes/dragon/DragonAttenuation.gltf");
+		scene.dragon_scene_asset = asset_loader::load_scene(scene.arena, "assets/meshes/dragon/DragonAttenuation.gltf");
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(-20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(2.0f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.5f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
 		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(3.5f));
-		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));*/
+		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
+#endif
+
+#if 0
+		scene.damaged_helmet_scene_asset = asset_loader::load_scene(scene.arena, "assets/meshes/damaged_helmet/DamagedHelmet.gltf");
+		create_scene_objects_from_scene_asset(scene, *scene.damaged_helmet_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+#endif
 
 #if 0
 		// Sponza
@@ -87,6 +96,8 @@ namespace scene
 #endif
 
 #if 0
+		scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/scenes/bistro/san_giuseppe_bridge_4k.hdr");
+		
 		// Bistro
 		scene.bistro_exterior_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroExterior.fbx");
 		create_scene_objects_from_scene_asset(scene, *scene.bistro_exterior_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));

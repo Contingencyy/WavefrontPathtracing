@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "asset_loader.h"
+#include "dds.h"
+
+#include "core/fileio/fileio.h"
 
 #include "renderer/renderer.h"
 #include "renderer/shaders/shared.hlsl.h"
-#include "core/logger.h"
-#include "core/scene.h"
 
 namespace asset_loader
 {
@@ -41,90 +42,318 @@ namespace asset_loader
 		return ptr_new;
 	}
 
-	struct image_load_result_t
+	enum TEXTURE_FILE_TYPE
 	{
-		uint32_t width;
-		uint32_t height;
-		uint32_t channel_count;
-		uint32_t bytes_per_channel;
-		uint8_t* data_ptr;
+		TEXTURE_FILE_TYPE_PNG,
+		TEXTURE_FILE_TYPE_HDR,
+		TEXTURE_FILE_TYPE_DDS,
+		TEXTURE_FILE_TYPE_UNKNOWN
 	};
 
-	static image_load_result_t load_image_from_file(memory_arena_t& arena, const char* filepath, bool load_hdr)
+	static TEXTURE_FILE_TYPE get_texture_file_type(const char* filepath)
 	{
-		image_load_result_t ret = {};
-		s_stbi_memory_arena = &arena;
-
-		int32_t image_width, image_height, channel_count;
-		uint8_t* image_data_ptr;
-
-		if (load_hdr)
+		const char* extension_delim = strrchr(filepath, '.');
+		if (!extension_delim || extension_delim == filepath)
 		{
-			image_data_ptr = (uint8_t*)stbi_loadf(filepath, &image_width, &image_height, &channel_count, STBI_rgb_alpha);
+			return TEXTURE_FILE_TYPE_UNKNOWN;
 		}
-		else
+
+		const char* extension = extension_delim + 1;
+		if (strcmp(extension_delim, ".png") == 0)
 		{
-			image_data_ptr = stbi_load(filepath, &image_width, &image_height, &channel_count, STBI_rgb_alpha);
+			return TEXTURE_FILE_TYPE_PNG;
+		}
+		if (strcmp(extension_delim, ".hdr") == 0)
+		{
+			return TEXTURE_FILE_TYPE_HDR;
+		}
+		if (strcmp(extension_delim, ".dds") == 0)
+		{
+			return TEXTURE_FILE_TYPE_DDS;
 		}
 		
-		if (!image_data_ptr)
+		return TEXTURE_FILE_TYPE_UNKNOWN;
+	}
+
+	struct image_load_result_t
+	{
+		TEXTURE_FORMAT format;
+		int32_t width;
+		int32_t height;
+		int32_t bits_per_pixel;
+		uint8_t* data_ptr;
+		bool loaded;
+	};
+
+	static texture_asset_t load_texture_png(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath, bool srgb)
+	{
+		texture_asset_t ret = {};
+		ret.render_texture_handle.handle = INVALID_HANDLE;
+		
+		// -------------------------------------------------------------------------------------------------------------
+		// Load the file
+		image_load_result_t loaded_image = {};
 		{
-			FATAL_ERROR("asset_loader::load_image_from_file", "Failed to load image: %s", filepath);
+			s_stbi_memory_arena = &arena;
+
+			int32_t channels;
+			loaded_image.data_ptr = stbi_load(filepath, &loaded_image.width, &loaded_image.height, &channels, STBI_rgb_alpha);
+			loaded_image.loaded = loaded_image.data_ptr;
+			loaded_image.bits_per_pixel = 32;
+			loaded_image.format = srgb ? TEXTURE_FORMAT_RGBA8_SRGB : TEXTURE_FORMAT_RGBA8;
 		}
 
-		ret.width = image_width;
-		ret.height = image_height;
-		ret.channel_count = 4;
-		ret.bytes_per_channel = load_hdr ? 4 : 1;
-		ret.data_ptr = image_data_ptr;
+		// -------------------------------------------------------------------------------------------------------------
+		// Upload texture to the GPU
+		if (!loaded_image.loaded)
+		{
+			LOG_ERR("Assets", "Failed to load image: %s", filepath);
+			return ret;
+		}
+		
+		{
+			renderer::render_texture_params_t rtexture_params = {};
+			rtexture_params.width = loaded_image.width;
+			rtexture_params.height = loaded_image.height;
+			rtexture_params.bits_per_pixel = loaded_image.bits_per_pixel;
+			rtexture_params.format = loaded_image.format;
+			rtexture_params.ptr_data = loaded_image.data_ptr;
+			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
+
+			ret.render_texture_handle = renderer::create_render_texture(rtexture_params);
+		}
 
 		return ret;
 	}
 
-	texture_asset_t* load_texture_rgba(memory_arena_t& arena, const char* filepath, TEXTURE_FORMAT format)
+	static texture_asset_t load_texture_hdr(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath, bool srgb)
 	{
-		// TODO: Same code as below, maybe detect based on file extension whether to load HDR or not
-		texture_asset_t* asset = ARENA_ALLOC_STRUCT_ZERO(arena, texture_asset_t);
-
-		ARENA_MEMORY_SCOPE(arena)
+		texture_asset_t ret = {};
+		ret.render_texture_handle.handle = INVALID_HANDLE;
+		
+		// -------------------------------------------------------------------------------------------------------------
+		// Load the file
+		image_load_result_t loaded_image = {};
 		{
-			image_load_result_t loaded_image = load_image_from_file(arena, filepath, false);
+			s_stbi_memory_arena = &arena;
+			
+			int32_t channels;
+			loaded_image.data_ptr = (uint8_t*)stbi_loadf(filepath, &loaded_image.width, &loaded_image.height, &channels, STBI_rgb_alpha);
+			loaded_image.loaded = loaded_image.data_ptr;
+			loaded_image.bits_per_pixel = 128;
+			loaded_image.format = TEXTURE_FORMAT_RGBA32_FLOAT;
+		}
 
+		// -------------------------------------------------------------------------------------------------------------
+		// Upload texture to the GPU
+		if (!loaded_image.loaded)
+		{
+			LOG_ERR("Assets", "Failed to load image: %s", filepath);
+			return ret;
+		}
+		
+		{
 			renderer::render_texture_params_t rtexture_params = {};
 			rtexture_params.width = loaded_image.width;
 			rtexture_params.height = loaded_image.height;
-			rtexture_params.bytes_per_channel = loaded_image.bytes_per_channel;
-			rtexture_params.channel_count = loaded_image.channel_count;
-			rtexture_params.format = format;
-			rtexture_params.ptr_data = (uint8_t*)loaded_image.data_ptr;
+			rtexture_params.bits_per_pixel = loaded_image.bits_per_pixel;
+			rtexture_params.format = loaded_image.format;
+			rtexture_params.ptr_data = loaded_image.data_ptr;
 			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
 
-			asset->render_texture_handle = renderer::create_render_texture(rtexture_params);
+			ret.render_texture_handle = renderer::create_render_texture(rtexture_params);
 		}
 
-		return asset;
+		return ret;
 	}
 
-	texture_asset_t* load_texture_hdr(memory_arena_t& arena, const char* filepath, TEXTURE_FORMAT format)
+	static texture_asset_t load_texture_dds(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath, bool srgb)
 	{
-		texture_asset_t* asset = ARENA_ALLOC_STRUCT_ZERO(arena, texture_asset_t);
+		texture_asset_t ret = {};
+		ret.render_texture_handle.handle = INVALID_HANDLE;
 
-		ARENA_MEMORY_SCOPE(arena)
+		// -------------------------------------------------------------------------------------------------------------
+		// Load the file
+		image_load_result_t loaded_image = {};
 		{
-			image_load_result_t loaded_image = load_image_from_file(arena, filepath, true);
+			fileio::read_file_result_t loaded_file = fileio::read_file(arena_scratch, filepath);
+			if (!loaded_file.loaded)
+			{
+				LOG_ERR("Assets", "Failed to read file: %s", filepath);
+				return ret;
+			}
+			
+			uint32_t dds_file_start = 0x20534444;
+			if (memcmp(loaded_file.data, &dds_file_start, 4) != 0)
+			{
+				LOG_ERR("Assets", "Invalid DDS file, file did not start with \"DDS \": %s", filepath);
+				return ret;
+			}
+			
+			DDS_HEADER* header = (DDS_HEADER*)(loaded_file.data + 4);
+			if (header->size != sizeof(DDS_HEADER) ||
+				header->ddspf.size != sizeof(DDS_PIXELFORMAT))
+			{
+				LOG_ERR("Assets", "DDS header wrong or possibly corrupted: %s");
+				return ret;
+			}
 
+			DDS_HEADER_DXT10* header_dxt10 = nullptr;
+			if (header->ddspf.flags & DDS_FOURCC &&
+				header->ddspf.fourCC == MAKEFOURCC('D', 'X', '1', '0'))
+			{
+				if (loaded_file.size < sizeof(uint32_t) + sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10))
+				{
+					LOG_ERR("Assets", "DDS file has DXT10 extension, but file is too small");
+					return ret;
+				}
+				
+				header_dxt10 = (DDS_HEADER_DXT10*)(header + 1);
+			}
+
+			DXGI_FORMAT dxgi_format;
+			if (header_dxt10)
+			{
+				dxgi_format = header_dxt10->dxgiFormat;
+			}
+			else
+			{
+				dxgi_format = GetDXGIFormat(&header->ddspf);
+			}
+
+			TEXTURE_FORMAT texture_format;
+			switch (dxgi_format)
+			{
+			case DXGI_FORMAT_BC1_UNORM:      texture_format = TEXTURE_FORMAT_BC1;      break;
+			case DXGI_FORMAT_BC1_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC1_SRGB; break;
+			case DXGI_FORMAT_BC2_UNORM:      texture_format = TEXTURE_FORMAT_BC2;      break;
+			case DXGI_FORMAT_BC2_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC2_SRGB; break;
+			case DXGI_FORMAT_BC3_UNORM:      texture_format = TEXTURE_FORMAT_BC3;      break;
+			case DXGI_FORMAT_BC3_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC3_SRGB; break;
+			case DXGI_FORMAT_BC4_UNORM:      texture_format = TEXTURE_FORMAT_BC4;      break;
+			case DXGI_FORMAT_BC5_UNORM:      texture_format = TEXTURE_FORMAT_BC5;      break;
+			case DXGI_FORMAT_BC7_UNORM:      texture_format = TEXTURE_FORMAT_BC7;      break;
+			case DXGI_FORMAT_BC7_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC7_SRGB; break;
+			default:
+				{
+					LOG_ERR("Assets", "DDS file has an unsupported format");
+					return ret;
+				} break;
+			}
+
+			size_t bits_per_pixel = DDSBitsPerPixel(dxgi_format);
+			if (bits_per_pixel == 0)
+			{
+				LOG_ERR("Assets", "DDS file has 0 bits per pixel");
+				return ret;
+			}
+
+			if (header_dxt10)
+			{
+				if (header_dxt10->resourceDimension != 3) // 3 = D3D12_RESOURCE_DIMENSION_TEXTURE2D
+				{
+					LOG_ERR("Assets", "DDS file is not a texture 2D, only texture 2Ds are currently supported");
+					return ret;
+				}
+			}
+			else
+			{
+				if (header->flags & DDS_HEADER_FLAGS_VOLUME ||
+					header->caps2 & DDS_CUBEMAP)
+				{
+					LOG_ERR("Assets", "DDS file is not a texture 2D, only texture 2Ds are currently supported");
+					return ret;
+				}
+			}
+
+			if (header_dxt10)
+			{
+				if (header_dxt10->arraySize == 0)
+				{
+					LOG_ERR("Assets", "DDS array size is 0");
+					return ret;
+				}
+
+				if (header_dxt10->arraySize > 1)
+				{
+					LOG_WARN("Assets", "DDS contains more than one texture, only first one will be used");
+					return ret;
+				}
+			}
+
+			if (!IS_POW2(header->width) || !IS_POW2(header->height))
+			{
+				LOG_ERR("Assets", "DDS resolution is invalid, has to be a power of 2");
+				return ret;
+			}
+
+			if (header->mipMapCount > 16)
+			{
+				LOG_ERR("Assets", "DDS has more than 16 mips");
+				return ret;
+			}
+
+			uint32_t expected_mip_count = log2_u32(MIN(header->width, header->height));
+			if (header->mipMapCount > expected_mip_count)
+			{
+				LOG_ERR("Assets", "DDS has more mips than the resolution would suggest");
+				return ret;
+			}
+
+			loaded_image.format = texture_format;
+			loaded_image.width = (int32_t)header->width;
+			loaded_image.height = (int32_t)header->height;
+			loaded_image.bits_per_pixel = (int32_t)bits_per_pixel;
+			loaded_image.data_ptr = loaded_file.data;
+			loaded_image.loaded = true;
+		}
+
+		// -------------------------------------------------------------------------------------------------------------
+		// Upload texture to the GPU
+		if (!loaded_image.loaded)
+		{
+			LOG_ERR("Assets", "Failed to load image: %s", filepath);
+			return ret;
+		}
+
+		{
 			renderer::render_texture_params_t rtexture_params = {};
 			rtexture_params.width = loaded_image.width;
 			rtexture_params.height = loaded_image.height;
-			rtexture_params.bytes_per_channel = loaded_image.bytes_per_channel;
-			rtexture_params.channel_count = loaded_image.channel_count;
-			rtexture_params.format = format;
-			rtexture_params.ptr_data = (uint8_t*)loaded_image.data_ptr;
+			rtexture_params.bits_per_pixel = loaded_image.bits_per_pixel;
+			rtexture_params.format = loaded_image.format;
+			rtexture_params.ptr_data = loaded_image.data_ptr;
 			rtexture_params.debug_name = ARENA_CHAR_TO_WIDE(arena, filepath);
 
-			asset->render_texture_handle = renderer::create_render_texture(rtexture_params);
+			ret.render_texture_handle = renderer::create_render_texture(rtexture_params);
+		}
+		
+		return ret;
+	}
+
+	static texture_asset_t load_texture_from_file(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath, bool srgb)
+	{
+		texture_asset_t ret = {};
+		TEXTURE_FILE_TYPE source_format = get_texture_file_type(filepath);
+
+		switch (source_format)
+		{
+		case TEXTURE_FILE_TYPE_PNG:		ret = load_texture_png(arena, arena_scratch, filepath, srgb); break;
+		case TEXTURE_FILE_TYPE_HDR:		ret = load_texture_hdr(arena, arena_scratch, filepath, srgb); break;
+		case TEXTURE_FILE_TYPE_DDS:		ret = load_texture_dds(arena, arena_scratch, filepath, srgb); break;
+		case TEXTURE_FILE_TYPE_UNKNOWN:	LOG_ERR("Assets", "Tried to load texture with unknown file type: %s", filepath); break;
 		}
 
+		return ret;
+	}
+
+	texture_asset_t* load_texture(memory_arena_t& arena, const char* filepath, bool srgb)
+	{
+		texture_asset_t* asset = ARENA_ALLOC_STRUCT_ZERO(arena, texture_asset_t);
+		ARENA_SCRATCH_SCOPE()
+		{
+			*asset = load_texture_from_file(arena, arena_scratch, filepath, srgb);
+		}
 		return asset;
 	}
 
@@ -155,19 +384,15 @@ namespace asset_loader
 		return static_cast<uint32_t>(elem - arr);
 	}
 
-	static texture_asset_t gltf_load_texture(memory_arena_t& arena, const char* filepath, const cgltf_image& gltf_image, TEXTURE_FORMAT format)
+	static texture_asset_t gltf_load_texture(memory_arena_t& arena, const char* filepath, const cgltf_image& gltf_image, bool srgb)
 	{
 		const char* image_filepath = gltf_get_path(arena, filepath, gltf_image.uri);
-		return *load_texture_rgba(arena, image_filepath, format);
+		return *load_texture(arena, image_filepath, srgb);
 	}
 
-	static texture_asset_t fbx_load_texture(memory_arena_t& arena, const ufbx_texture& fbx_texture, TEXTURE_FORMAT format)
+	static texture_asset_t fbx_load_texture(memory_arena_t& arena, const ufbx_texture& fbx_texture, bool srgb)
 	{
-		texture_asset_t temp = {};
-		temp.render_texture_handle.handle = INVALID_HANDLE;
-		return temp;
-		/*const char* image_filepath = fbx_texture->absolute_filename.data;
-		return *load_texture_dds(arena, image_filepath, format);*/
+		return *load_texture(arena, fbx_texture.filename.data, srgb);
 	}
 	
 	static glm::mat4 gltf_node_get_transform(const cgltf_node& node)
@@ -211,42 +436,32 @@ namespace asset_loader
 		return transform;
 	}
 
-	static glm::mat4 fbx_node_get_transform(const ufbx_node& node)
+	enum SCENE_MESH_FILE_TYPE : uint8_t
 	{
-		glm::mat4 transform = glm::identity<glm::mat4>();
-		transform = glm::translate(transform, *(glm::vec3*)&node.local_transform.translation);
-		transform = transform * glm::mat4_cast(*(glm::quat*)&node.local_transform.rotation);
-		transform = glm::scale(transform, *(glm::vec3*)&node.local_transform.scale);
-
-		return transform;
-	}
-
-	enum SCENE_MESH_SOURCE_FORMAT : uint8_t
-	{
-		SCENE_MESH_SOURCE_FORMAT_GLTF,
-		SCENE_MESH_SOURCE_FORMAT_FBX,
-		SCENE_MESH_SOURCE_FORMAT_INVALID = 255
+		SCENE_MESH_FILE_TYPE_GLTF,
+		SCENE_MESH_FILE_TYPE_FBX,
+		SCENE_MESH_FILE_TYPE_UNKNOWN = 255
 	};
 
-	static SCENE_MESH_SOURCE_FORMAT get_source_format_from_filepath(const char* filepath)
+	static SCENE_MESH_FILE_TYPE get_scene_mesh_file_type(const char* filepath)
 	{
 		const char* extension_delim = strrchr(filepath, '.');
 		if (!extension_delim || extension_delim == filepath)
 		{
-			return SCENE_MESH_SOURCE_FORMAT_INVALID;
+			return SCENE_MESH_FILE_TYPE_UNKNOWN;
 		}
 
 		const char* extension = extension_delim + 1;
 		if (strcmp(extension_delim, ".gltf") == 0)
 		{
-			return SCENE_MESH_SOURCE_FORMAT_GLTF;
+			return SCENE_MESH_FILE_TYPE_GLTF;
 		}
 		if (strcmp(extension_delim, ".fbx") == 0)
 		{
-			return SCENE_MESH_SOURCE_FORMAT_FBX;
+			return SCENE_MESH_FILE_TYPE_FBX;
 		}
 		
-		return SCENE_MESH_SOURCE_FORMAT_INVALID;
+		return SCENE_MESH_FILE_TYPE_UNKNOWN;
 	}
 
 	static scene_asset_t load_scene_gltf(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath)
@@ -321,7 +536,7 @@ namespace asset_loader
 						cgltf_image* gltf_image = gltf_material.pbr_metallic_roughness.base_color_texture.texture->image;
 						if (gltf_image)
 						{
-							asset.base_color_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8_SRGB);
+							asset.base_color_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, true);
 						}
 					}
 
@@ -330,7 +545,7 @@ namespace asset_loader
 						cgltf_image* gltf_image = gltf_material.normal_texture.texture->image;
 						if (gltf_image)
 						{
-							asset.normal_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8);
+							asset.normal_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, false);
 						}
 					}
 
@@ -339,16 +554,16 @@ namespace asset_loader
 						cgltf_image* gltf_image = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.texture->image;
 						if (gltf_image)
 						{
-							asset.metallic_roughness_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8);
+							asset.metallic_roughness_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, false);
 						}
 					}
 
-					if (gltf_material.has_emissive_strength)
+					if (gltf_material.emissive_texture.texture)
 					{
 						cgltf_image* gltf_image = gltf_material.emissive_texture.texture->image;
 						if (gltf_image)
 						{
-							asset.emissive_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, TEXTURE_FORMAT_RGBA8_SRGB);
+							asset.emissive_texture = gltf_load_texture(arena_scratch, filepath, *gltf_image, true);
 						}
 					}
 				}
@@ -601,20 +816,20 @@ namespace asset_loader
 				asset.metallic_roughness_texture.render_texture_handle.handle = INVALID_HANDLE;
 				asset.emissive_texture.render_texture_handle.handle = INVALID_HANDLE;
 
-				if (fbx_material->features.pbr.enabled)
+				//if (fbx_material->features.pbr.enabled)
 				{
 					asset.base_color_factor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 					asset.metallic_factor = 1.0f;
 					asset.roughness_factor = 1.0f;
-					asset.emissive_factor = glm::vec3(1.0f, 1.0f, 1.0f);
-					asset.emissive_strength = 1.0f;
+					asset.emissive_factor = glm::vec3(0.0f, 0.0f, 0.0f);
+					asset.emissive_strength = 0.0f;
 
 					if (fbx_material->pbr.base_color.texture_enabled)
 					{
 						ufbx_texture* fbx_texture = fbx_material->pbr.base_color.texture;
 						if (fbx_texture)
 						{
-							asset.base_color_texture = fbx_load_texture(arena_scratch, *fbx_texture, TEXTURE_FORMAT_RGBA8_SRGB);
+							asset.base_color_texture = fbx_load_texture(arena_scratch, *fbx_texture, true);
 						}
 					}
 
@@ -623,7 +838,7 @@ namespace asset_loader
 						ufbx_texture* fbx_texture = fbx_material->pbr.normal_map.texture;
 						if (fbx_texture)
 						{
-							asset.normal_texture = fbx_load_texture(arena_scratch, *fbx_texture, TEXTURE_FORMAT_RGBA8);
+							asset.normal_texture = fbx_load_texture(arena_scratch, *fbx_texture, false);
 						}
 					}
 
@@ -633,7 +848,15 @@ namespace asset_loader
 						ufbx_texture* fbx_texture_roughness = fbx_material->pbr.roughness.texture;
 						if (fbx_texture_metalness && fbx_texture_roughness && fbx_texture_metalness == fbx_texture_roughness)
 						{
-							asset.metallic_roughness_texture = fbx_load_texture(arena_scratch, *fbx_texture_metalness, TEXTURE_FORMAT_RGBA8);
+							asset.metallic_roughness_texture = fbx_load_texture(arena_scratch, *fbx_texture_metalness, false);
+						}
+					}
+					else if (fbx_material->pbr.specular_color.texture_enabled)
+					{
+						ufbx_texture* fbx_texture_specular = fbx_material->pbr.specular_color.texture;
+						if (fbx_texture_specular)
+						{
+							asset.metallic_roughness_texture = fbx_load_texture(arena_scratch, *fbx_texture_specular, false);
 						}
 					}
 
@@ -642,7 +865,7 @@ namespace asset_loader
 						ufbx_texture* fbx_texture = fbx_material->pbr.emission_color.texture;
 						if (fbx_texture)
 						{
-							asset.emissive_texture = fbx_load_texture(arena_scratch, *fbx_texture, TEXTURE_FORMAT_RGBA8_SRGB);
+							asset.emissive_texture = fbx_load_texture(arena_scratch, *fbx_texture, true);
 						}
 					}
 				}
@@ -687,7 +910,7 @@ namespace asset_loader
 				uint32_t tri_index_count = fbx_mesh->max_face_triangles * 3;
 				uint32_t* tri_indices = ARENA_ALLOC_ARRAY_ZERO(arena_scratch, uint32_t, tri_index_count);
 				vertex_t* vertices = ARENA_ALLOC_ARRAY_ZERO(arena_scratch, vertex_t, max_triangles * 3);
-				uint32_t* indices = ARENA_ALLOC_ARRAY_ZERO(arena, uint32_t, max_triangles * 3);
+				uint32_t* indices = ARENA_ALLOC_ARRAY_ZERO(arena_scratch, uint32_t, max_triangles * 3);
 				
 				for (uint32_t part_idx = 0; part_idx < fbx_mesh->material_parts.count; ++part_idx)
 				{
@@ -712,8 +935,8 @@ namespace asset_loader
 							
 							vertices[index_count].position = glm::vec3(src_pos.x, src_pos.y, src_pos.z);
 							vertices[index_count].normal = glm::vec3(src_normal.x, src_normal.y, src_normal.z);
-							//vertices[index_count].tangent = glm::vec4(src_tangent.x, src_tangent.y, src_tangent.z, 1.0f);
-							vertices[index_count].tex_coord = glm::vec2(src_tex_coord.x, src_tex_coord.y);
+							//vertices[index_count].tangent = glm::vec4(src_tangent.x, src_tangent.y, src_tangent.z, sign);
+							vertices[index_count].tex_coord = glm::vec2(src_tex_coord.x, -src_tex_coord.y);
 
 							index_count++;
 						}
@@ -811,13 +1034,13 @@ namespace asset_loader
 	static scene_asset_t load_scene_from_file(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath)
 	{
 		scene_asset_t ret = {};
-		SCENE_MESH_SOURCE_FORMAT source_format = get_source_format_from_filepath(filepath);
+		SCENE_MESH_FILE_TYPE source_format = get_scene_mesh_file_type(filepath);
 
 		switch (source_format)
 		{
-			case SCENE_MESH_SOURCE_FORMAT_GLTF:		ret = load_scene_gltf(arena, arena_scratch, filepath); break;
-			case SCENE_MESH_SOURCE_FORMAT_FBX:		ret = load_scene_fbx(arena, arena_scratch, filepath); break;
-			case SCENE_MESH_SOURCE_FORMAT_INVALID:	ASSERT_MSG(false, "Tried to load scene asset %s with invalid source format", filepath); break;
+			case SCENE_MESH_FILE_TYPE_GLTF:		ret = load_scene_gltf(arena, arena_scratch, filepath); break;
+			case SCENE_MESH_FILE_TYPE_FBX:		ret = load_scene_fbx(arena, arena_scratch, filepath); break;
+			case SCENE_MESH_FILE_TYPE_UNKNOWN:	LOG_ERR("Assets", "Tried to load scene asset with unknown file type: %s", filepath); break;
 		}
 
 		return ret;

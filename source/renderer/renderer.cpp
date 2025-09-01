@@ -244,8 +244,7 @@ namespace renderer
 			render_texture_params_t params = {};
 			params.width = 1;
 			params.height = 1;
-			params.bytes_per_channel = 1;
-			params.channel_count = 4;
+			params.bits_per_pixel = 32;
 			params.format = TEXTURE_FORMAT_RGBA8_SRGB;
 			params.ptr_data = (uint8_t*)(&texture_data);
 			params.debug_name = WSTRING_LITERAL(L"Default Texture Base Color/Emissive");
@@ -261,7 +260,7 @@ namespace renderer
 			g_renderer->defaults.texture_normal = slotmap::find(g_renderer->texture_slotmap, g_renderer->defaults.texture_handle_normal);
 
 			uint16_t texture_data_16 = (255 << 8) | (255 << 0);
-			params.channel_count = 2;
+			params.bits_per_pixel = 16;
 			params.format = TEXTURE_FORMAT_RG8;
 			params.ptr_data = (uint8_t*)(&texture_data_16);
 			params.debug_name = WSTRING_LITERAL(L"Default Texture Metallic Roughness");
@@ -605,11 +604,14 @@ namespace renderer
 
 		g_renderer->scene_camera = scene_camera;
 		g_renderer->scene_hdr_env_texture = slotmap::find(g_renderer->texture_slotmap, env_render_texture_handle);
-		ASSERT(g_renderer->scene_hdr_env_texture);
+		if (!g_renderer->scene_hdr_env_texture)
+		{
+			g_renderer->scene_hdr_env_texture = g_renderer->defaults.texture_base_color;
+		}
 
 		// Set new camera data for the view constant buffer
-		float near_plane = 0.1f;
-		float far_plane = 10000.0f;
+		float near_plane = 0.01f;
+		float far_plane = 1000.0f;
 		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(g_renderer->scene_camera.vfov_deg),
 			(float)g_renderer->render_width, (float)g_renderer->render_height, near_plane, far_plane);
 		
@@ -631,52 +633,26 @@ namespace renderer
 		d3d12::frame_context_t& d3d_frame_ctx = d3d12::get_frame_context();
 		frame_context_t& frame_ctx = get_frame_context();
 
-		if (g_renderer->instance_data_at > 0)
+		if (g_renderer->settings.use_software_rt)
 		{
-			if (g_renderer->settings.use_software_rt)
+			ARENA_SCRATCH_SCOPE()
 			{
-				ARENA_SCRATCH_SCOPE()
-				{
-					// Build the TLAS
-					tlas_builder_t tlas_builder = {};
-					tlas_builder.build(arena_scratch, g_renderer->tlas_instance_data_software, g_renderer->instance_data_at);
-					uint64_t tlas_byte_size = 0;
-					tlas_builder.extract(arena_scratch, g_renderer->scene_tlas, tlas_byte_size);
+				// Build the TLAS
+				tlas_builder_t tlas_builder = {};
+				tlas_builder.build(arena_scratch, g_renderer->tlas_instance_data_software, g_renderer->instance_data_at);
+				uint64_t tlas_byte_size = 0;
+				tlas_builder.extract(arena_scratch, g_renderer->scene_tlas, tlas_byte_size);
 
-					// Upload TLAS to the GPU
-					// Copy TLAS data from CPU to upload buffer allocation
-					d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(sizeof(tlas_header_t) + tlas_byte_size);
+				// Upload TLAS to the GPU
+				// Copy TLAS data from CPU to upload buffer allocation
+				d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(sizeof(tlas_header_t) + tlas_byte_size);
 
-					memcpy(upload.ptr, &g_renderer->scene_tlas.header, sizeof(tlas_header_t));
-					memcpy(PTR_OFFSET(upload.ptr, sizeof(tlas_header_t)), g_renderer->scene_tlas.data, tlas_byte_size);
+				memcpy(upload.ptr, &g_renderer->scene_tlas.header, sizeof(tlas_header_t));
+				memcpy(PTR_OFFSET(upload.ptr, sizeof(tlas_header_t)), g_renderer->scene_tlas.data, tlas_byte_size);
 
-					// Create TLAS buffer
-					DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
-					frame_ctx.scene_tlas_resource = d3d12::create_buffer(L"Scene TLAS Buffer (SW)", sizeof(bvh_header_t) + tlas_byte_size);
-
-					// Allocate SRV for the scene TLAS, if there is none yet
-					if (!d3d12::is_valid_descriptor(frame_ctx.scene_tlas_srv))
-					{
-						frame_ctx.scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-					}
-					// Update the scene TLAS descriptor
-					d3d12::create_buffer_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0, sizeof(bvh_header_t) + tlas_byte_size);
-
-					// Copy TLAS data from upload buffer to final buffer
-					d3d_frame_ctx.command_list->CopyBufferRegion(frame_ctx.scene_tlas_resource, 0,
-						upload.resource, upload.byte_offset, sizeof(tlas_header_t) + tlas_byte_size);
-				}
-			}
-			else
-			{
-				gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TLAS_BUILD);
-				// TODO: If the buffer size is sufficient, do not release it
-				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_scratch_resource);
+				// Create TLAS buffer
 				DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
-
-				d3d12::create_buffer_tlas(L"Scene TLAS Buffer (HW)", d3d_frame_ctx.command_list,
-					g_renderer->tlas_instance_data_buffer, g_renderer->instance_data_at,
-					&frame_ctx.scene_tlas_scratch_resource, &frame_ctx.scene_tlas_resource);
+				frame_ctx.scene_tlas_resource = d3d12::create_buffer(L"Scene TLAS Buffer (SW)", sizeof(bvh_header_t) + tlas_byte_size);
 
 				// Allocate SRV for the scene TLAS, if there is none yet
 				if (!d3d12::is_valid_descriptor(frame_ctx.scene_tlas_srv))
@@ -684,21 +660,45 @@ namespace renderer
 					frame_ctx.scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 				}
 				// Update the scene TLAS descriptor
-				d3d12::create_as_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0);
-				gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TLAS_BUILD);
-			}
+				d3d12::create_buffer_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0, sizeof(bvh_header_t) + tlas_byte_size);
 
+				// Copy TLAS data from upload buffer to final buffer
+				d3d_frame_ctx.command_list->CopyBufferRegion(frame_ctx.scene_tlas_resource, 0,
+					upload.resource, upload.byte_offset, sizeof(tlas_header_t) + tlas_byte_size);
+			}
+		}
+		else
+		{
+			gpu_profiler_begin_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TLAS_BUILD);
+			// TODO: If the buffer size is sufficient, do not release it
+			DX_RELEASE_OBJECT(frame_ctx.scene_tlas_scratch_resource);
+			DX_RELEASE_OBJECT(frame_ctx.scene_tlas_resource);
+
+			d3d12::create_buffer_tlas(L"Scene TLAS Buffer (HW)", d3d_frame_ctx.command_list,
+				g_renderer->tlas_instance_data_buffer, g_renderer->instance_data_at,
+				&frame_ctx.scene_tlas_scratch_resource, &frame_ctx.scene_tlas_resource);
+
+			// Allocate SRV for the scene TLAS, if there is none yet
+			if (!d3d12::is_valid_descriptor(frame_ctx.scene_tlas_srv))
 			{
-				// Upload instance buffer data
-				uint64_t byte_size = sizeof(instance_data_t) * g_renderer->instance_data_at;
-				d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(byte_size);
-
-				// CPU to upload heap copy
-				memcpy(upload.ptr, g_renderer->instance_data, byte_size);
-
-				// Upload heap to default heap copy
-				d3d_frame_ctx.command_list->CopyBufferRegion(g_renderer->instance_buffer, 0, upload.resource, upload.byte_offset, byte_size);
+				frame_ctx.scene_tlas_srv = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			}
+			// Update the scene TLAS descriptor
+			d3d12::create_as_srv(frame_ctx.scene_tlas_resource, frame_ctx.scene_tlas_srv, 0);
+			gpu_profiler_end_scope(frame_ctx, d3d_frame_ctx.command_list, GPU_PROFILE_SCOPE_TLAS_BUILD);
+		}
+
+		if (g_renderer->instance_data_at > 0)
+		{
+			// Upload instance buffer data
+			uint64_t byte_size = sizeof(instance_data_t) * g_renderer->instance_data_at;
+			d3d12::frame_resource_t upload = d3d12::allocate_frame_resource(byte_size);
+
+			// CPU to upload heap copy
+			memcpy(upload.ptr, g_renderer->instance_data, byte_size);
+
+			// Upload heap to default heap copy
+			d3d_frame_ctx.command_list->CopyBufferRegion(g_renderer->instance_buffer, 0, upload.resource, upload.byte_offset, byte_size);
 		}
 
 		// Set descriptor heap, needs to happen before clearing UAVs
@@ -1122,44 +1122,44 @@ namespace renderer
 		// TODO: Support compressed textures
 		
 		DXGI_FORMAT dxgi_format = d3d12::get_dxgi_texture_format(texture_params.format);
-
 		ID3D12Resource* d3d_resource = nullptr;
 		ARENA_SCRATCH_SCOPE()
 		{
 			d3d_resource = d3d12::create_texture_2d(ARENA_WPRINTF(arena_scratch, L"Texture Buffer %.*ls", STRING_EXPAND(texture_params.debug_name)).buf,
 				dxgi_format, texture_params.width, texture_params.height, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
 		}
-		uint32_t src_rowpitch = texture_params.width * texture_params.bytes_per_channel * texture_params.channel_count;
 
 		// Prepare texture copy destination
 		D3D12_RESOURCE_DESC dst_desc = d3d_resource->GetDesc();
-		D3D12_SUBRESOURCE_FOOTPRINT dst_footprint = {};
-		dst_footprint.Format = dst_desc.Format;
-		dst_footprint.Width = (uint32_t)dst_desc.Width;
-		dst_footprint.Height = dst_desc.Height;
-		dst_footprint.Depth = dst_desc.DepthOrArraySize;
-		dst_footprint.RowPitch = ALIGN_UP_POW2(src_rowpitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT dst_footprint = {};
+		uint32_t dst_row_count;
+		uint64_t dst_row_size;
+		uint64_t dst_total_size;
+		d3d12::g_d3d->device->GetCopyableFootprints(&dst_desc, 0, 1, 0, &dst_footprint, &dst_row_count, &dst_row_size, &dst_total_size);
 
 		D3D12_TEXTURE_COPY_LOCATION dst_loc = {};
 		dst_loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 		dst_loc.pResource = d3d_resource;
 		dst_loc.SubresourceIndex = 0;
 
+		uint32_t src_total_bytes = (texture_params.width * texture_params.height * texture_params.bits_per_pixel) / 8;
+		uint32_t src_rowpitch = src_total_bytes / dst_row_count;
+
 		// Upload in chunks of rows if the upload ring buffer cannot accomodate the entire texture at once
-		uint32_t rows_to_copy = dst_desc.Height;
+		uint32_t rows_to_copy = dst_row_count;
 		uint32_t row_curr = 0;
 
 		while (rows_to_copy > 0)
 		{
 			// Allocate a chunk of CPU writable memory from the upload ring buffer, with a minimum required size of the destination row pitch
-			uint64_t required_bytes = MAX(rows_to_copy * dst_footprint.RowPitch, dst_footprint.RowPitch);
+			uint64_t required_bytes = MAX(rows_to_copy * dst_footprint.Footprint.RowPitch, dst_footprint.Footprint.RowPitch);
 			d3d12::upload_alloc_t& upload = d3d12::begin_upload(required_bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 
 			// Determine how many rows we can copy over with the upload allocation we got back, it might have returned less memory
-			uint32_t row_count_upload = upload.ring_buffer_alloc.byte_size / dst_footprint.RowPitch;
+			uint32_t row_count_upload = upload.ring_buffer_alloc.byte_size / dst_footprint.Footprint.RowPitch;
 			ASSERT_MSG(row_count_upload > 0, "Uploading texture failed because upload ring buffer is not large enough to upload a single row"
-				"Texture: %ls, Width: %u, Height: %u, Mips: %u, Bytes per channel: %u, Channels: %u",
-				texture_params.debug_name, texture_params.width, texture_params.height, 1, texture_params.bytes_per_channel, texture_params.channel_count);
+				"Texture: %.*ls, Width: %u, Height: %u, Mips: %u, Bits per pixel: %u",
+				STRING_EXPAND(texture_params.debug_name), texture_params.width, texture_params.height, 1, texture_params.bits_per_pixel);
 
 			// Copy texture data to the upload allocation
 			uint8_t* ptr_src = texture_params.ptr_data + src_rowpitch * row_curr;
@@ -1167,15 +1167,14 @@ namespace renderer
 
 			for (uint32_t y = 0; y < row_count_upload; ++y)
 			{
-				memcpy(ptr_dst, ptr_src, dst_footprint.RowPitch);
+				memcpy(ptr_dst, ptr_src, src_rowpitch);
 				ptr_src += src_rowpitch;
-				ptr_dst += dst_footprint.RowPitch;
+				ptr_dst += dst_row_size;
 			}
 
 			// Update the source footprint and source copy location with the current upload allocation
 			D3D12_PLACED_SUBRESOURCE_FOOTPRINT src_footprint = {};
-			src_footprint.Footprint = dst_footprint;
-			src_footprint.Footprint.Height = row_count_upload;
+			src_footprint.Footprint = dst_footprint.Footprint;
 			src_footprint.Offset = upload.ring_buffer_alloc.byte_offset;
 
 			D3D12_TEXTURE_COPY_LOCATION src_loc = {};
@@ -1304,7 +1303,7 @@ namespace renderer
 			tlas_instance_hardware.InstanceMask = 1;
 			tlas_instance_hardware.InstanceContributionToHitGroupIndex = 0;
 			tlas_instance_hardware.AccelerationStructure = mesh->blas_buffer->GetGPUVirtualAddress();
-			tlas_instance_hardware.Flags = 0; // D3D12_RAYTRACING_INSTANCE_FLAGS
+			tlas_instance_hardware.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 		}
 
 		++g_renderer->instance_data_at;

@@ -32,8 +32,7 @@ namespace renderer
 	{
 		uint32_t width;
 		uint32_t height;
-		uint8_t bytes_per_channel;
-		uint8_t channel_count;
+		uint32_t bits_per_pixel;
 		TEXTURE_FORMAT format;
 		uint8_t* ptr_data;
 

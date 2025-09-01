@@ -214,6 +214,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     </ClCompile>
     <ClCompile Include="source\core\allocators\linear_alloc.cpp" />
     <ClCompile Include="source\core\assets\asset_loader.cpp" />
+    <ClCompile Include="source\core\fileio\fileio.cpp" />
     <ClCompile Include="source\core\memory\memory_arena.cpp" />
     <ClCompile Include="source\core\scene.cpp" />
     <ClCompile Include="source\core\string\string.cpp" />
@@ -295,6 +296,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\core\assets\dds.h" />
     <ClInclude Include="extern\imguizmo\GraphEditor.h" />
     <ClInclude Include="extern\imguizmo\ImCurveEdit.h" />
     <ClInclude Include="extern\imguizmo\ImGradient.h" />
@@ -313,6 +315,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\core\assets\asset_loader.h" />
     <ClInclude Include="source\core\assets\asset_types.h" />
     <ClInclude Include="source\core\containers\hashmap.h" />
+    <ClInclude Include="source\core\fileio\fileio.h" />
     <ClInclude Include="source\core\hash.h" />
     <ClInclude Include="source\core\memory\memory_arena.h" />
     <ClInclude Include="source\core\memory\virtual_memory.h" />
@@ -377,6 +380,9 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="source\core\fileio\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
