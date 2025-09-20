@@ -231,8 +231,8 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\platform\windows\platform.cpp" />
     <ClCompile Include="source\platform\windows\thread_win32.cpp" />
     <ClCompile Include="source\platform\windows\virtual_memory.cpp" />
-    <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp" />
-    <ClCompile Include="source\renderer\acceleration_structure\tlas_builder.cpp" />
+    <ClCompile Include="source\renderer\bvh\bvh_builder.cpp" />
+    <ClCompile Include="source\renderer\bvh\tlas_builder.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_backend.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_descriptor.cpp" />
     <ClCompile Include="source\renderer\d3d12\d3d12_frame.cpp" />
@@ -333,9 +333,9 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\pch.h" />
     <ClInclude Include="source\platform\platform.h" />
     <ClInclude Include="source\platform\windows\windows_common.h" />
-    <ClInclude Include="source\renderer\acceleration_structure\bvh_builder.h" />
-    <ClInclude Include="source\renderer\acceleration_structure\as_util.h" />
-    <ClInclude Include="source\renderer\acceleration_structure\tlas_builder.h" />
+    <ClInclude Include="source\renderer\bvh\bvh_builder.h" />
+    <ClInclude Include="source\renderer\bvh\as_util.h" />
+    <ClInclude Include="source\renderer\bvh\tlas_builder.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_backend.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_common.h" />
     <ClInclude Include="source\renderer\d3d12\d3d12_descriptor.h" />

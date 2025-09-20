@@ -31,7 +31,7 @@ enum RENDER_VIEW_MODE
 	RENDER_VIEW_MODE_COUNT
 };
 
-struct render_settings_shader_data_t
+struct render_settings_t
 {
 	uint use_wavefront_pathtracing;
 	uint use_software_rt;
@@ -43,7 +43,7 @@ struct render_settings_shader_data_t
 	float hdr_env_strength;
 };
 
-struct view_shader_data_t
+struct view_t
 {
     float4x4 world_to_view; // View matrix
     float4x4 view_to_world; // Inverse view matrix
@@ -88,8 +88,6 @@ struct instance_data_t
 {
 	float4x4 local_to_world;
 	float4x4 world_to_local;
-	float4x4 local_to_world_no_scale;
-	float4x4 world_to_local_no_scale;
 	
 	material_t material;
 	uint triangle_buffer_idx;

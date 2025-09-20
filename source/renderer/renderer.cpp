@@ -7,8 +7,8 @@
 #include "d3d12/d3d12_backend.h"
 #include "d3d12/d3d12_resource.h"
 
-#include "acceleration_structure/bvh_builder.h"
-#include "acceleration_structure/as_util.h"
+#include "bvh/bvh_builder.h"
+#include "bvh/as_util.h"
 
 #include "core/camera/camera.h"
 #include "core/logger.h"
@@ -28,12 +28,13 @@ namespace renderer
 		return g_renderer->frame_ctx[d3d12::g_d3d->swapchain.back_buffer_index];
 	}
 
-	static render_settings_shader_data_t get_default_render_settings()
+	static render_settings_t get_default_render_settings()
 	{
-		render_settings_shader_data_t defaults = {};
+		render_settings_t defaults = {};
 		defaults.use_wavefront_pathtracing = true;
 		defaults.use_software_rt = false;
-		defaults.render_view_mode = RENDER_VIEW_MODE_NONE;
+		//defaults.render_view_mode = RENDER_VIEW_MODE_NONE;
+		defaults.render_view_mode = RENDER_VIEW_MODE_MATERIAL_BASE_COLOR;
 		defaults.max_bounces = 3;
 		defaults.accumulate = true;
 		defaults.cosine_weighted_diffuse = true;
@@ -564,8 +565,8 @@ namespace renderer
 			g_renderer->tlas_instance_data_software = ARENA_ALLOC_ARRAY_ZERO(frame_ctx.arena, bvh_instance_t, g_renderer->instance_data_capacity);
 		}
 
-		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-		render_settings_shader_data_t* ptr_settings = (render_settings_shader_data_t*)g_renderer->cb_render_settings.ptr;
+		g_renderer->cb_render_settings = d3d12::allocate_frame_resource(sizeof(render_settings_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		render_settings_t* ptr_settings = (render_settings_t*)g_renderer->cb_render_settings.ptr;
 		*ptr_settings = g_renderer->settings;
 	}
 
@@ -615,8 +616,8 @@ namespace renderer
 		glm::mat4 proj_mat = glm::perspectiveFovLH_ZO(glm::radians(g_renderer->scene_camera.vfov_deg),
 			(float)g_renderer->render_width, (float)g_renderer->render_height, near_plane, far_plane);
 		
-		g_renderer->cb_view = d3d12::allocate_frame_resource(sizeof(view_shader_data_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-		view_shader_data_t* view_cb = (view_shader_data_t*)g_renderer->cb_view.ptr;
+		g_renderer->cb_view = d3d12::allocate_frame_resource(sizeof(view_t), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+		view_t* view_cb = (view_t*)g_renderer->cb_view.ptr;
 
 		view_cb->world_to_view = g_renderer->scene_camera.view_matrix;
 		view_cb->view_to_world = glm::inverse(g_renderer->scene_camera.view_matrix);

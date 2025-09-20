@@ -57,7 +57,7 @@
     <ClCompile Include="source\core\assets\asset_loader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\acceleration_structure\tlas_builder.cpp">
+    <ClCompile Include="source\renderer\bvh\tlas_builder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\platform\windows\virtual_memory.cpp">
@@ -69,7 +69,7 @@
     <ClCompile Include="source\renderer\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\renderer\acceleration_structure\bvh_builder.cpp">
+    <ClCompile Include="source\renderer\bvh\bvh_builder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\core\string\string.cpp">
@@ -132,7 +132,7 @@
     <ClCompile Include="extern\ufbx\ufbx.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\core\assets\dds_loader.cpp">
+    <ClCompile Include="source\core\fileio\fileio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -188,7 +188,7 @@
     <ClInclude Include="source\core\assets\asset_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\acceleration_structure\tlas_builder.h">
+    <ClInclude Include="source\renderer\bvh\tlas_builder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\renderer_fwd.h">
@@ -215,7 +215,7 @@
     <ClInclude Include="source\platform\windows\windows_common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\acceleration_structure\bvh_builder.h">
+    <ClInclude Include="source\renderer\bvh\bvh_builder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\core\string\string.h">
@@ -245,7 +245,7 @@
     <ClInclude Include="source\core\thread.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\renderer\acceleration_structure\as_util.h">
+    <ClInclude Include="source\renderer\bvh\as_util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\renderer\d3d12\d3d12_upload.h">
@@ -296,7 +296,10 @@
     <ClInclude Include="extern\ufbx\ufbx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\core\assets\dds_loader.h">
+    <ClInclude Include="source\core\assets\dds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\core\fileio\fileio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

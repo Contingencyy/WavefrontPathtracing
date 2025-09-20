@@ -7,7 +7,7 @@
 #include "shaders/shared.hlsl.h"
 
 #include "renderer/renderer_fwd.h"
-#include "renderer/acceleration_structure/tlas_builder.h"
+#include "renderer/bvh/tlas_builder.h"
 
 #include "renderer/d3d12/d3d12_descriptor.h"
 #include "renderer/d3d12/d3d12_frame.h"
@@ -120,7 +120,7 @@ namespace renderer
 		camera_t scene_camera;
 		render_texture_t* scene_hdr_env_texture;
 
-		render_settings_shader_data_t settings;
+		render_settings_t settings;
 		uint64_t frame_index;
 
 		struct defaults_t

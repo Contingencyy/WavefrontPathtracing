@@ -717,75 +717,64 @@ namespace asset_loader
 		scene_asset_t ret = {};
 
 		// -------------------------------------------------------------------------------------------------------------
+		// FBX allocators
+		ufbx_allocator_opts temp_alloc = {};
+		temp_alloc.allocator.user = &arena_scratch;
+		temp_alloc.allocator.alloc_fn = [](void* user, size_t size)
+		{
+			memory_arena_t* arena = (memory_arena_t*)user;
+			return ARENA_ALLOC_ZERO(*arena, size, 8);
+		};
+		temp_alloc.allocator.realloc_fn = [](void* user, void* old_ptr, size_t old_size, size_t new_size)
+		{
+			memory_arena_t* arena = (memory_arena_t*)user;
+			void* ptr_new = ARENA_ALLOC_ZERO(*arena, new_size, 8);
+			memcpy(ptr_new, old_ptr, old_size);
+			return ptr_new;
+		};
+		temp_alloc.allocator.free_fn = [](void* user, void* ptr, size_t size)
+		{
+			(void)user; (void)ptr; (void)size;
+		};
+		temp_alloc.allocator.free_allocator_fn = [](void* user)
+		{
+			(void)user;
+		};
+		temp_alloc.memory_limit = SIZE_MAX;
+		temp_alloc.allocation_limit = SIZE_MAX;
+		temp_alloc.huge_threshold = MB(1);
+		temp_alloc.max_chunk_size = MB(16);
+
+		ufbx_allocator_opts result_alloc = {};
+		result_alloc.allocator.user = &arena_scratch;
+		result_alloc.allocator.alloc_fn = temp_alloc.allocator.alloc_fn;
+		result_alloc.allocator.realloc_fn = temp_alloc.allocator.realloc_fn;
+		result_alloc.allocator.free_fn = temp_alloc.allocator.free_fn;
+		result_alloc.allocator.free_allocator_fn = temp_alloc.allocator.free_allocator_fn;
+		result_alloc.memory_limit = SIZE_MAX;
+		result_alloc.allocation_limit = SIZE_MAX;
+		result_alloc.huge_threshold = MB(1);
+		result_alloc.max_chunk_size = MB(16);
+
+		// -------------------------------------------------------------------------------------------------------------
 		// Load FBX file
 		ufbx_scene* loaded_fbx = nullptr;
 		{
-			ufbx_allocator_opts temp_alloc = {};
-			temp_alloc.allocator.user = &arena_scratch;
-			temp_alloc.allocator.alloc_fn = [](void* user, size_t size)
-				{
-					memory_arena_t* arena = (memory_arena_t*)user;
-					return ARENA_ALLOC_ZERO(*arena, size, 8);
-				};
-			temp_alloc.allocator.realloc_fn = [](void* user, void* old_ptr, size_t old_size, size_t new_size)
-				{
-					memory_arena_t* arena = (memory_arena_t*)user;
-					void* ptr_new = ARENA_ALLOC_ZERO(*arena, new_size, 8);
-					memcpy(ptr_new, old_ptr, old_size);
-					return ptr_new;
-				};
-			temp_alloc.allocator.free_fn = [](void* user, void* ptr, size_t size)
-				{
-					(void)user; (void)ptr; (void)size;
-				};
-			temp_alloc.allocator.free_allocator_fn = [](void* user)
-				{
-					(void)user;
-				};
-			temp_alloc.memory_limit = SIZE_MAX;
-			temp_alloc.allocation_limit = SIZE_MAX;
-			temp_alloc.huge_threshold = MB(1);
-			temp_alloc.max_chunk_size = MB(16);
-
-			ufbx_allocator_opts result_alloc = {};
-			result_alloc.allocator.user = &arena_scratch;
-			result_alloc.allocator.alloc_fn = [](void* user, size_t size)
-				{
-					memory_arena_t* arena = (memory_arena_t*)user;
-					return ARENA_ALLOC_ZERO(*arena, size, 8);
-				};
-			result_alloc.allocator.realloc_fn = [](void* user, void* old_ptr, size_t old_size, size_t new_size)
-				{
-					memory_arena_t* arena = (memory_arena_t*)user;
-					void* ptr_new = ARENA_ALLOC_ZERO(*arena, new_size, 8);
-					memcpy(ptr_new, old_ptr, old_size);
-					return ptr_new;
-				};
-			result_alloc.allocator.free_fn = [](void* user, void* ptr, size_t size)
-				{
-					(void)user; (void)ptr; (void)size;
-				};
-			result_alloc.allocator.free_allocator_fn = [](void* user)
-				{
-					(void)user;
-				};
-			result_alloc.memory_limit = SIZE_MAX;
-			result_alloc.allocation_limit = SIZE_MAX;
-			result_alloc.huge_threshold = MB(1);
-			result_alloc.max_chunk_size = MB(16);
-
 			ufbx_load_opts opts = {};
+			opts.file_format = UFBX_FILE_FORMAT_FBX;
 			opts.target_unit_meters = 1.0f;
-			//opts.load_external_files = true;
-			//opts.ignore_missing_external_files = true;
 			opts.generate_missing_normals = true;
-			/*opts.normalize_normals = true;
-			opts.normalize_tangents = true;*/
+			opts.normalize_normals = true;
+			opts.normalize_tangents = true;
 			opts.target_axes = {
 				.right = UFBX_COORDINATE_AXIS_POSITIVE_X,
 				.up = UFBX_COORDINATE_AXIS_POSITIVE_Y,
 				.front = UFBX_COORDINATE_AXIS_POSITIVE_Z
 			};
+			opts.space_conversion = UFBX_SPACE_CONVERSION_MODIFY_GEOMETRY;
+			//opts.load_external_files = true;
+			//opts.ignore_missing_external_files = true;
+			//opts.use_blender_pbr_material = true;
 			opts.temp_allocator = temp_alloc;
 			opts.result_allocator = result_alloc;
 
@@ -794,6 +783,8 @@ namespace asset_loader
 			if (!loaded_fbx || error.type != UFBX_ERROR_NONE)
 			{
 				FATAL_ERROR("Assets", "Failed to load FBX: %s", filepath);
+				// TODO: Implement FBX error logging
+				//ufbx_format_error()
 			}
 		}
 
@@ -817,6 +808,7 @@ namespace asset_loader
 				asset.emissive_texture.render_texture_handle.handle = INVALID_HANDLE;
 
 				//if (fbx_material->features.pbr.enabled)
+				if (fbx_material->features.pbr.enabled || fbx_material->features.specular.enabled)
 				{
 					asset.base_color_factor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 					asset.metallic_factor = 1.0f;
@@ -883,7 +875,7 @@ namespace asset_loader
 			for (uint32_t mesh_idx = 0; mesh_idx < loaded_fbx->meshes.count; ++mesh_idx)
 			{
 				const ufbx_mesh* fbx_mesh = loaded_fbx->meshes.data[mesh_idx];
-				if (fbx_mesh->instances.count == 0 || fbx_mesh->material_parts.count == 0) continue;
+				if (fbx_mesh->instances.count == 0) continue;
 
 				for (uint32_t part_idx = 0; part_idx < fbx_mesh->material_parts.count; ++part_idx)
 				{
@@ -936,7 +928,7 @@ namespace asset_loader
 							vertices[index_count].position = glm::vec3(src_pos.x, src_pos.y, src_pos.z);
 							vertices[index_count].normal = glm::vec3(src_normal.x, src_normal.y, src_normal.z);
 							//vertices[index_count].tangent = glm::vec4(src_tangent.x, src_tangent.y, src_tangent.z, sign);
-							vertices[index_count].tex_coord = glm::vec2(src_tex_coord.x, -src_tex_coord.y);
+							vertices[index_count].tex_coord = glm::vec2(src_tex_coord.x, 1.0f - src_tex_coord.y);
 
 							index_count++;
 						}

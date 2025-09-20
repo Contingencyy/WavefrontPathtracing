@@ -5,38 +5,42 @@
     Global defines
 */
 
-#define RAY_MIN_T 0.001f
-#define RAY_MAX_T 3.402823466e+38F
-#define RAY_NUDGE_MULTIPLIER 0.001f
+#define SMALL_FLOAT                 (1e-8)
+#define FLOAT_MAX                   (asfloat(0x7F7FFFFF))
+#define UINT_MAX                    (asuint(0xFFFFFFFF))
 
-#define INSTANCE_IDX_INVALID 0xFFFFFFFF
-#define PRIMITIVE_IDX_INVALID 0xFFFFFFFF
+#define INTERSECT_EPSILON           SMALL_FLOAT
+#define RAY_MIN_T                   SMALL_FLOAT
+#define RAY_MAX_T                   FLOAT_MAX
+#define RAY_NUDGE_MULTIPLIER        SMALL_FLOAT
+#define TRIANGLE_BACKFACE_CULLING   1
 
-#define PI (3.14159265f)
-#define TWO_PI (2.0f * PI)
-#define INV_PI (1.0f / PI)
-#define INV_TWO_PI (1.0f / TWO_PI)
-#define INV_ATAN float2(0.1591f, 0.3183f)
+#define INSTANCE_IDX_INVALID        UINT_MAX
+#define PRIMITIVE_IDX_INVALID       UINT_MAX
+
+#define PI                          3.14159265
+#define TWO_PI                      6.28318530
+#define INV_PI                      0.31830988
+#define INV_TWO_PI                  0.15915494
+#define INV_ATAN                    float2(0.1591, 0.3183)
 
 // Define for SW/HW raytracing is set in shader compiler, if its not default to hardware
 #ifndef RAYTRACING_MODE_SOFTWARE
-#define RAYTRACING_MODE_SOFTWARE 0
-#define RAYTRACING_MODE_HARDWARE !RAYTRACING_MODE_SOFTWARE
+#define RAYTRACING_MODE_SOFTWARE    0
+#define RAYTRACING_MODE_HARDWARE    !RAYTRACING_MODE_SOFTWARE
 #endif
 
-#define RANDOM_USE_WANG_HASH 1
-#define RANDOM_USE_XOR_SHIFT !RANDOM_USE_WANG_HASH
+#define RANDOM_USE_WANG_HASH        1
+#define RANDOM_USE_XOR_SHIFT        !RANDOM_USE_WANG_HASH
 
-#define SMALL_FLOAT 1e-8
-#define INTERSECT_EPSILON 1e-8
-#define TRIANGLE_BACKFACE_CULLING 1
+#define IS_BIT_FLAG_SET(flags, flag) ((flags & flag) == 1)
 
 /*
     Global constant buffers
 */
 
-ConstantBuffer<render_settings_shader_data_t> cb_settings : register(b0, space0);
-ConstantBuffer<view_shader_data_t> cb_view : register(b1, space0);
+ConstantBuffer<render_settings_t> cb_settings : register(b0, space0);
+ConstantBuffer<view_t> cb_view : register(b1, space0);
 
 SamplerState sampler_linear_wrap : register(s0, space0);
 
