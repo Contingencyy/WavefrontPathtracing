@@ -1120,7 +1120,6 @@ namespace renderer
 		// TODO: Support other texture dimensions than 2D
 		// TODO: Support uploading textures with mips
 		// TODO: Support mip generation
-		// TODO: Support compressed textures
 		
 		DXGI_FORMAT dxgi_format = d3d12::get_dxgi_texture_format(texture_params.format);
 		ID3D12Resource* d3d_resource = nullptr;

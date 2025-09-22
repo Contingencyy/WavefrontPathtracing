@@ -45,9 +45,11 @@ namespace asset_loader
 	enum TEXTURE_FILE_TYPE
 	{
 		TEXTURE_FILE_TYPE_PNG,
+		TEXTURE_FILE_TYPE_JPG,
 		TEXTURE_FILE_TYPE_HDR,
 		TEXTURE_FILE_TYPE_DDS,
-		TEXTURE_FILE_TYPE_UNKNOWN
+		
+		TEXTURE_FILE_TYPE_UNKNOWN = 0xFFFFFFFF
 	};
 
 	static TEXTURE_FILE_TYPE get_texture_file_type(const char* filepath)
@@ -62,6 +64,10 @@ namespace asset_loader
 		if (strcmp(extension_delim, ".png") == 0)
 		{
 			return TEXTURE_FILE_TYPE_PNG;
+		}
+		if (strcmp(extension_delim, ".jpg") == 0 || strcmp(extension_delim, ".jpeg") == 0)
+		{
+			return TEXTURE_FILE_TYPE_JPG;
 		}
 		if (strcmp(extension_delim, ".hdr") == 0)
 		{
@@ -85,7 +91,7 @@ namespace asset_loader
 		bool loaded;
 	};
 
-	static texture_asset_t load_texture_png(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath, bool srgb)
+	static texture_asset_t load_texture_png_jpg(memory_arena_t& arena, memory_arena_t& arena_scratch, const char* filepath, bool srgb)
 	{
 		texture_asset_t ret = {};
 		ret.render_texture_handle.handle = INVALID_HANDLE;
@@ -190,7 +196,7 @@ namespace asset_loader
 				return ret;
 			}
 
-			loaded_image.format = dds::dxgi_to_texture_format(dds::header_get_format(dds_header));
+			loaded_image.format = dds::dxgi_to_texture_format(dds::header_get_format(dds_header), srgb);
 			loaded_image.width = (int32_t)dds::header_get_width(dds_header);
 			loaded_image.height = (int32_t)dds::header_get_height(dds_header);
 			loaded_image.bits_per_pixel = (int32_t)dds::header_get_bits_per_pixel(dds_header);
@@ -228,7 +234,8 @@ namespace asset_loader
 
 		switch (source_format)
 		{
-		case TEXTURE_FILE_TYPE_PNG:		ret = load_texture_png(arena, arena_scratch, filepath, srgb); break;
+		case TEXTURE_FILE_TYPE_PNG:
+		case TEXTURE_FILE_TYPE_JPG:		ret = load_texture_png_jpg(arena, arena_scratch, filepath, srgb); break;
 		case TEXTURE_FILE_TYPE_HDR:		ret = load_texture_hdr(arena, arena_scratch, filepath, srgb); break;
 		case TEXTURE_FILE_TYPE_DDS:		ret = load_texture_dds(arena, arena_scratch, filepath, srgb); break;
 		case TEXTURE_FILE_TYPE_UNKNOWN:	LOG_ERR("Assets", "Tried to load texture with unknown file type: %s", filepath); break;
@@ -396,6 +403,7 @@ namespace asset_loader
 			// - Normal textures are encoded in linear
 			// - Metallic roughness textures are encoded in linear
 			// - Emissive textures are encoded in SRGB
+			ret.material_asset_count = (uint32_t)loaded_gltf->materials_count;
 			ret.material_assets = ARENA_ALLOC_ARRAY_ZERO(arena, material_asset_t, loaded_gltf->materials_count);
 
 			for (uint32_t mat_idx = 0; mat_idx < loaded_gltf->materials_count; ++mat_idx)
@@ -457,8 +465,6 @@ namespace asset_loader
 						}
 					}
 				}
-
-				++ret.material_asset_count;
 			}
 		}
 
@@ -566,6 +572,7 @@ namespace asset_loader
 				}
 			}
 
+			ret.node_count = node_count;
 			ret.nodes = ARENA_ALLOC_ARRAY_ZERO(arena, scene_node_t, node_count);
 
 			for (uint32_t node_idx = 0; node_idx < loaded_gltf->nodes_count; ++node_idx)
@@ -594,8 +601,6 @@ namespace asset_loader
 					scene_node.mesh_indices[i] = gltf_get_index<cgltf_primitive>(gltf_node.mesh->primitives, &gltf_node.mesh->primitives[i]);
 					scene_node.material_indices[i] = gltf_get_index<cgltf_material>(loaded_gltf->materials, gltf_node.mesh->primitives[i].material);
 				}
-
-				++ret.node_count;
 			}
 		}
 

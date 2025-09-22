@@ -56,7 +56,13 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     {
         // Apply tone mapping
         final_color.xyz = final_color.xyz / (1.0f + final_color.xyz);
-    
+    }
+
+    // TODO-justink: If the output is a color of any kind, I should convert back to sRGB (e.g. base color/emissive textures)
+    if (cb_settings.render_view_mode == RENDER_VIEW_MODE_NONE ||
+        cb_settings.render_view_mode == RENDER_VIEW_MODE_MATERIAL_BASE_COLOR ||
+        cb_settings.render_view_mode == RENDER_VIEW_MODE_MATERIAL_EMISSIVE)
+    {
         // Convert from linear to sRGB
         final_color.xyz = linear_to_srgb(final_color.xyz);
     }

@@ -123,24 +123,24 @@ namespace dds
         return ddspf.dw_rbitmask == r && ddspf.dw_gbitmask == g && ddspf.dw_bbitmask == b && ddspf.dw_abitmask == a;
     }
 
-    inline TEXTURE_FORMAT dxgi_to_texture_format(DXGI_FORMAT dxgi_format)
+    inline TEXTURE_FORMAT dxgi_to_texture_format(DXGI_FORMAT dxgi_format, bool srgb)
     {
         switch (dxgi_format)
         {
             case DXGI_FORMAT_R8G8_UNORM:		    return TEXTURE_FORMAT_RG8;
-            case DXGI_FORMAT_R8G8B8A8_UNORM:	    return TEXTURE_FORMAT_RGBA8;
+            case DXGI_FORMAT_R8G8B8A8_UNORM:	    return srgb ? TEXTURE_FORMAT_RGBA8_SRGB : TEXTURE_FORMAT_RGBA8;
             case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:	return TEXTURE_FORMAT_RGBA8_SRGB;
             case DXGI_FORMAT_R32G32B32A32_FLOAT:	return TEXTURE_FORMAT_RGBA32_FLOAT;
 			    
-            case DXGI_FORMAT_BC1_UNORM:			    return TEXTURE_FORMAT_BC1;
+            case DXGI_FORMAT_BC1_UNORM:			    return srgb ? TEXTURE_FORMAT_BC1_SRGB : TEXTURE_FORMAT_BC1;
             case DXGI_FORMAT_BC1_UNORM_SRGB:		return TEXTURE_FORMAT_BC1_SRGB;
-            case DXGI_FORMAT_BC2_UNORM:			    return TEXTURE_FORMAT_BC2;
+            case DXGI_FORMAT_BC2_UNORM:			    return srgb ? TEXTURE_FORMAT_BC2_SRGB : TEXTURE_FORMAT_BC2;
             case DXGI_FORMAT_BC2_UNORM_SRGB:		return TEXTURE_FORMAT_BC2_SRGB;
-            case DXGI_FORMAT_BC3_UNORM:			    return TEXTURE_FORMAT_BC3;
+            case DXGI_FORMAT_BC3_UNORM:			    return srgb ? TEXTURE_FORMAT_BC3_SRGB : TEXTURE_FORMAT_BC3;
             case DXGI_FORMAT_BC3_UNORM_SRGB:		return TEXTURE_FORMAT_BC3_SRGB;
             case DXGI_FORMAT_BC4_UNORM:			    return TEXTURE_FORMAT_BC4;
             case DXGI_FORMAT_BC5_UNORM:			    return TEXTURE_FORMAT_BC5;
-            case DXGI_FORMAT_BC7_UNORM:			    return TEXTURE_FORMAT_BC7;
+            case DXGI_FORMAT_BC7_UNORM:			    return srgb ? TEXTURE_FORMAT_BC7_SRGB : TEXTURE_FORMAT_BC7;
             case DXGI_FORMAT_BC7_UNORM_SRGB:		return TEXTURE_FORMAT_BC7_SRGB;
 			    
             default:							    return TEXTURE_FORMAT_UNKNOWN;
