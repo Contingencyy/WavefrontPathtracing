@@ -182,129 +182,19 @@ namespace asset_loader
 				LOG_ERR("Assets", "Failed to read file: %s", filepath);
 				return ret;
 			}
-			
-			uint32_t dds_file_start = 0x20534444;
-			if (memcmp(loaded_file.data, &dds_file_start, 4) != 0)
+
+			dds::header_t dds_header = dds::header_read(loaded_file.data, loaded_file.size);
+			if (!header_is_valid(dds_header))
 			{
-				LOG_ERR("Assets", "Invalid DDS file, file did not start with \"DDS \": %s", filepath);
-				return ret;
-			}
-			
-			DDS_HEADER* header = (DDS_HEADER*)(loaded_file.data + 4);
-			if (header->size != sizeof(DDS_HEADER) ||
-				header->ddspf.size != sizeof(DDS_PIXELFORMAT))
-			{
-				LOG_ERR("Assets", "DDS header wrong or possibly corrupted: %s");
+				LOG_ERR("Assets", "Failed to parse DDS header: %s", filepath);
 				return ret;
 			}
 
-			DDS_HEADER_DXT10* header_dxt10 = nullptr;
-			if (header->ddspf.flags & DDS_FOURCC &&
-				header->ddspf.fourCC == MAKEFOURCC('D', 'X', '1', '0'))
-			{
-				if (loaded_file.size < sizeof(uint32_t) + sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10))
-				{
-					LOG_ERR("Assets", "DDS file has DXT10 extension, but file is too small");
-					return ret;
-				}
-				
-				header_dxt10 = (DDS_HEADER_DXT10*)(header + 1);
-			}
-
-			DXGI_FORMAT dxgi_format;
-			if (header_dxt10)
-			{
-				dxgi_format = header_dxt10->dxgiFormat;
-			}
-			else
-			{
-				dxgi_format = GetDXGIFormat(&header->ddspf);
-			}
-
-			TEXTURE_FORMAT texture_format;
-			switch (dxgi_format)
-			{
-			case DXGI_FORMAT_BC1_UNORM:      texture_format = TEXTURE_FORMAT_BC1;      break;
-			case DXGI_FORMAT_BC1_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC1_SRGB; break;
-			case DXGI_FORMAT_BC2_UNORM:      texture_format = TEXTURE_FORMAT_BC2;      break;
-			case DXGI_FORMAT_BC2_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC2_SRGB; break;
-			case DXGI_FORMAT_BC3_UNORM:      texture_format = TEXTURE_FORMAT_BC3;      break;
-			case DXGI_FORMAT_BC3_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC3_SRGB; break;
-			case DXGI_FORMAT_BC4_UNORM:      texture_format = TEXTURE_FORMAT_BC4;      break;
-			case DXGI_FORMAT_BC5_UNORM:      texture_format = TEXTURE_FORMAT_BC5;      break;
-			case DXGI_FORMAT_BC7_UNORM:      texture_format = TEXTURE_FORMAT_BC7;      break;
-			case DXGI_FORMAT_BC7_UNORM_SRGB: texture_format = TEXTURE_FORMAT_BC7_SRGB; break;
-			default:
-				{
-					LOG_ERR("Assets", "DDS file has an unsupported format");
-					return ret;
-				} break;
-			}
-
-			size_t bits_per_pixel = DDSBitsPerPixel(dxgi_format);
-			if (bits_per_pixel == 0)
-			{
-				LOG_ERR("Assets", "DDS file has 0 bits per pixel");
-				return ret;
-			}
-
-			if (header_dxt10)
-			{
-				if (header_dxt10->resourceDimension != 3) // 3 = D3D12_RESOURCE_DIMENSION_TEXTURE2D
-				{
-					LOG_ERR("Assets", "DDS file is not a texture 2D, only texture 2Ds are currently supported");
-					return ret;
-				}
-			}
-			else
-			{
-				if (header->flags & DDS_HEADER_FLAGS_VOLUME ||
-					header->caps2 & DDS_CUBEMAP)
-				{
-					LOG_ERR("Assets", "DDS file is not a texture 2D, only texture 2Ds are currently supported");
-					return ret;
-				}
-			}
-
-			if (header_dxt10)
-			{
-				if (header_dxt10->arraySize == 0)
-				{
-					LOG_ERR("Assets", "DDS array size is 0");
-					return ret;
-				}
-
-				if (header_dxt10->arraySize > 1)
-				{
-					LOG_WARN("Assets", "DDS contains more than one texture, only first one will be used");
-					return ret;
-				}
-			}
-
-			if (!IS_POW2(header->width) || !IS_POW2(header->height))
-			{
-				LOG_ERR("Assets", "DDS resolution is invalid, has to be a power of 2");
-				return ret;
-			}
-
-			if (header->mipMapCount > 16)
-			{
-				LOG_ERR("Assets", "DDS has more than 16 mips");
-				return ret;
-			}
-
-			uint32_t expected_mip_count = log2_u32(MIN(header->width, header->height));
-			if (header->mipMapCount > expected_mip_count)
-			{
-				LOG_ERR("Assets", "DDS has more mips than the resolution would suggest");
-				return ret;
-			}
-
-			loaded_image.format = texture_format;
-			loaded_image.width = (int32_t)header->width;
-			loaded_image.height = (int32_t)header->height;
-			loaded_image.bits_per_pixel = (int32_t)bits_per_pixel;
-			loaded_image.data_ptr = loaded_file.data;
+			loaded_image.format = dds::dxgi_to_texture_format(dds::header_get_format(dds_header));
+			loaded_image.width = (int32_t)dds::header_get_width(dds_header);
+			loaded_image.height = (int32_t)dds::header_get_height(dds_header);
+			loaded_image.bits_per_pixel = (int32_t)dds::header_get_bits_per_pixel(dds_header);
+			loaded_image.data_ptr = loaded_file.data + dds::header_get_data_offset(dds_header);
 			loaded_image.loaded = true;
 		}
 
@@ -638,12 +528,12 @@ namespace asset_loader
 						glm::vec3* ptr_pos = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[0]].data);
 						glm::vec3* ptr_normal = cgltf_get_data_ptr<glm::vec3>(prim_gltf.attributes[attr_indices[1]].data);
 						//glm::vec4* ptr_tangent = cgltf_get_data_ptr<glm::vec4>(prim_gltf.attributes[attr_indices[2]].data);
-						glm::vec2* ptr_tex_coord = cgltf_get_data_ptr<glm::vec2>(prim_gltf.attributes[attr_indices[3]].data);
+						glm::vec2* ptr_uv = cgltf_get_data_ptr<glm::vec2>(prim_gltf.attributes[attr_indices[3]].data);
 
 						vertices[vert_idx].position = ptr_pos[vert_idx];
 						vertices[vert_idx].normal = ptr_normal[vert_idx];
 						//vertices[vert_idx].tangent = ptr_tangent[vert_idx];
-						vertices[vert_idx].tex_coord = ptr_tex_coord[vert_idx];
+						vertices[vert_idx].uv = ptr_uv[vert_idx];
 					}
 
 					// Create render mesh
@@ -782,9 +672,7 @@ namespace asset_loader
 			loaded_fbx = ufbx_load_file(filepath, &opts, &error);
 			if (!loaded_fbx || error.type != UFBX_ERROR_NONE)
 			{
-				FATAL_ERROR("Assets", "Failed to load FBX: %s", filepath);
-				// TODO: Implement FBX error logging
-				//ufbx_format_error()
+				FATAL_ERROR("Assets", "Failed to load FBX: %s\nReason: %s", filepath, error.description.data);
 			}
 		}
 
@@ -923,12 +811,12 @@ namespace asset_loader
 							ufbx_vec3 src_pos = ufbx_get_vertex_vec3(&fbx_mesh->vertex_position, tri_idx);
 							ufbx_vec3 src_normal = ufbx_get_vertex_vec3(&fbx_mesh->vertex_normal, tri_idx);
 							//ufbx_vec3 src_tangent = ufbx_get_vertex_vec3(&fbx_mesh->vertex_tangent, tri_idx);
-							ufbx_vec2 src_tex_coord = ufbx_get_vertex_vec2(&fbx_mesh->vertex_uv, tri_idx);
+							ufbx_vec2 src_uv = ufbx_get_vertex_vec2(&fbx_mesh->vertex_uv, tri_idx);
 							
 							vertices[index_count].position = glm::vec3(src_pos.x, src_pos.y, src_pos.z);
 							vertices[index_count].normal = glm::vec3(src_normal.x, src_normal.y, src_normal.z);
 							//vertices[index_count].tangent = glm::vec4(src_tangent.x, src_tangent.y, src_tangent.z, sign);
-							vertices[index_count].tex_coord = glm::vec2(src_tex_coord.x, 1.0f - src_tex_coord.y);
+							vertices[index_count].uv = glm::vec2(src_uv.x, 1.0f - src_uv.y);
 
 							index_count++;
 						}

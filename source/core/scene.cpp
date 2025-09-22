@@ -7,6 +7,10 @@
 
 #include "imgui/imgui.h"
 
+#define SCENE_SPONZA 0
+#define SCENE_SUN_TEMPLE 1
+#define SCENE_BISTRO 0
+
 namespace scene
 {
 
@@ -47,70 +51,31 @@ namespace scene
 		camera::create(scene.camera, glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0.0f, 10.0f, 1.0f), 60.0f);
 		camera_controller::create(scene.camera_controller, &scene.camera);
 
-		// Plane
-		/*vertex_t plane_verts[4] = {};
-		plane_verts[0].position = glm::vec3(-1.0f, 0.0f, 1.0f);
-		plane_verts[1].position = glm::vec3(1.0f, 0.0f, 1.0f);
-		plane_verts[2].position = glm::vec3(1.0f, 0.0f, -1.0f);
-		plane_verts[3].position = glm::vec3(-1.0f, 0.0f, -1.0f);
-		plane_verts[0].normal = plane_verts[1].normal = plane_verts[2].normal = plane_verts[3].normal = glm::vec3(0.0f, 1.0f, 0.0f);
-
-		uint32_t plane_indices[6] = { 0, 1, 2, 2, 3, 0 };
-		renderer::render_mesh_params_t rmesh_params = {};
-		rmesh_params.vertex_count = ARRAY_SIZE(plane_verts);
-		rmesh_params.vertices = plane_verts;
-		rmesh_params.index_count = ARRAY_SIZE(plane_indices);
-		rmesh_params.indices = plane_indices;
-		rmesh_params.debug_name = WSTRING_LITERAL(L"Plane Mesh");
-
-		render_mesh_handle_t render_mesh_handle_plane = renderer::create_render_mesh(rmesh_params);
-		material_t plane_material = material::make_diffuse(glm::vec3(0.5f));
-		create_scene_object(scene, render_mesh_handle_plane, plane_material, glm::vec3(0.0f, 0.0f, 80.0f), glm::vec3(0.0f), glm::vec3(120.0f));*/
-
-		// HDR environment map
-#if 1
+#if SCENE_SPONZA
 		//scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr");
 		//scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr");
 		scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr");
-#endif
-
-#if 0
-		// Dragon asset and objects
-		scene.dragon_scene_asset = asset_loader::load_scene(scene.arena, "assets/meshes/dragon/DragonAttenuation.gltf");
-		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(-20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(2.0f));
-		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(20.0f, 0.0f, 50.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(2.5f));
-		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(-30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 180.0f, 0.0f), glm::vec3(3.0f));
-		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(30.0f, 0.0f, 70.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(3.5f));
-		create_scene_objects_from_scene_asset(scene, *scene.dragon_scene_asset, glm::vec3(0.0f, 0.0f, 120.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(4.0f));
-#endif
-
-#if 0
-		scene.damaged_helmet_scene_asset = asset_loader::load_scene(scene.arena, "assets/meshes/damaged_helmet/DamagedHelmet.gltf");
-		create_scene_objects_from_scene_asset(scene, *scene.damaged_helmet_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
-#endif
-
-#if 0
-		// Sponza
 		scene.sponza_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/sponza/Sponza.gltf");
 		create_scene_objects_from_scene_asset(scene, *scene.sponza_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
 #endif
 
-#if 0
+#if SCENE_SUN_TEMPLE
+		//scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_Victorian_Hall.hdr");
+		//scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_St_Peters_Square_Night.hdr");
+		scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/textures/HDR_Env_Country_Club.hdr");
+		scene.sun_temple_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/sun_temple/SunTemple.fbx");
+		create_scene_objects_from_scene_asset(scene, *scene.sun_temple_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+#endif
+
+#if SCENE_BISTRO
 		scene.hdr_env = asset_loader::load_texture(scene.arena, "assets/scenes/bistro/san_giuseppe_bridge_4k.hdr");
 		
-		// Bistro
 		scene.bistro_exterior_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroExterior.fbx");
 		create_scene_objects_from_scene_asset(scene, *scene.bistro_exterior_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
 		scene.bistro_interior_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroInterior.fbx");
 		create_scene_objects_from_scene_asset(scene, *scene.bistro_interior_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
 		scene.bistro_wine_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/bistro/BistroInterior_Wine.fbx");
 		create_scene_objects_from_scene_asset(scene, *scene.bistro_wine_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
-#endif
-
-#if 1
-		// Sun Temple
-		scene.sun_temple_scene_asset = asset_loader::load_scene(scene.arena, "assets/scenes/sun_temple/SunTemple.fbx");
-		create_scene_objects_from_scene_asset(scene, *scene.sun_temple_scene_asset, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
 #endif
 	}
 

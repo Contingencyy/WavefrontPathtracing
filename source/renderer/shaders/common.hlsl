@@ -254,7 +254,7 @@ hit_surface_t get_hit_surface(intersection_result_t intersection_result, uint bu
     hit_surface.normal = interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, intersection_result.bary);
     hit_surface.normal = normalize(mul(float4(hit_surface.normal, 0.0), hit_surface.instance.local_to_world).xyz);
     //hit_surface.tangent = interpolate(hit_tri.v0.tangent, hit_tri.v1.tangent, hit_tri.v2.tangent, intersection_result.bary);
-    hit_surface.tex_coord = interpolate(hit_surface.tri.v0.tex_coord, hit_surface.tri.v1.tex_coord, hit_surface.tri.v2.tex_coord, intersection_result.bary);
+    hit_surface.tex_coord = interpolate(hit_surface.tri.v0.uv, hit_surface.tri.v1.uv, hit_surface.tri.v2.uv, intersection_result.bary);
     
     return hit_surface;
 }

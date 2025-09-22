@@ -143,7 +143,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     case RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE:           energy = int_to_color(intersection_result.primitive_idx); break;
     case RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS:        energy = float3(intersection_result.bary, 0.0); break;
     case RENDER_VIEW_MODE_GEOMETRY_NORMAL:              energy = abs(interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, intersection_result.bary)); break;
-    case RENDER_VIEW_MODE_GEOMETRY_TEXCOORD:            energy = float3(interpolate(hit_surface.tri.v0.tex_coord, hit_surface.tri.v1.tex_coord, hit_surface.tri.v2.tex_coord, intersection_result.bary), 0.0); break;
+    case RENDER_VIEW_MODE_GEOMETRY_UV:                  energy = float3(interpolate(hit_surface.tri.v0.uv, hit_surface.tri.v1.uv, hit_surface.tri.v2.uv, intersection_result.bary), 0.0); break;
     case RENDER_VIEW_MODE_MATERIAL_BASE_COLOR:          energy = sampled_material.base_color; break;
     case RENDER_VIEW_MODE_MATERIAL_NORMAL:              energy = abs(sampled_material.normal); break;
     case RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS:  energy = float3(0.0, sampled_material.roughness, sampled_material.metallic); break;
