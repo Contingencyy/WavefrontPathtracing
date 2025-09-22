@@ -7,7 +7,7 @@ struct shader_input_t
 {
     uint buffer_ray_counts_index;
     uint buffer_ray_index;
-    uint buffer_intersection_index;
+    uint buffer_hitresult_index;
     uint texture_energy_index;
     uint texture_throughput_index;
     uint buffer_pixelpos_index;
@@ -43,8 +43,8 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     RWByteAddressBuffer buffer_ray = get_resource<RWByteAddressBuffer>(cb_in.buffer_ray_index);
     RayDesc2 ray = buffer_ray.Load<RayDesc2>(dispatch_id.x * sizeof(RayDesc2));
     
-    ByteAddressBuffer buffer_intersection = get_resource<ByteAddressBuffer>(cb_in.buffer_intersection_index);
-    intersection_result_t intersection_result = buffer_intersection.Load<intersection_result_t>(dispatch_id.x * sizeof(intersection_result_t));
+    ByteAddressBuffer buffer_intersection = get_resource<ByteAddressBuffer>(cb_in.buffer_hitresult_index);
+    hit_result_t hit = buffer_intersection.Load<hit_result_t>(dispatch_id.x * sizeof(hit_result_t));
     
     RWByteAddressBuffer buffer_pixelpos = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_index);
     uint2 pixel_pos = buffer_pixelpos.Load<uint2>(dispatch_id.x * sizeof(uint2));
@@ -57,18 +57,18 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
 
     bool terminate_path = false;
     [branch]
-    if (!intersection_result_valid(intersection_result))
+    if (!has_hit_geometry(hit))
     {
         float3 hdr_env_color = sample_hdr_env(ray.Direction, float2(cb_in.texture_hdr_env_width, cb_in.texture_hdr_env_height)).xyz;
         energy += throughput * cb_settings.hdr_env_strength * hdr_env_color;
         terminate_path = true;
     }
 
-    hit_surface_t hit_surface = get_hit_surface(intersection_result, cb_in.buffer_instance_index);
+    hit_surface_t hit_surface = get_hit_surface(hit, cb_in.buffer_instance_index);
     sampled_material_t sampled_material = sample_material(hit_surface.instance.material, hit_surface.tex_coord);
     
     [branch]
-    if (any(sampled_material.emissive_color) > 0.0)
+    if (!terminate_path && any(sampled_material.emissive_color) > 0.0)
     {
         energy += throughput * sampled_material.emissive_color;
         terminate_path = true;
@@ -139,17 +139,17 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
 
     switch (cb_settings.render_view_mode)
     {
-    case RENDER_VIEW_MODE_GEOMETRY_INSTANCE:            energy = int_to_color(intersection_result.instance_idx); break;
-    case RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE:           energy = int_to_color(intersection_result.primitive_idx); break;
-    case RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS:        energy = float3(intersection_result.bary, 0.0); break;
-    case RENDER_VIEW_MODE_GEOMETRY_NORMAL:              energy = abs(interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, intersection_result.bary)); break;
-    case RENDER_VIEW_MODE_GEOMETRY_UV:                  energy = float3(interpolate(hit_surface.tri.v0.uv, hit_surface.tri.v1.uv, hit_surface.tri.v2.uv, intersection_result.bary), 0.0); break;
+    case RENDER_VIEW_MODE_GEOMETRY_INSTANCE:            energy = int_to_color(hit.instance_idx); break;
+    case RENDER_VIEW_MODE_GEOMETRY_PRIMITIVE:           energy = int_to_color(hit.primitive_idx); break;
+    case RENDER_VIEW_MODE_GEOMETRY_BARYCENTRICS:        energy = float3(hit.bary, 0.0); break;
+    case RENDER_VIEW_MODE_GEOMETRY_NORMAL:              energy = abs(interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, hit.bary)); break;
+    case RENDER_VIEW_MODE_GEOMETRY_UV:                  energy = float3(interpolate(hit_surface.tri.v0.uv, hit_surface.tri.v1.uv, hit_surface.tri.v2.uv, hit.bary), 0.0); break;
     case RENDER_VIEW_MODE_MATERIAL_BASE_COLOR:          energy = sampled_material.base_color; break;
     case RENDER_VIEW_MODE_MATERIAL_NORMAL:              energy = abs(sampled_material.normal); break;
     case RENDER_VIEW_MODE_MATERIAL_METALLIC_ROUGHNESS:  energy = float3(0.0, sampled_material.roughness, sampled_material.metallic); break;
     case RENDER_VIEW_MODE_MATERIAL_EMISSIVE:            energy = sampled_material.emissive_color; break;
     case RENDER_VIEW_MODE_WORLD_NORMAL:                 energy = abs(hit_surface.normal); break;
-    case RENDER_VIEW_MODE_RENDER_TARGET_DEPTH:          energy = float3(intersection_result.t, intersection_result.t, intersection_result.t) / cb_view.far_plane; break;
+    case RENDER_VIEW_MODE_RENDER_TARGET_DEPTH:          energy = float3(hit.t, hit.t, hit.t) / cb_view.far_plane; break;
     }
     
     // Write new ray to output buffer if we need to do another recursion

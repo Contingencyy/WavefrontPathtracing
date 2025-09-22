@@ -112,14 +112,6 @@ instance_data_t load_instance(ByteAddressBuffer buffer, uint instance_idx)
     return instance_data;
 }
 
-struct hit_result_t
-{
-    uint instance_idx;
-    uint primitive_idx;
-    float t;
-    float2 bary;
-};
-
 hit_result_t make_hit_result()
 {
     hit_result_t hit = (hit_result_t)0;
@@ -215,14 +207,6 @@ RayDesc raydesc2_to_raydesc(RayDesc2 ray_desc2)
 }
 #endif
 
-bool intersection_result_valid(intersection_result_t intersection_result)
-{
-    return (
-        intersection_result.instance_idx != INSTANCE_IDX_INVALID &&
-        intersection_result.primitive_idx != PRIMITIVE_IDX_INVALID
-    );
-}
-
 template<typename T>
 T interpolate(T v0, T v1, T v2, float2 bary)
 {
@@ -239,22 +223,22 @@ struct hit_surface_t
     triangle_t tri;
 };
 
-hit_surface_t get_hit_surface(intersection_result_t intersection_result, uint buffer_instance_index)
+hit_surface_t get_hit_surface(hit_result_t hit, uint buffer_instance_index)
 {
     hit_surface_t hit_surface = (hit_surface_t) 0;
     
     ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(buffer_instance_index);
-    hit_surface.instance = load_instance(instance_buffer, intersection_result.instance_idx);
+    hit_surface.instance = load_instance(instance_buffer, hit.instance_idx);
     ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(hit_surface.instance.triangle_buffer_idx);
-    hit_surface.tri = load_triangle(triangle_buffer, intersection_result.primitive_idx);
+    hit_surface.tri = load_triangle(triangle_buffer, hit.primitive_idx);
     
-    hit_surface.position = interpolate(hit_surface.tri.v0.position, hit_surface.tri.v1.position, hit_surface.tri.v2.position, intersection_result.bary);
+    hit_surface.position = interpolate(hit_surface.tri.v0.position, hit_surface.tri.v1.position, hit_surface.tri.v2.position, hit.bary);
     hit_surface.position = mul(float4(hit_surface.position, 1.0), hit_surface.instance.local_to_world).xyz;
     // TODO: Calculate bitangent, do normal mapping
-    hit_surface.normal = interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, intersection_result.bary);
+    hit_surface.normal = interpolate(hit_surface.tri.v0.normal, hit_surface.tri.v1.normal, hit_surface.tri.v2.normal, hit.bary);
     hit_surface.normal = normalize(mul(float4(hit_surface.normal, 0.0), hit_surface.instance.local_to_world).xyz);
-    //hit_surface.tangent = interpolate(hit_tri.v0.tangent, hit_tri.v1.tangent, hit_tri.v2.tangent, intersection_result.bary);
-    hit_surface.tex_coord = interpolate(hit_surface.tri.v0.uv, hit_surface.tri.v1.uv, hit_surface.tri.v2.uv, intersection_result.bary);
+    //hit_surface.tangent = interpolate(hit_tri.v0.tangent, hit_tri.v1.tangent, hit_tri.v2.tangent, hit.bary);
+    hit_surface.tex_coord = interpolate(hit_surface.tri.v0.uv, hit_surface.tri.v1.uv, hit_surface.tri.v2.uv, hit.bary);
     
     return hit_surface;
 }

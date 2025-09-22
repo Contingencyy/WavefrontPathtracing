@@ -155,7 +155,7 @@ namespace renderer
 			ID3D12Resource* texture_throughput;
 			ID3D12Resource* buffer_pixelpos;
 			ID3D12Resource* buffer_pixelpos_two;
-			ID3D12Resource* buffer_intersection;
+			ID3D12Resource* buffer_hitresults;
 
 			d3d12::descriptor_allocation_t buffer_indirect_args_srv_uav;
 			d3d12::descriptor_allocation_t buffer_ray_counts_srv_uav;
@@ -164,7 +164,7 @@ namespace renderer
 			d3d12::descriptor_allocation_t texture_throughput_srv_uav;
 			d3d12::descriptor_allocation_t buffer_pixelpos_srv_uav;
 			d3d12::descriptor_allocation_t buffer_pixelpos_two_srv_uav;
-			d3d12::descriptor_allocation_t buffer_intersection_srv_uav;
+			d3d12::descriptor_allocation_t buffer_hitresults_srv_uav;
 		} wavefront;
 
 		ID3D12RootSignature* root_signature;

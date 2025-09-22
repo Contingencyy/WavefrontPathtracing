@@ -141,7 +141,7 @@ struct tlas_node_t
 	uint instance_idx;
 };
 
-struct intersection_result_t
+struct hit_result_t
 {
 	uint instance_idx;
 	uint primitive_idx;

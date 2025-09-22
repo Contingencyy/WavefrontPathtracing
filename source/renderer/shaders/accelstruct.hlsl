@@ -221,7 +221,7 @@ void trace_ray_tlas(RaytracingAccelerationStructure scene_tlas, RayDesc2 ray, in
 {
     RayDesc ray_desc = raydesc2_to_raydesc(ray);
 #if TRIANGLE_BACKFACE_CULLING
-    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES>ray_query;
+    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> ray_query;
     ray_query.TraceRayInline(scene_tlas, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0u, ray_desc);
 #else
     RayQuery<RAY_FLAG_NONE> ray_query; // For shadow rays, use RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH (https://learn.microsoft.com/en-us/windows/win32/direct3d12/ray_flag)
@@ -232,7 +232,7 @@ void trace_ray_tlas(RaytracingAccelerationStructure scene_tlas, RayDesc2 ray, in
     {
         switch (ray_query.CandidateType())
         {
-            case CANDIDATE_NON_OPAQUE_TRIANGLE:
+        case CANDIDATE_NON_OPAQUE_TRIANGLE:
             {
                 ray_query.CommitNonOpaqueTriangleHit();
             } break;
@@ -241,7 +241,7 @@ void trace_ray_tlas(RaytracingAccelerationStructure scene_tlas, RayDesc2 ray, in
 
     switch (ray_query.CommittedStatus())
     {
-        case COMMITTED_TRIANGLE_HIT:
+    case COMMITTED_TRIANGLE_HIT:
         {
             hit.instance_idx = ray_query.CommittedInstanceIndex();
             hit.primitive_idx = ray_query.CommittedPrimitiveIndex();
