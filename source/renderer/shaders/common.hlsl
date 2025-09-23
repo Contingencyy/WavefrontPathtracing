@@ -48,12 +48,14 @@ SamplerState sampler_linear_wrap : register(s0, space0);
     Resource access
 */
 
+// Returns a non-uniform bindless resource, meaning that it will can be different across threads within a wave
 template<typename T>
 T get_resource(uint index)
 {
     return ResourceDescriptorHeap[NonUniformResourceIndex(index)];
 }
 
+// Returns a uniform bindless resource, meaning that it will be the same resource within a wave
 template<typename T>
 T get_resource_uniform(uint index)
 {
@@ -223,12 +225,11 @@ struct hit_surface_t
     triangle_t tri;
 };
 
-hit_surface_t get_hit_surface(hit_result_t hit, uint buffer_instance_index)
+hit_surface_t get_hit_surface(ByteAddressBuffer buffer_instances, hit_result_t hit)
 {
     hit_surface_t hit_surface = (hit_surface_t) 0;
     
-    ByteAddressBuffer instance_buffer = get_resource<ByteAddressBuffer>(buffer_instance_index);
-    hit_surface.instance = load_instance(instance_buffer, hit.instance_idx);
+    hit_surface.instance = load_instance(buffer_instances, hit.instance_idx);
     ByteAddressBuffer triangle_buffer = get_resource<ByteAddressBuffer>(hit_surface.instance.triangle_buffer_idx);
     hit_surface.tri = load_triangle(triangle_buffer, hit.primitive_idx);
     

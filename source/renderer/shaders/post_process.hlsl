@@ -18,6 +18,10 @@ struct shader_input_t
 
 ConstantBuffer<shader_input_t> cb_in : register(b2, space0);
 
+static const Texture2D<float4> texture_energy = get_resource_uniform<Texture2D<float4> >(cb_in.texture_energy_index);
+static const RWTexture2D<float4> texture_color_accum = get_resource_uniform<RWTexture2D<float4> >(cb_in.texture_color_accum_index);
+static const RWTexture2D<float4> texture_color_final = get_resource_uniform<RWTexture2D<float4> >(cb_in.texture_color_final_index);
+
 [numthreads(GROUP_THREADS_X, GROUP_THREADS_Y, 1)]
 void main(uint3 dispatch_id : SV_DispatchThreadID)
 {
@@ -25,8 +29,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     uint2 pixel_pos = uint2(dispatch_id.xy);
     
     // Get the final energy buffer from path trace
-    Texture2D<float4> energy_buffer = get_resource<Texture2D<float4> >(cb_in.texture_energy_index);
-    float3 energy = energy_buffer[pixel_pos].xyz;
+    float3 energy = texture_energy[pixel_pos].xyz;
 
     // Badness detector for NaN/INF in energy buffer
     if (is_nan(energy.x) || is_nan(energy.y) || is_nan(energy.z) || any(isinf(energy)))
@@ -35,7 +38,6 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     }
     
     // Update HDR color accumulator
-    RWTexture2D<float4> texture_color_accum = get_resource<RWTexture2D<float4> >(cb_in.texture_color_accum_index);
     float4 color_accum = texture_color_accum[pixel_pos];
     float sample_weight = 1.0f / cb_in.sample_count;
 
@@ -49,7 +51,6 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
     }
 
     // Write final LDR color
-    RWTexture2D<float4> texture_color_final = get_resource<RWTexture2D<float4> >(cb_in.texture_color_final_index);
     float4 final_color = texture_color_accum[pixel_pos];
 
     if (cb_settings.render_view_mode == RENDER_VIEW_MODE_NONE)

@@ -6,22 +6,31 @@
 
 struct shader_input_t
 {
-    uint scene_tlas_index;
-    uint hdr_env_index;
-    uint2 hdr_env_dimensions;
-    uint buffer_instance_index;
+    uint buffer_scene_tlas_index;
+    uint texture_hdr_env_index;
+    uint2 texture_hdr_env_dims;
+    uint buffer_instances_index;
     uint texture_energy_index;
     uint random_seed;
 };
 
 ConstantBuffer<shader_input_t> cb_in : register(b2, space0);
 
+#if RAYTRACING_MODE_SOFTWARE
+static const ByteAddressBuffer buffer_scene_tlas = get_resource_uniform<ByteAddressBuffer>(cb_in.buffer_scene_tlas_index);
+#else
+static const RaytracingAccelerationStructure buffer_scene_tlas = get_resource_uniform<RaytracingAccelerationStructure>(cb_in.buffer_scene_tlas_index);
+#endif
+    
+static const ByteAddressBuffer buffer_instances = get_resource_uniform<ByteAddressBuffer>(cb_in.buffer_instances_index);
+
+static const Texture2D texture_hdr_env = get_resource_uniform<Texture2D>(cb_in.texture_hdr_env_index);
+static const RWTexture2D<float4> texture_energy = get_resource_uniform<RWTexture2D<float4> >(cb_in.texture_energy_index);
+
 float4 sample_hdr_env(float3 dir, float2 tex_dim)
 {
-    Texture2D<float4> env_texture = get_resource<Texture2D>(cb_in.hdr_env_index);
     uint2 sample_pos = direction_to_equirect_uv(dir) * tex_dim;
-    
-    return env_texture[sample_pos];
+    return texture_hdr_env[sample_pos];
 }
 
 #if RAYTRACING_MODE_SOFTWARE
@@ -49,12 +58,12 @@ float3 trace_path(RaytracingAccelerationStructure scene_tlas, uint2 dispatch_id,
         // We have missed the scene entirely, so we treat the HDR environment texture as a light source and stop tracing
         if (!has_hit_geometry(hit))
         {
-            float3 hdr_env_color = sample_hdr_env(ray.Direction, float2(cb_in.hdr_env_dimensions)).xyz;
+            float3 hdr_env_color = sample_hdr_env(ray.Direction, float2(cb_in.texture_hdr_env_dims)).xyz;
             energy += throughput * cb_settings.hdr_env_strength * hdr_env_color;
             break;
         }
         
-        hit_surface_t hit_surface = get_hit_surface(hit, cb_in.buffer_instance_index);
+        hit_surface_t hit_surface = get_hit_surface(buffer_instances, hit);
         sampled_material_t sampled_material = sample_material(hit_surface.instance.material, hit_surface.tex_coord);
 
         [branch]
@@ -153,16 +162,8 @@ float3 trace_path(RaytracingAccelerationStructure scene_tlas, uint2 dispatch_id,
 [numthreads(64, 1, 1)]
 void main(uint3 dispatch_id : SV_DispatchThreadID)
 {
-#if RAYTRACING_MODE_SOFTWARE
-    ByteAddressBuffer scene_tlas = get_resource<ByteAddressBuffer>(cb_in.scene_tlas_index);
-#else
-    RaytracingAccelerationStructure scene_tlas = get_resource<RaytracingAccelerationStructure>(cb_in.scene_tlas_index);
-#endif
-    
     // Make the primary ray and start tracing
     uint2 pixel_pos = uint2(dispatch_id.x % cb_view.render_dim.x, dispatch_id.x / cb_view.render_dim.x);
-    float3 energy = trace_path(scene_tlas, dispatch_id.xy, pixel_pos, cb_view.render_dim);
-
-    RWTexture2D<float4> buffer_energy = get_resource<RWTexture2D<float4> >(cb_in.texture_energy_index);
-    buffer_energy[pixel_pos].xyz = energy;
+    float3 energy = trace_path(buffer_scene_tlas, dispatch_id.xy, pixel_pos, cb_view.render_dim);
+    texture_energy[pixel_pos].xyz = energy;
 }

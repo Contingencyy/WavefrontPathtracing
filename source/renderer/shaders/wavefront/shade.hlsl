@@ -6,13 +6,13 @@
 struct shader_input_t
 {
     uint buffer_ray_counts_index;
-    uint buffer_ray_index;
-    uint buffer_hitresult_index;
+    uint buffer_rays_index;
+    uint buffer_hit_results_index;
     uint texture_energy_index;
     uint texture_throughput_index;
-    uint buffer_pixelpos_index;
-    uint buffer_pixelpos_two_index;
-    uint buffer_instance_index;
+    uint buffer_pixel_coords_index;
+    uint buffer_pixel_coords_two_index;
+    uint buffer_instances_index;
     uint texture_hdr_env_index;
     uint texture_hdr_env_width;
     uint texture_hdr_env_height;
@@ -22,37 +22,37 @@ struct shader_input_t
 
 ConstantBuffer<shader_input_t> cb_in : register(b2, space0);
 
+static const ByteAddressBuffer buffer_instances = get_resource_uniform<ByteAddressBuffer>(cb_in.buffer_instances_index);
+static const ByteAddressBuffer buffer_hit_results = get_resource_uniform<ByteAddressBuffer>(cb_in.buffer_hit_results_index);
+static const ByteAddressBuffer buffer_pixel_coords = get_resource_uniform<ByteAddressBuffer>(cb_in.buffer_pixel_coords_index);
+static const RWByteAddressBuffer buffer_pixel_coords_two = get_resource_uniform<RWByteAddressBuffer>(cb_in.buffer_pixel_coords_two_index);
+static const RWByteAddressBuffer buffer_ray_counts = get_resource_uniform<RWByteAddressBuffer>(cb_in.buffer_ray_counts_index);
+static const RWByteAddressBuffer buffer_rays = get_resource_uniform<RWByteAddressBuffer>(cb_in.buffer_rays_index);
+
+static const Texture2D texture_hdr_env = get_resource_uniform<Texture2D>(cb_in.texture_hdr_env_index);
+static const RWTexture2D<float4> texture_energy = get_resource_uniform<RWTexture2D<float4> >(cb_in.texture_energy_index);
+static const RWTexture2D<float4> texture_throughput = get_resource_uniform<RWTexture2D<float4> >(cb_in.texture_throughput_index);
+
 float4 sample_hdr_env(float3 dir, float2 tex_dim)
 {
-    Texture2D<float4> env_texture = get_resource<Texture2D>(cb_in.texture_hdr_env_index);
     uint2 sample_pos = direction_to_equirect_uv(dir) * tex_dim;
-    
-    return env_texture[sample_pos];
+    return texture_hdr_env[sample_pos];
 }
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatch_id : SV_DispatchThreadID)
 {
-    RWByteAddressBuffer buffer_ray_counts = get_resource<RWByteAddressBuffer>(cb_in.buffer_ray_counts_index);
     uint ray_count = buffer_ray_counts.Load<uint>(cb_in.recursion_depth * 4);
     
     // Dispatches might have work that is not divisible by the dispatch thread dimensions, so we skip those
     if (dispatch_id.x >= ray_count)
         return;
     
-    RWByteAddressBuffer buffer_ray = get_resource<RWByteAddressBuffer>(cb_in.buffer_ray_index);
-    RayDesc2 ray = buffer_ray.Load<RayDesc2>(dispatch_id.x * sizeof(RayDesc2));
-    
-    ByteAddressBuffer buffer_intersection = get_resource<ByteAddressBuffer>(cb_in.buffer_hitresult_index);
-    hit_result_t hit = buffer_intersection.Load<hit_result_t>(dispatch_id.x * sizeof(hit_result_t));
-    
-    RWByteAddressBuffer buffer_pixelpos = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_index);
-    uint2 pixel_pos = buffer_pixelpos.Load<uint2>(dispatch_id.x * sizeof(uint2));
+    uint2 pixel_pos = buffer_pixel_coords.Load<uint2>(dispatch_id.x * sizeof(uint2));
+    RayDesc2 ray = buffer_rays.Load<RayDesc2>(dispatch_id.x * sizeof(RayDesc2));
+    hit_result_t hit = buffer_hit_results.Load<hit_result_t>(dispatch_id.x * sizeof(hit_result_t));
 
-    RWTexture2D<float4> texture_energy = get_resource<RWTexture2D<float4> >(cb_in.texture_energy_index);
     float3 energy = texture_energy[pixel_pos].xyz;
-    
-    RWTexture2D<float4> texture_throughput = get_resource<RWTexture2D<float4> >(cb_in.texture_throughput_index);
     float3 throughput = texture_throughput[pixel_pos].xyz;
 
     bool terminate_path = false;
@@ -64,7 +64,7 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         terminate_path = true;
     }
 
-    hit_surface_t hit_surface = get_hit_surface(hit, cb_in.buffer_instance_index);
+    hit_surface_t hit_surface = get_hit_surface(buffer_instances, hit);
     sampled_material_t sampled_material = sample_material(hit_surface.instance.material, hit_surface.tex_coord);
     
     [branch]
@@ -164,9 +164,8 @@ void main(uint3 dispatch_id : SV_DispatchThreadID)
         buffer_ray_counts.InterlockedAdd(ray_count_offset * sizeof(uint), 1u, write_offset);
 
         // Get next ray offset and write new ray
-        buffer_ray.Store<RayDesc2>(write_offset * sizeof(RayDesc2), ray);
-        RWByteAddressBuffer buffer_pixelpos_two = get_resource<RWByteAddressBuffer>(cb_in.buffer_pixelpos_two_index);
-        buffer_pixelpos_two.Store<uint2>(write_offset * sizeof(uint2), pixel_pos);
+        buffer_rays.Store<RayDesc2>(write_offset * sizeof(RayDesc2), ray);
+        buffer_pixel_coords_two.Store<uint2>(write_offset * sizeof(uint2), pixel_pos);
     }
 
     // Write new energy and throughput to output buffers at correct pixel position

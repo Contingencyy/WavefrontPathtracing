@@ -443,28 +443,28 @@ namespace renderer
 			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_ray_counts, g_renderer->wavefront.buffer_ray_counts_srv_uav, 1, buffer_size);
 			
 			buffer_size = element_count * sizeof(RayDesc2);
-			g_renderer->wavefront.buffer_ray = d3d12::create_buffer(L"Wavefront Ray Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-			g_renderer->wavefront.buffer_ray_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
-			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_ray, g_renderer->wavefront.buffer_ray_srv_uav, 0, buffer_size);
-			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_ray, g_renderer->wavefront.buffer_ray_srv_uav, 1, buffer_size);
+			g_renderer->wavefront.buffer_rays = d3d12::create_buffer(L"Wavefront Ray Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_rays_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_rays, g_renderer->wavefront.buffer_rays_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_rays, g_renderer->wavefront.buffer_rays_srv_uav, 1, buffer_size);
 
 			buffer_size = element_count * 8;
-			g_renderer->wavefront.buffer_pixelpos = d3d12::create_buffer(L"Wavefront Pixelpos Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-			g_renderer->wavefront.buffer_pixelpos_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
-			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixelpos, g_renderer->wavefront.buffer_pixelpos_srv_uav, 0, buffer_size);
-			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixelpos, g_renderer->wavefront.buffer_pixelpos_srv_uav, 1, buffer_size);
+			g_renderer->wavefront.buffer_pixel_coords = d3d12::create_buffer(L"Wavefront Pixelpos Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_pixel_coords_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixel_coords, g_renderer->wavefront.buffer_pixel_coords_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixel_coords, g_renderer->wavefront.buffer_pixel_coords_srv_uav, 1, buffer_size);
 
 			buffer_size = element_count * 8;
-			g_renderer->wavefront.buffer_pixelpos_two = d3d12::create_buffer(L"Wavefront Pixelpos Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-			g_renderer->wavefront.buffer_pixelpos_two_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
-			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixelpos_two, g_renderer->wavefront.buffer_pixelpos_two_srv_uav, 0, buffer_size);
-			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixelpos_two, g_renderer->wavefront.buffer_pixelpos_two_srv_uav, 1, buffer_size);
+			g_renderer->wavefront.buffer_pixel_coords_two = d3d12::create_buffer(L"Wavefront Pixelpos Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_pixel_coords_two_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_pixel_coords_two, g_renderer->wavefront.buffer_pixel_coords_two_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_pixel_coords_two, g_renderer->wavefront.buffer_pixel_coords_two_srv_uav, 1, buffer_size);
 
 			buffer_size = element_count * sizeof(hit_result_t);
-			g_renderer->wavefront.buffer_hitresults = d3d12::create_buffer(L"Wavefront Hit Result Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-			g_renderer->wavefront.buffer_hitresults_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
-			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_hitresults, g_renderer->wavefront.buffer_hitresults_srv_uav, 0, buffer_size);
-			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_hitresults, g_renderer->wavefront.buffer_hitresults_srv_uav, 1, buffer_size);
+			g_renderer->wavefront.buffer_hit_results = d3d12::create_buffer(L"Wavefront Hit Result Buffer", buffer_size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			g_renderer->wavefront.buffer_hit_results_srv_uav = d3d12::allocate_descriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
+			d3d12::create_buffer_srv(g_renderer->wavefront.buffer_hit_results, g_renderer->wavefront.buffer_hit_results_srv_uav, 0, buffer_size);
+			d3d12::create_buffer_uav(g_renderer->wavefront.buffer_hit_results, g_renderer->wavefront.buffer_hit_results_srv_uav, 1, buffer_size);
 
 			g_renderer->wavefront.texture_energy = d3d12::create_texture_2d(L"Wavefront Energy Texture", DXGI_FORMAT_R16G16B16A16_FLOAT,
 				g_renderer->render_width, g_renderer->render_height, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -522,11 +522,11 @@ namespace renderer
 		
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_indirect_args);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_ray_counts);
-		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_ray);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_rays);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.texture_energy);
 		DX_RELEASE_OBJECT(g_renderer->wavefront.texture_throughput);
-		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_pixelpos);
-		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_hitresults);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_pixel_coords);
+		DX_RELEASE_OBJECT(g_renderer->wavefront.buffer_hit_results);
 
 		DX_RELEASE_OBJECT(g_renderer->rt_color_accum);
 		DX_RELEASE_OBJECT(g_renderer->rt_final_color);
@@ -760,16 +760,16 @@ namespace renderer
 						uint32_t buffer_ray_counts_index;
 						uint32_t texture_energy_index;
 						uint32_t texture_throughput_index;
-						uint32_t buffer_pixelpos_index;
-						uint32_t buffer_pixelpos_two_index;
+						uint32_t buffer_pixel_coords_index;
+						uint32_t buffer_pixel_coords_two_index;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset + 1;
 					shader_input->texture_energy_index = g_renderer->wavefront.texture_energy_srv_uav.offset + 1;
 					shader_input->texture_throughput_index = g_renderer->wavefront.texture_throughput_srv_uav.offset + 1;
-					shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
-					shader_input->buffer_pixelpos_two_index = g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1;
+					shader_input->buffer_pixel_coords_index = g_renderer->wavefront.buffer_pixel_coords_srv_uav.offset + 1;
+					shader_input->buffer_pixel_coords_two_index = g_renderer->wavefront.buffer_pixel_coords_two_srv_uav.offset + 1;
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_clear_buffers);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -781,8 +781,8 @@ namespace renderer
 							d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts),
 							d3d12::barrier_uav(g_renderer->wavefront.texture_energy),
 							d3d12::barrier_uav(g_renderer->wavefront.texture_throughput),
-							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos),
-							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos_two)
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixel_coords),
+							d3d12::barrier_uav(g_renderer->wavefront.buffer_pixel_coords_two)
 						};
 						d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					}
@@ -828,11 +828,11 @@ namespace renderer
 					
 					struct shader_input_t
 					{
-						uint32_t buffer_ray_index;
+						uint32_t buffer_rays_index;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
-					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
+					shader_input->buffer_rays_index = g_renderer->wavefront.buffer_rays_srv_uav.offset + 1;
 
 					d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_generate);
 					d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -841,7 +841,7 @@ namespace renderer
 
 					D3D12_RESOURCE_BARRIER barriers[] =
 					{
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray)
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_rays)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					
@@ -854,16 +854,16 @@ namespace renderer
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_counts_index;
-						uint32_t buffer_ray_index;
-						uint32_t buffer_hitresult_index;
+						uint32_t buffer_rays_index;
+						uint32_t buffer_hit_results_index;
 						uint32_t buffer_scene_tlas_index;
 						uint32_t recursion_depth;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset;
-					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset;
-					shader_input->buffer_hitresult_index = g_renderer->wavefront.buffer_hitresults_srv_uav.offset + 1;
+					shader_input->buffer_rays_index = g_renderer->wavefront.buffer_rays_srv_uav.offset;
+					shader_input->buffer_hit_results_index = g_renderer->wavefront.buffer_hit_results_srv_uav.offset + 1;
 					shader_input->buffer_scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
 					shader_input->recursion_depth = recursion_depth;
 
@@ -874,7 +874,7 @@ namespace renderer
 					
 					D3D12_RESOURCE_BARRIER barriers[] =
 					{
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_hitresults)
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_hit_results)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					
@@ -887,32 +887,30 @@ namespace renderer
 					struct shader_input_t
 					{
 						uint32_t buffer_ray_counts_index;
-						uint32_t buffer_ray_index;
-						uint32_t buffer_hitresult_index;
+						uint32_t buffer_rays_index;
+						uint32_t buffer_hit_results_index;
 						uint32_t texture_energy_index;
 						uint32_t texture_throughput_index;
-						uint32_t buffer_pixelpos_index;
-						uint32_t buffer_pixelpos_two_index;
-						uint32_t buffer_instance_index;
+						uint32_t buffer_pixel_coords_index;
+						uint32_t buffer_pixel_coords_two_index;
+						uint32_t buffer_instances_index;
 						uint32_t texture_hdr_env_index;
-						uint32_t texture_hdr_env_width;
-						uint32_t texture_hdr_env_height;
+						glm::uvec2 texture_hdr_env_dims;
 						uint32_t random_seed;
 						uint32_t recursion_depth;
 					};
 					d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 					shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 					shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset + 1;
-					shader_input->buffer_ray_index = g_renderer->wavefront.buffer_ray_srv_uav.offset + 1;
-					shader_input->buffer_hitresult_index = g_renderer->wavefront.buffer_hitresults_srv_uav.offset;
+					shader_input->buffer_rays_index = g_renderer->wavefront.buffer_rays_srv_uav.offset + 1;
+					shader_input->buffer_hit_results_index = g_renderer->wavefront.buffer_hit_results_srv_uav.offset;
 					shader_input->texture_energy_index = g_renderer->wavefront.texture_energy_srv_uav.offset + 1;
 					shader_input->texture_throughput_index = g_renderer->wavefront.texture_throughput_srv_uav.offset + 1;
-					shader_input->buffer_pixelpos_index = recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1 : g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1;
-					shader_input->buffer_pixelpos_two_index = recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1 : g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
-					shader_input->buffer_instance_index = g_renderer->instance_buffer_srv.offset;
+					shader_input->buffer_pixel_coords_index = recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixel_coords_srv_uav.offset : g_renderer->wavefront.buffer_pixel_coords_two_srv_uav.offset;
+					shader_input->buffer_pixel_coords_two_index = recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixel_coords_two_srv_uav.offset + 1 : g_renderer->wavefront.buffer_pixel_coords_srv_uav.offset + 1;
+					shader_input->buffer_instances_index = g_renderer->instance_buffer_srv.offset;
 					shader_input->texture_hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
-					shader_input->texture_hdr_env_width = g_renderer->scene_hdr_env_texture->width;
-					shader_input->texture_hdr_env_height = g_renderer->scene_hdr_env_texture->height;
+					shader_input->texture_hdr_env_dims = glm::uvec2(g_renderer->scene_hdr_env_texture->width, g_renderer->scene_hdr_env_texture->height);
 					shader_input->random_seed = frame_seed;
 					shader_input->recursion_depth = recursion_depth;
 
@@ -924,10 +922,10 @@ namespace renderer
 					D3D12_RESOURCE_BARRIER barriers[] =
 					{
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_rays),
 						d3d12::barrier_uav(g_renderer->wavefront.texture_energy),
 						d3d12::barrier_uav(g_renderer->wavefront.texture_throughput),
-						d3d12::barrier_uav(recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixelpos_two : g_renderer->wavefront.buffer_pixelpos)
+						d3d12::barrier_uav(recursion_depth % 2 == 0 ? g_renderer->wavefront.buffer_pixel_coords_two : g_renderer->wavefront.buffer_pixel_coords)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 					
@@ -949,16 +947,16 @@ namespace renderer
 					uint32_t buffer_ray_counts_index;
 					uint32_t texture_energy_index;
 					uint32_t texture_throughput_index;
-					uint32_t buffer_pixelpos_index;
-					uint32_t buffer_pixelpos_two_index;
+					uint32_t buffer_pixel_coords_index;
+					uint32_t buffer_pixel_coords_two_index;
 				};
 				d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 				shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
 				shader_input->buffer_ray_counts_index = g_renderer->wavefront.buffer_ray_counts_srv_uav.offset + 1;
 				shader_input->texture_energy_index = g_renderer->wavefront.texture_energy_srv_uav.offset + 1;
 				shader_input->texture_throughput_index = g_renderer->wavefront.texture_throughput_srv_uav.offset + 1;
-				shader_input->buffer_pixelpos_index = g_renderer->wavefront.buffer_pixelpos_srv_uav.offset + 1;
-				shader_input->buffer_pixelpos_two_index = g_renderer->wavefront.buffer_pixelpos_two_srv_uav.offset + 1;
+				shader_input->buffer_pixel_coords_index = g_renderer->wavefront.buffer_pixel_coords_srv_uav.offset + 1;
+				shader_input->buffer_pixel_coords_two_index = g_renderer->wavefront.buffer_pixel_coords_two_srv_uav.offset + 1;
 
 				d3d_frame_ctx.command_list->SetPipelineState(g_renderer->wavefront.pso_clear_buffers);
 				d3d_frame_ctx.command_list->SetComputeRootConstantBufferView(2, cb_shader.resource->GetGPUVirtualAddress() + cb_shader.byte_offset);
@@ -970,8 +968,8 @@ namespace renderer
 						d3d12::barrier_uav(g_renderer->wavefront.buffer_ray_counts),
 						d3d12::barrier_uav(g_renderer->wavefront.texture_energy),
 						d3d12::barrier_uav(g_renderer->wavefront.texture_throughput),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos),
-						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixelpos_two)
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixel_coords),
+						d3d12::barrier_uav(g_renderer->wavefront.buffer_pixel_coords_two)
 					};
 					d3d_frame_ctx.command_list->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
 				}
@@ -985,19 +983,19 @@ namespace renderer
 			
 				struct shader_input_t
 				{
-					uint32_t scene_tlas_index;
-					uint32_t hdr_env_index;
-					glm::uvec2 hdr_env_dimensions;
-					uint32_t instance_buffer_index;
+					uint32_t buffer_scene_tlas_index;
+					uint32_t texture_hdr_env_index;
+					glm::uvec2 texture_hdr_env_dims;
+					uint32_t buffer_instances_index;
 					uint32_t texture_energy_index;
 					uint32_t random_seed;
 				};
 				d3d12::frame_resource_t cb_shader = d3d12::allocate_frame_resource(sizeof(shader_input_t), 256);
 				shader_input_t* shader_input = (shader_input_t*)cb_shader.ptr;
-				shader_input->scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
-				shader_input->hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
-				shader_input->hdr_env_dimensions = glm::uvec2(g_renderer->scene_hdr_env_texture->width, g_renderer->scene_hdr_env_texture->height);
-				shader_input->instance_buffer_index = g_renderer->instance_buffer_srv.offset;
+				shader_input->buffer_scene_tlas_index = frame_ctx.scene_tlas_srv.offset;
+				shader_input->texture_hdr_env_index = g_renderer->scene_hdr_env_texture->texture_srv.offset;
+				shader_input->texture_hdr_env_dims = glm::uvec2(g_renderer->scene_hdr_env_texture->width, g_renderer->scene_hdr_env_texture->height);
+				shader_input->buffer_instances_index = g_renderer->instance_buffer_srv.offset;
 				shader_input->texture_energy_index = g_renderer->wavefront.texture_energy_srv_uav.offset + 1;
 				shader_input->random_seed = frame_seed;
 

@@ -148,23 +148,23 @@ namespace renderer
 			
 			ID3D12Resource* buffer_indirect_args;
 			ID3D12Resource* buffer_ray_counts;
-			ID3D12Resource* buffer_ray;
+			ID3D12Resource* buffer_rays;
 			// RGBA16 float, Alpha channel is unused
 			ID3D12Resource* texture_energy;
 			// RGBA16 float, Alpha channel is unused
 			ID3D12Resource* texture_throughput;
-			ID3D12Resource* buffer_pixelpos;
-			ID3D12Resource* buffer_pixelpos_two;
-			ID3D12Resource* buffer_hitresults;
+			ID3D12Resource* buffer_pixel_coords;
+			ID3D12Resource* buffer_pixel_coords_two;
+			ID3D12Resource* buffer_hit_results;
 
 			d3d12::descriptor_allocation_t buffer_indirect_args_srv_uav;
 			d3d12::descriptor_allocation_t buffer_ray_counts_srv_uav;
-			d3d12::descriptor_allocation_t buffer_ray_srv_uav;
+			d3d12::descriptor_allocation_t buffer_rays_srv_uav;
 			d3d12::descriptor_allocation_t texture_energy_srv_uav;
 			d3d12::descriptor_allocation_t texture_throughput_srv_uav;
-			d3d12::descriptor_allocation_t buffer_pixelpos_srv_uav;
-			d3d12::descriptor_allocation_t buffer_pixelpos_two_srv_uav;
-			d3d12::descriptor_allocation_t buffer_hitresults_srv_uav;
+			d3d12::descriptor_allocation_t buffer_pixel_coords_srv_uav;
+			d3d12::descriptor_allocation_t buffer_pixel_coords_two_srv_uav;
+			d3d12::descriptor_allocation_t buffer_hit_results_srv_uav;
 		} wavefront;
 
 		ID3D12RootSignature* root_signature;
