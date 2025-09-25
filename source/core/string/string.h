@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 
 #define STRING_NPOS 0xFFFFFFFF
 // Used to printf counted strings

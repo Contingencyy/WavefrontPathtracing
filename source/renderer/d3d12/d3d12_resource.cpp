@@ -1,7 +1,8 @@
-#include "pch.h"
 #include "d3d12_resource.h"
 #include "d3d12_common.h"
 #include "d3d12_descriptor.h"
+
+#include "core/assertion.h"
 
 namespace d3d12
 {

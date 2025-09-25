@@ -1,16 +1,12 @@
-﻿#include "pch.h"
+﻿#include "platform/platform.h"
 #include "platform/windows/windows_common.h"
 
-#include "core/application.h"
 #include "core/logger.h"
 #include "core/input.h"
 #include "core/string/string.h"
 
 #include "imgui/imgui_impl_win32.h"
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT Message, WPARAM WParam, LPARAM LParam);
-
-#include <io.h>
-#include <fcntl.h>
 
 namespace platform
 {

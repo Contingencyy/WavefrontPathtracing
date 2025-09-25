@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 #include "renderer/shaders/shared.hlsl.h"
 
 struct memory_arena_t;

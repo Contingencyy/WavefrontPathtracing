@@ -1,5 +1,5 @@
-#include "pch.h"
 #include "scene.h"
+#include "core/math/math.h"
 // TODO: remove and implement a proper asset manager
 #include "core/assets/asset_loader.h"
 #include "renderer/shaders/shared.hlsl.h"

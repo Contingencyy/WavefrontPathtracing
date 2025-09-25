@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 #include "d3d12_include.h"
 
 namespace d3d12

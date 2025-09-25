@@ -1,5 +1,6 @@
 #pragma once
 #include "d3d12_include.h"
+#include "core/common.h"
 
 struct descriptor_allocation_t;
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 
 struct linear_alloc_t
 {

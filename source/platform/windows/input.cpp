@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "core/input.h"
 
 #include "platform/platform.h"

@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "renderer.h"
 #include "renderer_common.h"
 #include "renderer/shaders/shared.hlsl.h"
@@ -6,15 +5,17 @@
 #include "d3d12/d3d12_common.h"
 #include "d3d12/d3d12_backend.h"
 #include "d3d12/d3d12_resource.h"
+#include "d3d12/d3d12_query.h"
 
 #include "bvh/bvh_builder.h"
 #include "bvh/as_util.h"
 
+#include "core/assertion.h"
+#include "core/memory/memory_arena.h"
 #include "core/camera/camera.h"
 #include "core/logger.h"
 #include "core/random.h"
 #include "core/assets/asset_types.h"
-#include "d3d12/d3d12_query.h"
 
 #include "imgui/imgui.h"
 

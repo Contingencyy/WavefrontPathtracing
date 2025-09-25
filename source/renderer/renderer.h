@@ -1,4 +1,6 @@
 #pragma once
+#include "core/common.h"
+#include "core/string/string.h"
 #include "renderer_fwd.h"
 
 struct camera_t;

@@ -1,4 +1,7 @@
 #pragma once
+#include "core/common.h"
+#include "core/assertion.h"
+#include "core/memory/memory_arena.h"
 
 template<typename value_type>
 struct slotmap_slot_t

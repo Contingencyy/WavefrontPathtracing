@@ -1,4 +1,7 @@
 #pragma once
+#include "core/common.h"
+
+struct memory_arena_t;
 
 namespace fileio
 {

@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 
 template<typename T>
 union resource_handle_t

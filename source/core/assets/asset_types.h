@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 #include "renderer/renderer_fwd.h"
 
 struct texture_asset_t

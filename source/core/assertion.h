@@ -5,7 +5,6 @@
 #include "platform/platform.h"
 
 #include <cstdarg>
-#include <vadefs.h>
 
 inline void _fatal_error(int32_t line, const char* file, const char* sender, const char* message, ...)
 {

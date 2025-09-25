@@ -1,7 +1,7 @@
 #pragma once
 #include "d3d12_include.h"
 #include "core/allocators/ring_alloc.h"
-
+#include "core/common.h"
 #include "core/api_types.h"
 
 namespace d3d12

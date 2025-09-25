@@ -1,6 +1,6 @@
 #pragma once
-#include <cstdint>
-#include "glm/glm.hpp"
+#include "core/math/math.h"
+#include <stdint.h>
 
 inline constexpr glm::vec3 DEFAULT_RIGHT_VECTOR = glm::vec3(1.0f, 0.0f, 0.0f);
 inline constexpr glm::vec3 DEFAULT_UP_VECTOR = glm::vec3(0.0f, 1.0f, 0.0f);

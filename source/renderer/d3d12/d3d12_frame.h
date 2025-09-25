@@ -2,6 +2,7 @@
 #include "d3d12_include.h"
 #include "d3d12_descriptor.h"
 
+#include "core/common.h"
 #include "core/allocators/linear_alloc.h"
 
 namespace d3d12

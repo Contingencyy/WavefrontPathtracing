@@ -1,7 +1,7 @@
-#include "pch.h"
 #include "tlas_builder.h"
 #include "bvh_builder.h"
 #include "as_util.h"
+#include "core/memory/memory_arena.h"
 
 void tlas_builder_t::build(memory_arena_t& arena, bvh_instance_t* bvh_instances, uint32_t bvh_instance_count)
 {

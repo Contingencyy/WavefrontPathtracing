@@ -1,6 +1,8 @@
 #pragma once
 #include "asset_types.h"
 
+struct memory_arena_t;
+
 namespace asset_loader
 {
 

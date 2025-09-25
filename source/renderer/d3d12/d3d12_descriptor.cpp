@@ -1,6 +1,8 @@
-#include "pch.h"
 #include "d3d12_descriptor.h"
 #include "d3d12_common.h"
+
+#include "core/assertion.h"
+#include "core/memory/memory_arena.h"
 
 namespace d3d12
 {

@@ -1,7 +1,6 @@
-#include "pch.h"
 #include "bvh_builder.h"
 #include "as_util.h"
-
+#include "core/memory/memory_arena.h"
 #include "renderer/shaders/shared.hlsl.h"
 
 void bvh_builder_t::build(memory_arena_t& arena, const build_args_t& build_args)

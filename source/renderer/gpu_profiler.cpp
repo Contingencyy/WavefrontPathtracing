@@ -1,10 +1,11 @@
-#include "pch.h"
 #include "renderer/gpu_profiler.h"
 #include "renderer/renderer_common.h"
 
 #include "d3d12/d3d12_common.h"
 #include "d3d12/d3d12_backend.h"
 #include "d3d12/d3d12_query.h"
+
+#include "core/assertion.h"
 
 #include "imgui/imgui.h"
 #include "implot/implot.h"

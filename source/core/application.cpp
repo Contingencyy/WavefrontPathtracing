@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "application.h"
 
 #include "core/logger.h"

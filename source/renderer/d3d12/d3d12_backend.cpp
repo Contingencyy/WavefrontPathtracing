@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "d3d12_backend.h"
 #include "d3d12_common.h"
 #include "d3d12_resource.h"

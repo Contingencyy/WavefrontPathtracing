@@ -1,5 +1,4 @@
 #pragma once
-
 #include "core/common.h"
 
 #include <dxgiformat.h>

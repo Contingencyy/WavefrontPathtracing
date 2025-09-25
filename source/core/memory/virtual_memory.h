@@ -1,4 +1,5 @@
 #pragma once
+#include "core/common.h"
 
 // Implementation is platform-specific
 namespace virtual_memory

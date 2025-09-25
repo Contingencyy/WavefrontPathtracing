@@ -1,7 +1,8 @@
 #pragma once
+#include "core/common.h"
+#include "core/memory/memory_arena.h"
 #include "core/camera/camera_controller.h"
 #include "camera/camera.h"
-#include "renderer/renderer_fwd.h"
 
 struct texture_asset_t;
 struct scene_asset_t;

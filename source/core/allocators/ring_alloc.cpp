@@ -1,8 +1,9 @@
-#include "pch.h"
 #include "ring_alloc.h"
+
+#include "core/assertion.h"
+
 #include "renderer/d3d12/d3d12_backend.h"
 #include "renderer/d3d12/d3d12_resource.h"
-#include "core/thread.h"
 
 namespace ring_buffer
 {

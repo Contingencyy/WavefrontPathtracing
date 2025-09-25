@@ -1,4 +1,6 @@
 #pragma once
+#include "core/common.h"
+#include "core/memory/memory_arena.h"
 #include "core/hash.h"
 
 template<typename key_type, typename value_type>

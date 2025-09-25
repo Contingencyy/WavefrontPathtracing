@@ -3,7 +3,9 @@
 #include "d3d12_upload.h"
 #include "d3d12_frame.h"
 
-struct memory_arena_t;
+#include "core/common.h"
+#include "core/memory/memory_arena.h"
+#include "core/assertion.h"
 
 namespace d3d12
 {

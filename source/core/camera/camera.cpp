@@ -1,6 +1,6 @@
-#include "pch.h"
 #include "camera.h"
 #include "core/common.h"
+#include "core/math/math.h"
 
 namespace camera
 {

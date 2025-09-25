@@ -93,8 +93,9 @@
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level4</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;$(SolutionDir)extern\d3d12_agility\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -132,8 +133,9 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level4</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)source\;$(SolutionDir)extern\;$(SolutionDir)extern\d3d12_agility\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>false</TreatWarningAsError>
@@ -215,6 +217,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\core\allocators\linear_alloc.cpp" />
     <ClCompile Include="source\core\assets\asset_loader.cpp" />
     <ClCompile Include="source\core\fileio\fileio.cpp" />
+    <ClCompile Include="source\core\math\math.cpp" />
     <ClCompile Include="source\core\memory\memory_arena.cpp" />
     <ClCompile Include="source\core\scene.cpp" />
     <ClCompile Include="source\core\string\string.cpp" />
@@ -223,11 +226,6 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClCompile Include="source\platform\windows\input.cpp" />
     <ClCompile Include="source\core\camera\camera.cpp" />
     <ClCompile Include="source\platform\windows\entrypoint.cpp" />
-    <ClCompile Include="source\pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
-    </ClCompile>
     <ClCompile Include="source\platform\windows\platform.cpp" />
     <ClCompile Include="source\platform\windows\thread_win32.cpp" />
     <ClCompile Include="source\platform\windows\virtual_memory.cpp" />
@@ -317,6 +315,7 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\core\containers\hashmap.h" />
     <ClInclude Include="source\core\fileio\fileio.h" />
     <ClInclude Include="source\core\hash.h" />
+    <ClInclude Include="source\core\math\math.h" />
     <ClInclude Include="source\core\memory\memory_arena.h" />
     <ClInclude Include="source\core\memory\virtual_memory.h" />
     <ClInclude Include="source\core\random.h" />
@@ -330,7 +329,6 @@ xcopy /q /y /e "$(SolutionDir)extern\dxcompiler\bin\x64\dxil.dll" "$(OutDir)"</C
     <ClInclude Include="source\core\common.h" />
     <ClInclude Include="source\core\logger.h" />
     <ClInclude Include="source\core\thread.h" />
-    <ClInclude Include="source\pch.h" />
     <ClInclude Include="source\platform\platform.h" />
     <ClInclude Include="source\platform\windows\windows_common.h" />
     <ClInclude Include="source\renderer\bvh\bvh_builder.h" />

@@ -1,9 +1,10 @@
-#include "pch.h"
 #include "d3d12_upload.h"
 #include "d3d12_common.h"
 #include "d3d12_backend.h"
 #include "d3d12_resource.h"
 
+#include "core/assertion.h"
+#include "core/memory/memory_arena.h"
 #include "core/thread.h"
 
 namespace d3d12

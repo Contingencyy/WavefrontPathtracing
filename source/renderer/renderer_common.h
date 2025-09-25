@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/common.h"
 #include "core/camera/camera.h"
 #include "core/containers/slotmap.h"
 #include "core/containers/hashmap.h"

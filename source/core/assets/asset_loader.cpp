@@ -1,8 +1,11 @@
-#include "pch.h"
 #include "asset_loader.h"
-#include "dds.h"
 
+#include "core/common.h"
+#include "core/assertion.h"
+#include "core/logger.h"
 #include "core/fileio/fileio.h"
+#include "core/assets/dds.h"
+#include "core/math/math.h"
 
 #include "renderer/renderer.h"
 #include "renderer/shaders/shared.hlsl.h"

@@ -1,6 +1,6 @@
-#include "pch.h"
 #include "string.h"
 #include "core/memory/memory_arena.h"
+#include "core/assertion.h"
 
 namespace string
 {

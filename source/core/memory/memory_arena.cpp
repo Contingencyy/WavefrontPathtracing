@@ -1,6 +1,7 @@
-#include "pch.h"
 #include "memory_arena.h"
-#include "virtual_memory.h"
+
+#include "core/memory/virtual_memory.h"
+#include "core/assertion.h"
 
 static constexpr uint64_t ARENA_RESERVE_CHUNK_SIZE = GB(4ull);
 static constexpr uint64_t ARENA_COMMIT_CHUNK_SIZE = KB(4ull);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/math/math.h"
+
 struct camera_t
 {
 	glm::mat4 inv_view_matrix;
